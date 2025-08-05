@@ -31,6 +31,8 @@ import {
   Card,
   CardContent,
 } from '@mui/material';
+import { keyframes } from '@emotion/react';
+import { styled } from '@mui/material/styles';
 import {
   Send as SendIcon,
   Chat as ChatIcon,
@@ -67,6 +69,18 @@ import {
   AddPhotoAlternate as AddPhotoIcon,
   CardGiftcard as GiftIcon,
   MonetizationOn as MoneyIcon,
+  Group as GroupIcon,
+  MusicNote as MusicIcon,
+  Movie as MovieIcon,
+  Book as BookIcon,
+  Pets as PetsIcon,
+  SportsSoccer as SportsIcon,
+  Restaurant as FoodIcon,
+  Flight as TravelIcon,
+  Code as DevIcon,
+  AttachMoney as MoneyAttachIcon,
+  Lightbulb as LightbulbIcon,
+  Warning as WarningIcon,
 } from '@mui/icons-material';
 import { supabase } from '../../config/supabase';
 import { useAuthContext } from '../../contexts/AuthContext';
@@ -120,6 +134,24 @@ const iconMapping: { [key: string]: React.ComponentType } = {
   Help: HelpIcon,
   Forum: ForumIcon,
   Announcement: AnnouncementIcon,
+  Person: Person,
+  Group: GroupIcon,
+  School: School,
+  Work: Work,
+  Home: Home,
+  Star: Star,
+  Music: MusicIcon,
+  Movie: MovieIcon,
+  Book: BookIcon,
+  Pets: PetsIcon,
+  Sports: SportsIcon,
+  Food: FoodIcon,
+  Travel: TravelIcon,
+  Code: DevIcon,
+  Money: MoneyAttachIcon,
+  Gift: GiftIcon,
+  Lightbulb: LightbulbIcon,
+  Warning: WarningIcon,
 };
 
 const profileIconMapping: { [key: string]: React.ComponentType } = {
@@ -134,9 +166,31 @@ const profileIconMapping: { [key: string]: React.ComponentType } = {
   Favorite,
   Star,
   Diamond,
+  Dev: DevIcon,
 };
 
+// Define the pulse animation keyframes
+const pulse = keyframes`
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+`;
 
+// Create a styled component for animated icons
+const AnimatedDevIcon = styled(DevIcon)`
+  animation: ${pulse} 2s infinite;
+  color: white;
+  font-size: 1.2rem;
+`;
 
 export const GlobalChat: React.FC = () => {
   const { user } = useAuthContext();
@@ -489,6 +543,9 @@ export const GlobalChat: React.FC = () => {
   }, []);
 
   const getProfileIcon = useCallback((iconName: string) => {
+    if (iconName === 'Dev') {
+      return <AnimatedDevIcon />;
+    }
     const IconComponent = profileIconMapping[iconName] || Person;
     return <IconComponent />;
   }, []);
@@ -1513,16 +1570,24 @@ export const GlobalChat: React.FC = () => {
               >
                 <Avatar 
                   sx={{ 
-                        width: isMobile ? 28 : 32, 
-                        height: isMobile ? 28 : 32, 
-                        fontSize: isMobile ? '0.7rem' : '0.75rem',
-                    bgcolor: message.pfp_color || '#1976d2'
+                    width: isMobile ? 28 : 32, 
+                    height: isMobile ? 28 : 32, 
+                    fontSize: isMobile ? '0.7rem' : '0.75rem',
+                    bgcolor: message.pfp_icon === 'Dev' ? 'transparent' : message.pfp_color,
+                    background: message.pfp_icon === 'Dev' 
+                      ? 'linear-gradient(45deg, #4CAF50, #2196F3)'
+                      : message.pfp_color,
+                    boxShadow: message.pfp_icon === 'Dev' ? '0 0 8px rgba(33, 150, 243, 0.6)' : 'none',
                   }}
                 >
                   {message.pfp_icon ? (
-                        React.cloneElement(getProfileIcon(message.pfp_icon), {
+                    message.pfp_icon === 'Dev' ? (
+                      <AnimatedDevIcon />
+                    ) : (
+                      React.cloneElement(getProfileIcon(message.pfp_icon), {
                         sx: { fontSize: '1.2rem', color: 'white', opacity: 0.7 }
-                        })
+                      })
+                    )
                   ) : (
                     message.user_name?.charAt(0) || 'U'
                   )}

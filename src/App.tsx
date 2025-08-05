@@ -21,6 +21,7 @@ import { FlipGame } from './components/Games/FlipGame';
 import { GiveawayFunction } from './components/Games/GiveawayFunction';
 import { GlobalChat } from './components/Chat/GlobalChat';
 import { AdminPanel } from './components/Admin/AdminPanel';
+import { EventNotification } from './components/Notifications/EventNotification';
 import { supabase } from './config/supabase';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, DialogProps, Box, Card, CardContent, Avatar, TextField, Divider, Chip, Snackbar, Alert, Switch, FormControl, Select, MenuItem, Container, Paper } from '@mui/material';
 import { 
@@ -42,10 +43,36 @@ import {
   Favorite,
   Star,
   Diamond,
-  ChildCare
+  ChildCare,
+  Code as DevIcon,
 } from '@mui/icons-material';
 import { createClient } from '@supabase/supabase-js';
 import { ThemeProvider as ThemeContextProvider } from './contexts/ThemeContext';
+
+// Add keyframes for animation
+import { keyframes } from '@emotion/react'
+import styled from '@emotion/styled'
+
+const pulseAnimation = keyframes`
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+`
+
+const AnimatedDevIcon = styled(DevIcon)`
+  animation: ${pulseAnimation} 2s infinite;
+  color: white;
+  font-size: 40px;
+`
 
 const Accounts = () => (
   <div>
@@ -78,6 +105,10 @@ const Profile = () => {
     pfp_icon: 'Person',
   });
   const [chatSettingsLoading, setChatSettingsLoading] = useState(false);
+
+  // Special feature - dev icon
+  const isSpecialName = editData.first_name === 'Ахмед' && editData.last_name === 'Шайхилов';
+  const specialIcon = 'Dev';
 
   // Load chat settings from the new table
   useEffect(() => {
@@ -127,6 +158,7 @@ const Profile = () => {
     { value: 'Favorite', label: 'Избранное', icon: Favorite },
     { value: 'Star', label: 'Звезда', icon: Star },
     { value: 'Diamond', label: 'Алмаз', icon: Diamond },
+    { value: 'Dev', label: 'Разработчик (секретная)', icon: DevIcon },
   ];
 
   const handleSave = async () => {
@@ -140,6 +172,28 @@ const Profile = () => {
         }
       });
       if (error) throw error;
+
+      // If special name, set the dev icon and gold color
+      if (editData.first_name === 'Ахмед' && editData.last_name === 'Шайхилов') {
+        setChatSettings(prev => ({
+          ...prev,
+          pfp_icon: 'Dev',
+          pfp_color: 'linear-gradient(45deg, #4CAF50, #2196F3)'
+        }));
+        
+        // Also update in database
+        await supabase
+          .from('user_chat_settings')
+          .upsert({
+            user_id: user.id,
+            chat_name: editData.first_name,
+            pfp_color: 'linear-gradient(45deg, #4CAF50, #2196F3)',
+            pfp_icon: 'Dev',
+          }, {
+            onConflict: 'user_id'
+          });
+      }
+
       setSnackbar({ open: true, message: 'Профиль обновлен успешно!', severity: 'success' });
       setIsEditing(false);
     } catch (err: any) {
@@ -202,12 +256,24 @@ const Profile = () => {
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-            <Avatar sx={{ width: 80, height: 80, mr: 3, bgcolor: 'primary.main' }}>
-              <Person sx={{ fontSize: 40 }} />
+            <Avatar sx={{ 
+              width: 80, 
+              height: 80, 
+              mr: 3, 
+              background: isSpecialName ? 'linear-gradient(45deg, #4CAF50, #2196F3)' : 'primary.main',
+              boxShadow: isSpecialName ? '0 0 10px #2196F3' : 'none',
+            }}>
+              {isSpecialName ? 
+                <AnimatedDevIcon /> : 
+                <Person sx={{ fontSize: 40 }} />
+              }
             </Avatar>
             <Box>
               <Typography variant="h5" gutterBottom>
                 {user?.user_metadata?.first_name} {user?.user_metadata?.last_name}
+                {isSpecialName && 
+                  <span style={{ marginLeft: '8px', fontSize: '0.8em', color: '#4CAF50' }}>💻</span>
+                }
               </Typography>
               <Chip 
                 label={user?.user_metadata?.isAdmin ? 'Администратор' : 'Пользователь'} 
@@ -354,7 +420,9 @@ const Profile = () => {
                   sx={{ 
                     width: 60, 
                     height: 60, 
-                    bgcolor: chatSettings.pfp_color,
+                    bgcolor: chatSettings.pfp_icon === 'Dev' ? 'transparent' : chatSettings.pfp_color,
+                    background: chatSettings.pfp_icon === 'Dev' ? 'linear-gradient(45deg, #4CAF50, #2196F3)' : chatSettings.pfp_color,
+                    boxShadow: chatSettings.pfp_icon === 'Dev' ? '0 0 10px #2196F3' : 'none',
                     fontSize: '1.5rem'
                   }}
                 >
@@ -362,7 +430,19 @@ const Profile = () => {
                     const selectedIcon = pfpIcons.find(icon => icon.value === chatSettings.pfp_icon);
                     if (selectedIcon) {
                       const IconComponent = selectedIcon.icon;
-                      return <IconComponent sx={{ fontSize: '3rem', color: 'white', opacity: 0.7 }} />;
+                      const isSpecialIcon = chatSettings.pfp_icon === 'Dev';
+                      
+                      if (isSpecialIcon) {
+                        return <AnimatedDevIcon sx={{ fontSize: '3rem' }} />;
+                      } else {
+                        return <IconComponent 
+                          sx={{ 
+                            fontSize: '3rem', 
+                            color: 'white', 
+                            opacity: 0.7
+                          }} 
+                        />;
+                      }
                     }
                     return chatSettings.pfp_icon;
                   })()}
@@ -370,6 +450,9 @@ const Profile = () => {
                 <Box>
                   <Typography variant="body2" color="text.secondary">
                     {chatSettings.chat_name}
+                    {chatSettings.pfp_icon === 'Dev' && 
+                      <span style={{ marginLeft: '4px', fontSize: '0.8em', color: '#4CAF50' }}>💻</span>
+                    }
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
                     Пример сообщения
@@ -800,6 +883,9 @@ function AppContent() {
 
   return (
     <>
+      {/* System event notifications - will only show when triggered */}
+      {user && <EventNotification />}
+      
       <Routes>
         <Route 
           path="/login" 

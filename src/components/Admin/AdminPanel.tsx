@@ -5,6 +5,7 @@ import { supabase } from '../../config/supabase';
 import { Visibility, VisibilityOff, Delete } from '@mui/icons-material';
 import { GiveawayManagement } from './GiveawayManagement';
 import { ChatManagement } from './ChatManagement';
+import { EventsManagement } from './EventsManagement';
 
 interface UserRow {
   id: string;
@@ -336,6 +337,7 @@ export const AdminPanel: React.FC = () => {
           <Tab label="Сообщения" />
           <Tab label="Розыгрыши" />
           <Tab label="Чат" />
+          <Tab label="События" />
         </Tabs>
         {tab === 0 && (
           <Box>
@@ -733,6 +735,9 @@ export const AdminPanel: React.FC = () => {
         )}
         {tab === 5 && (
           <ChatManagement />
+        )}
+        {tab === 6 && (
+          <EventsManagement />
         )}
       </Box>
     </AppLayout>

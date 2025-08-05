@@ -102,28 +102,48 @@ export const Marketplace: React.FC = () => {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 4 } }}>
+      <Box 
+        display="flex" 
+        flexDirection={{ xs: 'column', sm: 'row' }}
+        justifyContent="space-between" 
+        alignItems={{ xs: 'flex-start', sm: 'center' }} 
+        gap={2}
+        mb={2}
+      >
         <Typography variant="h4">Рынок</Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreateDialogOpen}>
+        <Button 
+          variant="contained" 
+          startIcon={<AddIcon />} 
+          onClick={handleCreateDialogOpen}
+          sx={{ alignSelf: { xs: 'flex-end', sm: 'auto' } }}
+        >
           Добавить товар
         </Button>
       </Box>
       <Divider sx={{ mb: 2 }} />
-      <Box display="flex" gap={2} mb={2}>
+      <Box 
+        display="flex" 
+        flexDirection={{ xs: 'column', sm: 'row' }} 
+        gap={2} 
+        mb={2}
+      >
         <TextField
           placeholder="Поиск..."
           value={searchTerm}
           onChange={e => setSearchTerm(e.target.value)}
           InputProps={{ startAdornment: <InputAdornment position="start"><Search /></InputAdornment> }}
-          sx={{ minWidth: 240 }}
+          sx={{ flexGrow: 1 }}
+          fullWidth
+          size="small"
         />
         <TextField
           select
           label="Категория"
           value={selectedCategory}
           onChange={e => setSelectedCategory(e.target.value)}
-          sx={{ minWidth: 180 }}
+          sx={{ minWidth: { xs: '100%', sm: 180 } }}
+          size="small"
         >
           {categories.map(cat => (
             <MenuItem key={cat} value={cat}>{cat}</MenuItem>
@@ -132,11 +152,33 @@ export const Marketplace: React.FC = () => {
       </Box>
       {loading ? (
         <Typography>Загрузка...</Typography>
+      ) : filteredItems.length === 0 ? (
+        <Typography sx={{ textAlign: 'center', py: 4 }} color="text.secondary">
+          Товары не найдены
+        </Typography>
       ) : (
-        <Box display="grid" gridTemplateColumns={{ xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }} gap={2}>
+        <Box 
+          display="grid" 
+          gridTemplateColumns={{ 
+            xs: '1fr', 
+            sm: 'repeat(auto-fill, minmax(250px, 1fr))',
+            md: 'repeat(auto-fill, minmax(250px, 1fr))'
+          }} 
+          gap={2}
+        >
           {filteredItems.map(item => (
-            <Card key={item.id} sx={{ cursor: 'pointer' }} onClick={() => setSelectedItem(item)}>
-              {item.images && item.images.length > 0 && (
+            <Card key={item.id} sx={{ 
+              cursor: 'pointer',
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              transition: 'transform 0.2s, box-shadow 0.2s',
+              '&:hover': {
+                transform: 'translateY(-4px)',
+                boxShadow: 3
+              }
+            }} onClick={() => setSelectedItem(item)}>
+              {item.images && item.images.length > 0 ? (
                 <CardMedia
                   component="img"
                   height="160"
@@ -144,15 +186,39 @@ export const Marketplace: React.FC = () => {
                   alt={item.title}
                   sx={{ objectFit: 'cover' }}
                 />
+              ) : (
+                <Box sx={{ height: 100, bgcolor: 'grey.100', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Нет изображения
+                  </Typography>
+                </Box>
               )}
-              <CardContent>
-                <Typography variant="h6">{item.title}</Typography>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
+              <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                <Typography variant="h6" noWrap title={item.title}>{item.title}</Typography>
+                <Typography 
+                  variant="body2" 
+                  color="text.secondary" 
+                  gutterBottom
+                  sx={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    mb: 1
+                  }}
+                >
                   {item.description}
                 </Typography>
-                <Chip label={item.category} size="small" sx={{ mr: 1 }} />
-                <Chip label={item.condition === 'new' ? 'Новое' : item.condition === 'used' ? 'Б/у' : 'Восстановленное'} size="small" />
-                <Typography variant="subtitle2" color="primary" sx={{ mt: 1 }}>
+                <Box sx={{ mb: 1, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                  <Chip label={item.category} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
+                  <Chip 
+                    label={item.condition === 'new' ? 'Новое' : item.condition === 'used' ? 'Б/у' : 'Восстановленное'} 
+                    size="small"
+                    sx={{ mb: 0.5 }}
+                  />
+                </Box>
+                <Typography variant="subtitle1" color="primary" sx={{ mt: 'auto', fontWeight: 'bold' }}>
                   {formatCurrency(item.price, item.currency)}
                 </Typography>
               </CardContent>
