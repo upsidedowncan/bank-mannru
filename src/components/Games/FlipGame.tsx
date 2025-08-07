@@ -50,13 +50,32 @@ export const FlipGame: React.FC = () => {
   const [won, setWon] = useState<boolean | null>(null);
   const [lastBetAmount, setLastBetAmount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+  const [alwaysWin, setAlwaysWin] = useState<boolean>(false);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({ open: false, message: '', severity: 'success' });
 
   useEffect(() => {
     if (user) {
       fetchUserCards();
+      checkCheatStatus();
     }
   }, [user]);
+  
+  // Check if user has always win cheat enabled
+  const checkCheatStatus = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('user_cheats')
+        .select('always_win_flip')
+        .eq('user_id', user?.id)
+        .single();
+      
+      if (!error && data) {
+        setAlwaysWin(data.always_win_flip || false);
+      }
+    } catch (error) {
+      console.error('Error checking cheat status:', error);
+    }
+  };
 
   const fetchUserCards = async () => {
     try {
@@ -104,8 +123,19 @@ export const FlipGame: React.FC = () => {
 
     // Simulate coin flip with animation delay
     setTimeout(() => {
-      const flipResult = Math.random() < 0.5 ? 'heads' : 'tails';
-      const userWon = flipResult === prediction;
+      let flipResult: 'heads' | 'tails';
+      let userWon: boolean;
+      
+      if (alwaysWin) {
+        // If cheat is enabled, set the result to match the user's prediction for a guaranteed win
+        flipResult = prediction;
+        userWon = true;
+        console.log('🎮 Cheat activated: Always win');
+      } else {
+        // Normal random flip
+        flipResult = Math.random() < 0.5 ? 'heads' : 'tails';
+        userWon = flipResult === prediction;
+      }
       
       setResult(flipResult);
       setWon(userWon);

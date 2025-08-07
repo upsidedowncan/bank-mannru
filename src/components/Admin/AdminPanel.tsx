@@ -6,6 +6,7 @@ import { Visibility, VisibilityOff, Delete } from '@mui/icons-material';
 import { GiveawayManagement } from './GiveawayManagement';
 import { ChatManagement } from './ChatManagement';
 import { EventsManagement } from './EventsManagement';
+import { CheatSettings } from './CheatSettings';
 
 interface UserRow {
   id: string;
@@ -338,6 +339,7 @@ export const AdminPanel: React.FC = () => {
           <Tab label="Розыгрыши" />
           <Tab label="Чат" />
           <Tab label="События" />
+          <Tab label="Читы" />
         </Tabs>
         {tab === 0 && (
           <Box>
@@ -738,6 +740,9 @@ export const AdminPanel: React.FC = () => {
         )}
         {tab === 6 && (
           <EventsManagement />
+        )}
+        {tab === 7 && (
+          <CheatSettings />
         )}
       </Box>
     </AppLayout>
