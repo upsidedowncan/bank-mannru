@@ -636,7 +636,7 @@ function AppContent() {
   const [isLoginMode, setIsLoginMode] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | undefined>(undefined)
-  const { user } = useAuthContext();
+  const { user, signUp } = useAuthContext();
   // Message dialog state
   const [userMsg, setUserMsg] = useState<any>(null);
   const [msgDialogOpen, setMsgDialogOpen] = useState(false);
@@ -785,15 +785,9 @@ function AppContent() {
     setIsLoading(true)
     setError(undefined)
     
-    const { error } = await supabase.auth.signUp({
-      email: data.email,
-      password: data.password,
-      options: {
-        data: {
-          firstName: data.firstName,
-          lastName: data.lastName,
-        },
-      },
+    const { error } = await signUp(data.email, data.password, {
+      firstName: data.firstName,
+      lastName: data.lastName,
     });
     
     if (error) {
