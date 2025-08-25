@@ -348,12 +348,11 @@ export const GlobalChat: React.FC = () => {
     return <IconComponent />;
   }, []);
 
-  const getProfileIcon = useCallback((iconName: string) => {
+  const getProfileIconComponent = useCallback((iconName: string) => {
     if (iconName === 'Dev') {
-      return <AnimatedDevIcon />;
+      return AnimatedDevIcon;
     }
-    const IconComponent = profileIconMapping[iconName] || Person;
-    return <IconComponent />;
+    return profileIconMapping[iconName] || Person;
   }, []);
 
     // Admin command functions
@@ -1044,7 +1043,7 @@ export const GlobalChat: React.FC = () => {
                 editMessage={editMessage}
                 setEditingMessage={setEditingMessage}
                 handleMessageMenuOpen={handleMessageMenuOpen}
-                getProfileIcon={getProfileIcon}
+                getProfileIconComponent={getProfileIconComponent}
                 AnimatedDevIcon={AnimatedDevIcon}
                 formatTime={formatTime}
                 isPlaying={isPlaying}

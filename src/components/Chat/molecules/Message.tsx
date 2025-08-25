@@ -24,7 +24,7 @@ interface MessageProps {
   editMessage: (messageId: string) => void;
   setEditingMessage: (id: string | null) => void;
   handleMessageMenuOpen: (event: React.MouseEvent<HTMLElement>, message: ChatMessage) => void;
-  getProfileIcon: (iconName: string) => React.ReactElement;
+  getProfileIconComponent: (iconName: string) => React.ComponentType<any>;
   AnimatedDevIcon: React.ComponentType<any>;
   formatTime: (dateString: string) => string;
   isPlaying: string | null;
@@ -46,7 +46,7 @@ const Message: React.FC<MessageProps> = ({
   editMessage,
   setEditingMessage,
   handleMessageMenuOpen,
-  getProfileIcon,
+  getProfileIconComponent,
   AnimatedDevIcon,
   formatTime,
   isPlaying,
@@ -86,17 +86,10 @@ const Message: React.FC<MessageProps> = ({
           boxShadow: message.pfp_icon === 'Dev' ? '0 0 8px rgba(33, 150, 243, 0.6)' : 'none',
         }}
       >
-        {message.pfp_icon ? (
-          message.pfp_icon === 'Dev' ? (
-            <AnimatedDevIcon />
-          ) : (
-            React.cloneElement(getProfileIcon(message.pfp_icon), {
-              sx: { fontSize: '1.2rem', color: 'white', opacity: 0.7 }
-            })
-          )
-        ) : (
-          message.user_name?.charAt(0) || 'U'
-        )}
+        {(() => {
+          const IconComponent = getProfileIconComponent(message.pfp_icon);
+          return <IconComponent sx={{ fontSize: '1.2rem', color: 'white', opacity: 0.7 }} />;
+        })()}
       </Avatar>
 
       <Box sx={{ flex: 1, minWidth: 0 }}>
