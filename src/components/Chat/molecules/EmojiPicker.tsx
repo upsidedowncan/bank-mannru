@@ -30,7 +30,8 @@ const EmojiPicker: React.FC<EmojiPickerProps> = ({ anchorEl, onClose, onSelect }
         {EMOJIS.map((emoji) => (
           <IconButton
             key={emoji}
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation();
               onSelect(emoji);
               onClose();
             }}
