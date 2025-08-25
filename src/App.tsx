@@ -45,6 +45,16 @@ import {
   Diamond,
   ChildCare,
   Code as DevIcon,
+  Pets,
+  MusicNote,
+  Movie,
+  Restaurant,
+  FitnessCenter,
+  Flight,
+  Cake,
+  Fastfood,
+  DirectionsBike,
+  Security,
 } from '@mui/icons-material';
 import { createClient } from '@supabase/supabase-js';
 import { ThemeProvider as ThemeContextProvider } from './contexts/ThemeContext';
@@ -158,6 +168,16 @@ const Profile = () => {
     { value: 'Favorite', label: 'Избранное', icon: Favorite },
     { value: 'Star', label: 'Звезда', icon: Star },
     { value: 'Diamond', label: 'Алмаз', icon: Diamond },
+    { value: 'Pets', label: 'Питомцы', icon: Pets },
+    { value: 'MusicNote', label: 'Музыка', icon: MusicNote },
+    { value: 'Movie', label: 'Кино', icon: Movie },
+    { value: 'Restaurant', label: 'Ресторан', icon: Restaurant },
+    { value: 'FitnessCenter', label: 'Спорт', icon: FitnessCenter },
+    { value: 'Flight', label: 'Путешествия', icon: Flight },
+    { value: 'Cake', label: 'Торт', icon: Cake },
+    { value: 'Fastfood', label: 'Еда', icon: Fastfood },
+    { value: 'DirectionsBike', label: 'Велосипед', icon: DirectionsBike },
+    { value: 'Security', label: 'Безопасность', icon: Security },
     { value: 'Dev', label: 'Разработчик (секретная)', icon: DevIcon },
   ];
 
