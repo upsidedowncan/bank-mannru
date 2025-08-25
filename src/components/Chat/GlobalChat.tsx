@@ -1084,7 +1084,7 @@ export const GlobalChat: React.FC = () => {
           </Box>
 
               {/* Message Input */}
-          <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider', flexShrink: 0 }}>
+          <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider', flexShrink: 0, position: 'sticky', bottom: 0, bgcolor: 'background.paper' }}>
             {isRecording ? (
                   <Box display="flex" alignItems="center" gap={2} flexDirection={isMobile ? 'column' : 'row'}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
