@@ -1,3 +1,6 @@
+-- Drop the table if it exists to ensure a clean slate
+DROP TABLE IF EXISTS public.message_reactions;
+
 -- Create the message_reactions table
 CREATE TABLE public.message_reactions (
     id uuid NOT NULL DEFAULT gen_random_uuid(),
