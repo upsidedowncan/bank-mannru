@@ -104,112 +104,21 @@ export const useChatMessages = (
   }, [selectedChannel, showSnackbar]);
 
   useEffect(() => {
-    fetchMessages();
-  }, [fetchMessages]);
-
-  useEffect(() => {
     if (!selectedChannel) return;
 
-    const messageSubscription = supabase
-      .channel(`chat_messages_${selectedChannel.id}`)
-      .on('postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `channel_id=eq.${selectedChannel.id}` },
-        async (payload) => {
-          const newMessage = payload.new as ChatMessage;
+    // Initial fetch
+    fetchMessages();
 
-          const { data: userSetting } = await supabase
-            .from('user_chat_settings')
-            .select('chat_name, pfp_color, pfp_icon')
-            .eq('user_id', newMessage.user_id)
-            .single();
+    // Set up polling to refresh messages every 2 seconds
+    const interval = setInterval(() => {
+      fetchMessages();
+    }, 2000); // 2 seconds
 
-          const messageWithUserData = {
-            ...newMessage,
-            user_name: userSetting?.chat_name || `User ${newMessage.user_id.slice(0, 8)}...`,
-            pfp_color: userSetting?.pfp_color || '#1976d2',
-            pfp_icon: userSetting?.pfp_icon || 'Person',
-          };
-
-          setMessages(prev => {
-            const newMessages = [...prev, messageWithUserData];
-            return newMessages.slice(-MAX_MESSAGES);
-          });
-        }
-      )
-      .on('postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'chat_messages', filter: `channel_id=eq.${selectedChannel.id}` },
-        (payload) => {
-          const updatedMessage = payload.new as ChatMessage;
-          setMessages(prev => prev.map(msg =>
-            msg.id === updatedMessage.id ? { ...msg, ...updatedMessage } : msg
-          ));
-        }
-      )
-      .on('postgres_changes',
-        { event: 'DELETE', schema: 'public', table: 'chat_messages', filter: `channel_id=eq.${selectedChannel.id}` },
-        (payload) => {
-          const deletedMessageId = payload.old.id;
-          setMessages(prev => prev.filter(msg => msg.id !== deletedMessageId));
-        }
-      )
-      .subscribe();
-
-    const reactionSubscription = supabase
-      .channel(`message_reactions_${selectedChannel.id}`)
-      .on('postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'message_reactions', filter: `channel_id=eq.${selectedChannel.id}` },
-        async (payload) => {
-          try {
-            const newReaction = payload.new as MessageReaction;
-
-            // Fetch the user's name for the new reaction
-            const { data: userSetting, error } = await supabase
-              .from('user_chat_settings')
-              .select('chat_name')
-              .eq('user_id', newReaction.user_id)
-              .single();
-
-            if (error) {
-              console.error("Error fetching user settings for reaction:", error);
-            }
-
-            const reactionWithUser: MessageReaction = {
-              ...newReaction,
-              user_name: userSetting?.chat_name || `User ${newReaction.user_id.slice(0, 8)}...`,
-            };
-
-            setMessages(prevMessages => prevMessages.map(msg => {
-              if (msg.id === reactionWithUser.message_id) {
-                const reactions = [...(msg.reactions || []), reactionWithUser];
-                return { ...msg, reactions };
-              }
-              return msg;
-            }));
-          } catch (e) {
-            console.error("Error processing real-time reaction insert:", e);
-          }
-        }
-      )
-      .on('postgres_changes',
-        { event: 'DELETE', schema: 'public', table: 'message_reactions', filter: `channel_id=eq.${selectedChannel.id}` },
-        (payload) => {
-          const oldReaction = payload.old as MessageReaction;
-          setMessages(prevMessages => prevMessages.map(msg => {
-            if (msg.id === oldReaction.message_id) {
-              const reactions = (msg.reactions || []).filter(r => r.id !== oldReaction.id);
-              return { ...msg, reactions };
-            }
-            return msg;
-          }));
-        }
-      )
-      .subscribe();
-
+    // Clean up the interval on component unmount or when channel changes
     return () => {
-        supabase.removeChannel(messageSubscription);
-        supabase.removeChannel(reactionSubscription);
+      clearInterval(interval);
     };
-  }, [selectedChannel, setMessages]);
+  }, [selectedChannel, fetchMessages]);
 
   useEffect(() => {
     const cleanupInterval = setInterval(() => {
