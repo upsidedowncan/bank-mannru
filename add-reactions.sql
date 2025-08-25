@@ -3,6 +3,7 @@ CREATE TABLE public.message_reactions (
     id uuid NOT NULL DEFAULT gen_random_uuid(),
     message_id uuid NOT NULL,
     user_id uuid NOT NULL,
+    channel_id uuid NOT NULL,
     emoji text NOT NULL,
     created_at timestamp with time zone NOT NULL DEFAULT now(),
     CONSTRAINT message_reactions_pkey PRIMARY KEY (id),
@@ -12,11 +13,15 @@ CREATE TABLE public.message_reactions (
     CONSTRAINT unique_user_emoji_reaction UNIQUE (message_id, user_id, emoji)
 );
 
+-- Add index for efficient filtering of reactions by channel
+CREATE INDEX idx_message_reactions_channel_id ON public.message_reactions(channel_id);
+
 -- Add comments to the table and columns
 COMMENT ON TABLE public.message_reactions IS 'Stores emoji reactions to messages.';
 COMMENT ON COLUMN public.message_reactions.id IS 'The unique identifier for the reaction.';
 COMMENT ON COLUMN public.message_reactions.message_id IS 'The ID of the message being reacted to.';
 COMMENT ON COLUMN public.message_reactions.user_id IS 'The ID of the user who reacted.';
+COMMENT ON COLUMN public.message_reactions.channel_id IS 'The ID of the channel this reaction belongs to, for efficient filtering.';
 COMMENT ON COLUMN public.message_reactions.emoji IS 'The emoji character used for the reaction.';
 COMMENT ON COLUMN public.message_reactions.created_at IS 'The timestamp when the reaction was created.';
 

@@ -157,7 +157,7 @@ export const useChatMessages = (
     const reactionSubscription = supabase
       .channel(`message_reactions_${selectedChannel.id}`)
       .on('postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'message_reactions' },
+        { event: 'INSERT', schema: 'public', table: 'message_reactions', filter: `channel_id=eq.${selectedChannel.id}` },
         async (payload) => {
           const newReaction = payload.new as MessageReaction;
 
@@ -183,7 +183,7 @@ export const useChatMessages = (
         }
       )
       .on('postgres_changes',
-        { event: 'DELETE', schema: 'public', table: 'message_reactions' },
+        { event: 'DELETE', schema: 'public', table: 'message_reactions', filter: `channel_id=eq.${selectedChannel.id}` },
         (payload) => {
           const oldReaction = payload.old as MessageReaction;
           setMessages(prevMessages => prevMessages.map(msg => {

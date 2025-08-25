@@ -883,6 +883,7 @@ export const GlobalChat: React.FC = () => {
         message_id: messageId,
         user_id: user.id,
         emoji: emoji,
+        channel_id: selectedChannel.id,
       });
     }
   };
