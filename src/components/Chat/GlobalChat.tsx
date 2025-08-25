@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+console.log('GlobalChat.tsx version: ' + new Date().toISOString());
 import {
   Box,
   Typography,
