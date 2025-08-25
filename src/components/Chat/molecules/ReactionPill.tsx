@@ -4,7 +4,7 @@ import { Chip } from '@mui/material';
 interface ReactionPillProps {
   emoji: string;
   count: number;
-  onClick: () => void;
+  onClick: (event: React.MouseEvent<HTMLElement>) => void;
   reacted: boolean;
 }
 
