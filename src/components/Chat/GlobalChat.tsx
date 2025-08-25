@@ -865,7 +865,7 @@ export const GlobalChat: React.FC = () => {
   };
 
   const handleToggleReaction = async (messageId: string, emoji: string) => {
-    if (!user) return;
+    if (!user || !selectedChannel) return;
 
     const message = messages.find(m => m.id === messageId);
     if (!message) return;
