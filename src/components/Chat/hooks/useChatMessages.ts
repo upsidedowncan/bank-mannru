@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../../config/supabase';
-import { ChatMessage, ChatChannel } from '../types';
+import { ChatMessage, ChatChannel, MessageReaction } from '../types';
 
 const MAX_MESSAGES = 100;
 
@@ -13,33 +13,63 @@ export const useChatMessages = (
   const fetchMessages = useCallback(async () => {
     if (!selectedChannel) return;
     try {
-      const { data, error } = await supabase
+      // 1. Fetch messages
+      const { data: messagesData, error: messagesError } = await supabase
         .from('chat_messages')
         .select('*')
         .eq('channel_id', selectedChannel.id)
         .order('created_at', { ascending: true })
         .limit(50);
 
-      if (error) throw error;
+      if (messagesError) throw messagesError;
+      if (!messagesData) return;
 
-      const userIds = Array.from(new Set(data?.map(msg => msg.user_id) || []));
+      const messageIds = messagesData.map(msg => msg.id);
 
+      // 2. Fetch reactions for these messages
+      const { data: reactionsData, error: reactionsError } = await supabase
+        .from('message_reactions')
+        .select('*')
+        .in('message_id', messageIds);
+
+      if (reactionsError) throw reactionsError;
+
+      // 3. Get all unique user IDs from messages and reactions
+      const userIdsFromMessages = messagesData.map(msg => msg.user_id);
+      const userIdsFromReactions = reactionsData?.map(r => r.user_id) || [];
+      const allUserIds = Array.from(new Set([...userIdsFromMessages, ...userIdsFromReactions]));
+
+      // 4. Fetch user settings for all involved users
       const { data: userSettingsData } = await supabase
         .from('user_chat_settings')
         .select('user_id, chat_name, pfp_color, pfp_icon')
-        .in('user_id', userIds);
+        .in('user_id', allUserIds);
 
       const settingsMap = new Map();
       userSettingsData?.forEach(setting => {
         settingsMap.set(setting.user_id, setting);
       });
 
-      const messagesWithUserData = await Promise.all(
-        data?.map(async (msg) => {
+      // 5. Group reactions by message_id
+      const reactionsByMessageId = new Map<string, MessageReaction[]>();
+      reactionsData?.forEach(reaction => {
+        const userSetting = settingsMap.get(reaction.user_id);
+        const reactionWithUser: MessageReaction = {
+          ...reaction,
+          user_name: userSetting?.chat_name || `User ${reaction.user_id.slice(0, 8)}...`,
+        };
+        const existing = reactionsByMessageId.get(reaction.message_id) || [];
+        reactionsByMessageId.set(reaction.message_id, [...existing, reactionWithUser]);
+      });
+
+      // 6. Combine messages with user data, replies, and reactions
+      const finalMessages = await Promise.all(
+        messagesData.map(async (msg) => {
           const userSetting = settingsMap.get(msg.user_id);
 
           let replyToMessage = null;
           if (msg.reply_to) {
+            // This could be optimized by fetching all reply messages in one go
             const { data: replyData } = await supabase
               .from('chat_messages')
               .select('id, message, user_id')
@@ -61,11 +91,12 @@ export const useChatMessages = (
             pfp_color: userSetting?.pfp_color || '#1976d2',
             pfp_icon: userSetting?.pfp_icon || 'Person',
             reply_to_message: replyToMessage,
+            reactions: reactionsByMessageId.get(msg.id) || [],
           };
-        }) || []
+        })
       );
 
-      setMessages(messagesWithUserData);
+      setMessages(finalMessages);
     } catch (error) {
       console.error('Error fetching messages:', error);
       showSnackbar('Ошибка при загрузке сообщений', 'error');
@@ -79,7 +110,7 @@ export const useChatMessages = (
   useEffect(() => {
     if (!selectedChannel) return;
 
-    const subscription = supabase
+    const messageSubscription = supabase
       .channel(`chat_messages_${selectedChannel.id}`)
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `channel_id=eq.${selectedChannel.id}` },
@@ -123,10 +154,41 @@ export const useChatMessages = (
       )
       .subscribe();
 
+    const reactionSubscription = supabase
+      .channel(`message_reactions_${selectedChannel.id}`)
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'message_reactions' },
+        (payload) => {
+          const newReaction = payload.new as MessageReaction;
+          setMessages(prevMessages => prevMessages.map(msg => {
+            if (msg.id === newReaction.message_id) {
+              const reactions = [...(msg.reactions || []), newReaction];
+              return { ...msg, reactions };
+            }
+            return msg;
+          }));
+        }
+      )
+      .on('postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'message_reactions' },
+        (payload) => {
+          const oldReaction = payload.old as MessageReaction;
+          setMessages(prevMessages => prevMessages.map(msg => {
+            if (msg.id === oldReaction.message_id) {
+              const reactions = (msg.reactions || []).filter(r => r.id !== oldReaction.id);
+              return { ...msg, reactions };
+            }
+            return msg;
+          }));
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(subscription);
+        supabase.removeChannel(messageSubscription);
+        supabase.removeChannel(reactionSubscription);
     };
-  }, [selectedChannel]);
+  }, [selectedChannel, setMessages]);
 
   useEffect(() => {
     const cleanupInterval = setInterval(() => {

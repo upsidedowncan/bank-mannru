@@ -1,5 +1,8 @@
-import React from 'react';
-import { Box, Typography, Avatar, IconButton, TextField, CircularProgress, Button } from '@mui/material';
+import React, { useState } from 'react';
+import { Box, Typography, Avatar, IconButton, TextField, CircularProgress, Button, Tooltip } from '@mui/material';
+import AddReactionIcon from '@mui/icons-material/AddReaction';
+import ReactionPill from './ReactionPill';
+import EmojiPicker from './EmojiPicker';
 import {
   Send as SendIcon,
   Close as CloseIcon,
@@ -34,6 +37,7 @@ interface MessageProps {
   formatAudioTime: (seconds: number) => string;
   openCardSelectionDialog: (messageId: string, amount: number) => void;
   claimingGift: string | null;
+  onToggleReaction: (emoji: string) => void;
 }
 
 const Message: React.FC<MessageProps> = ({
@@ -56,7 +60,26 @@ const Message: React.FC<MessageProps> = ({
   formatAudioTime,
   openCardSelectionDialog,
   claimingGift,
+  onToggleReaction,
 }) => {
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+
+  const handleReactionClick = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+
+  const reactionsGrouped = (message.reactions || []).reduce((acc, reaction) => {
+    if (!acc[reaction.emoji]) {
+      acc[reaction.emoji] = [];
+    }
+    acc[reaction.emoji].push(reaction);
+    return acc;
+  }, {} as { [key: string]: typeof message.reactions });
+
   return (
     <Box
       key={message.id}
@@ -211,7 +234,35 @@ const Message: React.FC<MessageProps> = ({
         ) : (
           <Typography variant="body1">{message.message}</Typography>
         )}
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
+          {Object.entries(reactionsGrouped).map(([emoji, reactions]) => (
+            <Tooltip
+              key={emoji}
+              title={
+                <Box>
+                  {reactions?.map(r => <Typography key={r.user_id} variant="caption">{r.user_name}</Typography>)}
+                </Box>
+              }
+            >
+              <ReactionPill
+                emoji={emoji}
+                count={reactions?.length || 0}
+                reacted={!!reactions?.find(r => r.user_id === user?.id)}
+                onClick={() => onToggleReaction(emoji)}
+              />
+            </Tooltip>
+          ))}
+          <IconButton size="small" onClick={handleReactionClick}>
+            <AddReactionIcon fontSize="small" />
+          </IconButton>
+        </Box>
       </Box>
+      <EmojiPicker
+        anchorEl={anchorEl}
+        onClose={handleClose}
+        onSelect={(emoji) => onToggleReaction(emoji)}
+      />
     </Box>
   );
 };

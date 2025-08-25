@@ -10,6 +10,14 @@ export interface ChatChannel {
   created_at: string;
 }
 
+export interface MessageReaction {
+  id: string;
+  message_id: string;
+  user_id: string;
+  emoji: string;
+  user_name?: string;
+}
+
 export interface ChatMessage {
   id: string;
   channel_id: string;
@@ -31,6 +39,7 @@ export interface ChatMessage {
   gift_claimed_at?: string;
   reply_to?: string;
   reply_to_message?: ChatMessage;
+  reactions?: MessageReaction[];
 }
 
 export interface UserChatSettings {

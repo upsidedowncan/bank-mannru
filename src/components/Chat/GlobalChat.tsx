@@ -864,6 +864,29 @@ export const GlobalChat: React.FC = () => {
     setReplyingTo(null);
   };
 
+  const handleToggleReaction = async (messageId: string, emoji: string) => {
+    if (!user) return;
+
+    const message = messages.find(m => m.id === messageId);
+    if (!message) return;
+
+    const existingReaction = message.reactions?.find(
+      r => r.emoji === emoji && r.user_id === user.id
+    );
+
+    if (existingReaction) {
+      // User has reacted with this emoji, so remove it
+      await supabase.from('message_reactions').delete().eq('id', existingReaction.id);
+    } else {
+      // User has not reacted, so add it
+      await supabase.from('message_reactions').insert({
+        message_id: messageId,
+        user_id: user.id,
+        emoji: emoji,
+      });
+    }
+  };
+
   // Media functions are now in useChatInput hook
 
   // Cleanup on unmount
@@ -1053,6 +1076,7 @@ export const GlobalChat: React.FC = () => {
                 formatAudioTime={formatAudioTime}
                 openCardSelectionDialog={openCardSelectionDialog}
                 claimingGift={claimingGift}
+                onToggleReaction={(emoji) => handleToggleReaction(message.id, emoji)}
               />
             ))}
             <div ref={messagesEndRef} />
