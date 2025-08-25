@@ -914,7 +914,7 @@ export const GlobalChat: React.FC = () => {
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
-      <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+      <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: { xs: 'none', md: 'block' } }}>
         <Box display="flex" alignItems="center" gap={2}>
           {isMobile && (
             <IconButton onClick={() => setMobileDrawerOpen(true)}>
