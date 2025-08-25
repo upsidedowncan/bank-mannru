@@ -86,10 +86,12 @@ const Message: React.FC<MessageProps> = ({
           boxShadow: message.pfp_icon === 'Dev' ? '0 0 8px rgba(33, 150, 243, 0.6)' : 'none',
         }}
       >
-        {(() => {
+        {message.pfp_icon ? (() => {
           const IconComponent = getProfileIconComponent(message.pfp_icon);
           return <IconComponent sx={{ fontSize: '1.2rem', color: 'white', opacity: 0.7 }} />;
-        })()}
+        })() : (
+          message.user_name?.charAt(0) || 'U'
+        )}
       </Avatar>
 
       <Box sx={{ flex: 1, minWidth: 0 }}>
