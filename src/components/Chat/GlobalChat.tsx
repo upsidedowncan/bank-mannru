@@ -87,6 +87,7 @@ import { useAuthContext } from '../../contexts/AuthContext';
 import { ChatChannel, ChatMessage, UserChatSettings } from './types';
 import { useChatMessages } from './hooks/useChatMessages';
 import { useChatInput } from './hooks/useChatInput';
+import { useVoiceRecording } from './hooks/useVoiceRecording';
 import Message from './molecules/Message';
 
 const iconMapping: { [key: string]: React.ComponentType } = {
@@ -174,14 +175,6 @@ export const GlobalChat: React.FC = () => {
 
   // Reply state
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
-
-  // Voice recording state
-  const [isRecording, setIsRecording] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
-  const [recordingInterval, setRecordingInterval] = useState<NodeJS.Timeout | null>(null);
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
 
   // Audio playback state
   const [isPlaying, setIsPlaying] = useState<string | null>(null);
@@ -536,177 +529,7 @@ export const GlobalChat: React.FC = () => {
     }
   };
 
-  // Voice recording functions
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      const chunks: Blob[] = [];
-
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunks.push(event.data);
-        }
-      };
-
-      recorder.onstop = () => {
-        console.log('MediaRecorder onstop fired, chunks:', chunks.length, 'total size:', chunks.reduce((sum, chunk) => sum + chunk.size, 0));
-        
-        if (chunks.length === 0) {
-          console.error('No audio chunks available');
-          showSnackbar('Ошибка: нет аудиоданных', 'error');
-          return;
-        }
-        
-        const blob = new Blob(chunks, { type: 'audio/webm' });
-        console.log('Created audio blob:', { size: blob.size, type: blob.type });
-        
-        setAudioBlob(blob);
-        stream.getTracks().forEach(track => track.stop());
-        
-        // Auto-send voice message after blob is created
-        setTimeout(() => {
-          console.log('About to send voice message, audioBlob state:', !!blob);
-          sendVoiceMessage(blob);
-        }, 100);
-      };
-
-      recorder.start();
-      setMediaRecorder(recorder);
-      setIsRecording(true);
-      setIsPaused(false);
-      setRecordingTime(0);
-
-      const interval = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
-      }, 1000);
-      setRecordingInterval(interval);
-    } catch (error) {
-      console.error('Error starting recording:', error);
-      showSnackbar('Ошибка при записи голоса', 'error');
-    }
-  };
-
-  const pauseRecording = () => {
-    if (mediaRecorder && isRecording && !isPaused) {
-      mediaRecorder.pause();
-      setIsPaused(true);
-      if (recordingInterval) {
-        clearInterval(recordingInterval);
-        setRecordingInterval(null);
-      }
-    }
-  };
-
-  const resumeRecording = () => {
-    if (mediaRecorder && isRecording && isPaused) {
-      mediaRecorder.resume();
-      setIsPaused(false);
-      const interval = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
-      }, 1000);
-      setRecordingInterval(interval);
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorder && isRecording) {
-      mediaRecorder.stop();
-      setIsRecording(false);
-      setIsPaused(false);
-      if (recordingInterval) {
-        clearInterval(recordingInterval);
-        setRecordingInterval(null);
-      }
-    }
-  };
-
-  const sendVoiceMessage = async (blobToSend?: Blob) => {
-    const audioData = blobToSend || audioBlob;
-    
-    console.log('sendVoiceMessage called, current state:', {
-      stateAudioBlob: audioBlob ? { size: audioBlob.size, type: audioBlob.type } : null,
-      passedBlob: blobToSend ? { size: blobToSend.size, type: blobToSend.type } : null,
-      user: !!user,
-      selectedChannel: !!selectedChannel
-    });
-    
-    if (!audioData || !user || !selectedChannel) {
-      console.warn('Missing required data for voice message:', { 
-        hasAudioBlob: !!audioData, 
-        hasUser: !!user, 
-        hasChannel: !!selectedChannel 
-      });
-      return;
-    }
-
-    // Check admin-only restriction for voice messages
-    if (selectedChannel.admin_only) {
-      const isAdmin = await isUserAdmin();
-      if (!isAdmin) {
-        showSnackbar('Только администраторы могут отправлять голосовые сообщения в этот канал', 'error');
-        return;
-      }
-    }
-
-    // Validate audio blob size
-    if (audioData.size === 0) {
-      console.warn('Audio blob is empty');
-      showSnackbar('Ошибка: пустая аудиозапись', 'error');
-      return;
-    }
-
-    setSending(true);
-    try {
-      const timestamp = Date.now();
-      const filename = `voice_${user.id}_${timestamp}.webm`;
-      const filePath = `voice-messages/${selectedChannel.id}/${filename}`;
-
-      console.log('Uploading voice message:', { filename, size: audioData.size });
-
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('chat-audio')
-        .upload(filePath, audioData, {
-          contentType: 'audio/webm',
-          cacheControl: '3600',
-        });
-
-      if (uploadError) {
-        console.error('Upload error:', uploadError);
-        throw uploadError;
-      }
-
-      console.log('Upload successful:', uploadData);
-
-      const { data: urlData } = supabase.storage
-        .from('chat-audio')
-        .getPublicUrl(filePath);
-
-      const { error: dbError } = await supabase
-        .from('chat_messages')
-        .insert({
-          channel_id: selectedChannel.id,
-          user_id: user.id,
-          message: '[Голосовое сообщение]',
-          message_type: 'voice',
-          audio_url: urlData.publicUrl,
-        });
-
-      if (dbError) {
-        console.error('Database error:', dbError);
-        throw dbError;
-      }
-
-      console.log('Voice message sent successfully');
-      setAudioBlob(null);
-      showSnackbar('Голосовое сообщение отправлено', 'success');
-    } catch (error) {
-      console.error('Error sending voice message:', error);
-      showSnackbar('Ошибка при отправке голосового сообщения', 'error');
-    } finally {
-      setSending(false);
-    }
-  };
+  // Voice recording functions are now in useVoiceRecording hook
 
   const playAudio = (audioUrl: string, messageId: string) => {
     if (isPlaying === messageId) {
@@ -981,6 +804,18 @@ export const GlobalChat: React.FC = () => {
     newMessageRef,
   } = useChatInput(user, selectedChannel, isUserAdmin, showSnackbar, replyingTo, setReplyingTo);
 
+  const {
+    isRecording,
+    isPaused,
+    recordingTime,
+    isSendingVoice,
+    startRecording,
+    pauseRecording,
+    resumeRecording,
+    stopRecording,
+    cleanup: cleanupVoiceRecording,
+  } = useVoiceRecording(user, selectedChannel, isUserAdmin, showSnackbar);
+
   // Event handlers
   const handleKeyPress = useCallback((event: React.KeyboardEvent) => {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -1035,20 +870,15 @@ export const GlobalChat: React.FC = () => {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (recordingInterval) {
-        clearInterval(recordingInterval);
-      }
+      cleanupVoiceRecording();
       if (currentAudio) {
         currentAudio.pause();
-      }
-      if (mediaRecorder && isRecording) {
-        mediaRecorder.stop();
       }
       if (debouncedScrollToBottom.current) {
         clearTimeout(debouncedScrollToBottom.current);
       }
     };
-  }, [recordingInterval, currentAudio, mediaRecorder, isRecording]);
+  }, [cleanupVoiceRecording, currentAudio]);
 
   if (loading) {
     return (
@@ -1408,7 +1238,7 @@ export const GlobalChat: React.FC = () => {
                 <Button
                   variant="contained"
                   onClick={startRecording}
-                    disabled={sending || uploadingMedia || (selectedChannel?.admin_only && !isAdmin)}
+                    disabled={sending || uploadingMedia || isSendingVoice || (selectedChannel?.admin_only && !isAdmin)}
                   sx={{ 
                     bgcolor: 'primary.main', 
                     color: 'white',
@@ -1429,6 +1259,7 @@ export const GlobalChat: React.FC = () => {
                     (selectedFile ? false : !newMessage.trim()) || 
                     sending || 
                     uploadingMedia || 
+                    isSendingVoice ||
                     (selectedChannel?.admin_only && !isAdmin)
                   }
                     sx={{ 
@@ -1439,7 +1270,7 @@ export const GlobalChat: React.FC = () => {
                       borderRadius: isMobile ? '50%' : '4px'
                     }}
                   >
-                    {sending || uploadingMedia ? <CircularProgress size={isMobile ? 16 : 20} /> : <SendIcon fontSize={isMobile ? 'small' : 'medium'} />}
+                    {sending || uploadingMedia || isSendingVoice ? <CircularProgress size={isMobile ? 16 : 20} /> : <SendIcon fontSize={isMobile ? 'small' : 'medium'} />}
                 </Button>
               </Box>
               </Box>
