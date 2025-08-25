@@ -977,6 +977,8 @@ export const GlobalChat: React.FC = () => {
     handleFileSelect,
     handleCancelMedia,
     sendMediaMessage,
+    setNewMessage,
+    newMessageRef,
   } = useChatInput(user, selectedChannel, isUserAdmin, showSnackbar, replyingTo, setReplyingTo);
 
   // Event handlers

@@ -168,5 +168,7 @@ export const useChatInput = (
     handleFileSelect,
     handleCancelMedia,
     sendMediaMessage,
+    setNewMessage,
+    newMessageRef,
   };
 };
