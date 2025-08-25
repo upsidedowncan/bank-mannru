@@ -84,48 +84,10 @@ import {
 } from '@mui/icons-material';
 import { supabase } from '../../config/supabase';
 import { useAuthContext } from '../../contexts/AuthContext';
-
-interface ChatChannel {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  is_public: boolean;
-  is_active: boolean;
-  is_pinned: boolean;
-  admin_only: boolean;
-  created_at: string;
-}
-
-interface ChatMessage {
-  id: string;
-  channel_id: string;
-  user_id: string;
-  message: string;
-  message_type: 'text' | 'system' | 'announcement' | 'voice' | 'image' | 'video' | 'html' | 'money_gift';
-  is_edited: boolean;
-  edited_at: string | null;
-  created_at: string;
-  user_name?: string;
-  user_avatar?: string;
-  pfp_color?: string;
-  pfp_icon?: string;
-  audio_url?: string;
-  media_url?: string;
-  media_type?: string;
-  gift_amount?: number;
-  gift_claimed_by?: string;
-  gift_claimed_at?: string;
-  reply_to?: string;
-  reply_to_message?: ChatMessage;
-}
-
-interface UserChatSettings {
-  user_id: string;
-  chat_name: string;
-  pfp_color: string;
-  pfp_icon: string;
-}
+import { ChatChannel, ChatMessage, UserChatSettings } from './types';
+import { useChatMessages } from './hooks/useChatMessages';
+import { useChatInput } from './hooks/useChatInput';
+import Message from './molecules/Message';
 
 const iconMapping: { [key: string]: React.ComponentType } = {
   Chat: ChatIcon,
@@ -199,12 +161,8 @@ export const GlobalChat: React.FC = () => {
   
   // Core state
   const [channels, setChannels] = useState<ChatChannel[]>([]);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const MAX_MESSAGES = 100; // Limit to prevent performance issues
   const [selectedChannel, setSelectedChannel] = useState<ChatChannel | null>(null);
-  const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
   const [userSettings, setUserSettings] = useState<UserChatSettings | null>(null);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
@@ -224,11 +182,6 @@ export const GlobalChat: React.FC = () => {
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [recordingInterval, setRecordingInterval] = useState<NodeJS.Timeout | null>(null);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
-
-  // Media upload state
-  const [uploadingMedia, setUploadingMedia] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [mediaPreview, setMediaPreview] = useState<string | null>(null);
 
   // Audio playback state
   const [isPlaying, setIsPlaying] = useState<string | null>(null);
@@ -262,7 +215,6 @@ export const GlobalChat: React.FC = () => {
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  const newMessageRef = useRef<string>('');
 
   // Snackbar state
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
@@ -365,155 +317,12 @@ export const GlobalChat: React.FC = () => {
     fetchChannels();
   }, [fetchChannels]);
 
-  // Fetch messages for selected channel
-  useEffect(() => {
-    if (!selectedChannel) return;
-    
-    const fetchMessages = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('chat_messages')
-        .select('*')
-          .eq('channel_id', selectedChannel.id)
-        .order('created_at', { ascending: true })
-          .limit(50);
-
-      if (error) throw error;
-
-        // Get unique user IDs
-      const userIds = Array.from(new Set(data?.map(msg => msg.user_id) || []));
-      
-        // Fetch user settings for all users
-        const { data: userSettingsData } = await supabase
-        .from('user_chat_settings')
-        .select('user_id, chat_name, pfp_color, pfp_icon')
-        .in('user_id', userIds);
-
-        // Create settings map
-        const settingsMap = new Map();
-        userSettingsData?.forEach(setting => {
-          settingsMap.set(setting.user_id, setting);
-        });
-
-        // Add user data to messages and fetch reply data
-        const messagesWithUserData = await Promise.all(
-          data?.map(async (msg) => {
-            const userSetting = settingsMap.get(msg.user_id);
-            
-            // Fetch reply message if this message is a reply
-            let replyToMessage = null;
-            if (msg.reply_to) {
-              const { data: replyData } = await supabase
-                .from('chat_messages')
-                .select('id, message, user_id')
-                .eq('id', msg.reply_to)
-                .single();
-              
-              if (replyData) {
-                const replyUserSetting = settingsMap.get(replyData.user_id);
-                replyToMessage = {
-                  ...replyData,
-                  user_name: replyUserSetting?.chat_name || `User ${replyData.user_id.slice(0, 8)}...`,
-                };
-              }
-            }
-            
-            return {
-              ...msg,
-              user_name: userSetting?.chat_name || `User ${msg.user_id.slice(0, 8)}...`,
-              pfp_color: userSetting?.pfp_color || '#1976d2',
-              pfp_icon: userSetting?.pfp_icon || 'Person',
-              reply_to_message: replyToMessage,
-            };
-          }) || []
-        );
-
-        setMessages(messagesWithUserData);
-        scrollToBottom();
-      } catch (error) {
-        console.error('Error fetching messages:', error);
-        setSnackbar({ open: true, message: 'Ошибка при загрузке сообщений', severity: 'error' });
-      }
-    };
-
-    fetchMessages();
-  }, [selectedChannel]);
-
-  // Real-time subscription for messages
-  useEffect(() => {
-    if (!selectedChannel) return;
-
-    const subscription = supabase
-        .channel(`chat_messages_${selectedChannel.id}`)
-        .on('postgres_changes', 
-          { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `channel_id=eq.${selectedChannel.id}` },
-          async (payload) => {
-            const newMessage = payload.new as ChatMessage;
-            
-          // Fetch user settings for the new message
-          const { data: userSetting } = await supabase
-                    .from('user_chat_settings')
-                    .select('chat_name, pfp_color, pfp_icon')
-                    .eq('user_id', newMessage.user_id)
-                    .single();
-                  
-          const messageWithUserData = {
-              ...newMessage,
-            user_name: userSetting?.chat_name || `User ${newMessage.user_id.slice(0, 8)}...`,
-            pfp_color: userSetting?.pfp_color || '#1976d2',
-            pfp_icon: userSetting?.pfp_icon || 'Person',
-          };
-            
-            setMessages(prev => {
-            const newMessages = [...prev, messageWithUserData];
-            // Keep only the last MAX_MESSAGES messages
-            return newMessages.slice(-MAX_MESSAGES);
-          });
-          scrollToBottomDebounced();
-          }
-        )
-        .on('postgres_changes', 
-          { event: 'UPDATE', schema: 'public', table: 'chat_messages', filter: `channel_id=eq.${selectedChannel.id}` },
-        (payload) => {
-            const updatedMessage = payload.new as ChatMessage;
-            setMessages(prev => prev.map(msg => 
-            msg.id === updatedMessage.id ? { ...msg, ...updatedMessage } : msg
-            ));
-          }
-        )
-        .on('postgres_changes', 
-          { event: 'DELETE', schema: 'public', table: 'chat_messages', filter: `channel_id=eq.${selectedChannel.id}` },
-          (payload) => {
-            const deletedMessageId = payload.old.id;
-            setMessages(prev => prev.filter(msg => msg.id !== deletedMessageId));
-          }
-        )
-      .subscribe();
-
-      return () => {
-      supabase.removeChannel(subscription);
-      };
-  }, [selectedChannel]);
-
-  // Cleanup old messages periodically to prevent performance issues
-  useEffect(() => {
-    const cleanupInterval = setInterval(() => {
-      setMessages(prev => {
-        if (prev.length > MAX_MESSAGES) {
-          console.log(`Cleaning up messages: ${prev.length} -> ${MAX_MESSAGES}`);
-          return prev.slice(-MAX_MESSAGES);
-        }
-        return prev;
-      });
-    }, 30000); // Clean up every 30 seconds
-
-    return () => clearInterval(cleanupInterval);
-  }, []);
-
   // Utility functions
   const showSnackbar = useCallback((message: string, severity: 'success' | 'error') => {
     setSnackbar({ open: true, message, severity });
   }, []);
+
+  const { messages, setMessages } = useChatMessages(selectedChannel, showSnackbar);
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => {
@@ -529,6 +338,10 @@ export const GlobalChat: React.FC = () => {
     }
     debouncedScrollToBottom.current = setTimeout(scrollToBottom, 50);
   }, [scrollToBottom]);
+
+  useEffect(() => {
+    scrollToBottomDebounced();
+  }, [messages, scrollToBottomDebounced]);
 
   const formatTime = useCallback((dateString: string) => {
     return new Date(dateString).toLocaleTimeString('ru-RU', {
@@ -681,60 +494,6 @@ export const GlobalChat: React.FC = () => {
   };
 
   // Message functions
-  const sendMessage = useCallback(async () => {
-    const messageText = newMessageRef.current.trim();
-    if (!user || !selectedChannel || !messageText) return;
-
-    // Prevent sending if already sending
-    if (sending) {
-      console.log('Already sending message, ignoring');
-      return;
-    }
-
-    // Check for admin commands
-    if (messageText.startsWith('/')) {
-      await handleAdminCommand(messageText);
-      return;
-    }
-
-    // Check admin-only restriction
-    if (selectedChannel.admin_only) {
-      const isAdmin = await isUserAdmin();
-      if (!isAdmin) {
-        showSnackbar('Только администраторы могут отправлять сообщения в этот канал', 'error');
-        return;
-      }
-    }
-
-    console.log('Sending message:', { messageText, timestamp: Date.now() });
-
-    setSending(true);
-    try {
-      const { error } = await supabase
-        .from('chat_messages')
-        .insert({
-          channel_id: selectedChannel.id,
-          user_id: user.id,
-          message: messageText,
-          message_type: 'text',
-          reply_to: replyingTo?.id || null,
-        });
-
-      if (error) throw error;
-
-      console.log('Message sent successfully:', { messageText, timestamp: Date.now() });
-      
-      // Clear both state and ref
-      setNewMessage('');
-      newMessageRef.current = '';
-      setReplyingTo(null);
-    } catch (error) {
-      console.error('Error sending message:', error);
-      showSnackbar('Ошибка при отправке сообщения', 'error');
-    } finally {
-      setSending(false);
-    }
-  }, [user, selectedChannel, showSnackbar, sending, isUserAdmin]);
 
   const editMessage = async (messageId: string) => {
     if (!editText.trim()) return;
@@ -1207,19 +966,31 @@ export const GlobalChat: React.FC = () => {
     }
   };
 
+  const {
+    newMessage,
+    sending,
+    sendMessage,
+    handleInputChange,
+    uploadingMedia,
+    selectedFile,
+    mediaPreview,
+    handleFileSelect,
+    handleCancelMedia,
+    sendMediaMessage,
+  } = useChatInput(user, selectedChannel, isUserAdmin, showSnackbar, replyingTo, setReplyingTo);
+
   // Event handlers
   const handleKeyPress = useCallback((event: React.KeyboardEvent) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
-      sendMessage();
-    }
-  }, [sendMessage]);
 
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setNewMessage(value);
-    newMessageRef.current = value;
-  }, []);
+      if (selectedFile) {
+        sendMediaMessage();
+      } else {
+        sendMessage();
+      }
+    }
+  }, [sendMessage, selectedFile, sendMediaMessage]);
 
   const handleMessageMenuOpen = (event: React.MouseEvent<HTMLElement>, message: ChatMessage) => {
     setMessageMenuAnchor(event.currentTarget);
@@ -1257,129 +1028,7 @@ export const GlobalChat: React.FC = () => {
     setReplyingTo(null);
   };
 
-  // Media functions
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    // Check file size (max 50MB)
-    if (file.size > 50 * 1024 * 1024) {
-      showSnackbar('Файл слишком большой. Максимальный размер: 50MB', 'error');
-      return;
-    }
-
-    // Check file type
-    const isImage = file.type.startsWith('image/');
-    const isVideo = file.type.startsWith('video/');
-    
-    if (!isImage && !isVideo) {
-      showSnackbar('Поддерживаются только изображения и видео', 'error');
-      return;
-    }
-
-    setSelectedFile(file);
-    
-    // Create preview
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setMediaPreview(e.target?.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleCancelMedia = () => {
-    setSelectedFile(null);
-    setMediaPreview(null);
-  };
-
-  const sendMediaMessage = async () => {
-    if (!selectedFile || !user || !selectedChannel) return;
-
-    // Check admin-only restriction
-    if (selectedChannel.admin_only) {
-      const isAdmin = await isUserAdmin();
-      if (!isAdmin) {
-        showSnackbar('Только администраторы могут отправлять медиа в этот канал', 'error');
-        return;
-      }
-    }
-
-    setUploadingMedia(true);
-    try {
-      const timestamp = Date.now();
-      const fileExtension = selectedFile.name.split('.').pop();
-      const fileName = `media_${user.id}_${timestamp}.${fileExtension}`;
-      const filePath = `chat-media/${selectedChannel.id}/${fileName}`;
-
-      // Upload file to Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('chat-media')
-        .upload(filePath, selectedFile, {
-          cacheControl: '3600',
-        });
-
-      if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from('chat-media')
-        .getPublicUrl(filePath);
-
-      // Determine message type
-      const messageType = selectedFile.type.startsWith('image/') ? 'image' : 'video';
-      
-      console.log('Sending media message:', {
-        fileName: selectedFile.name,
-        fileType: selectedFile.type,
-        messageType: messageType,
-        mediaUrl: urlData.publicUrl
-      });
-
-      // Insert message
-      const { error: dbError } = await supabase
-        .from('chat_messages')
-        .insert({
-          channel_id: selectedChannel.id,
-          user_id: user.id,
-          message: '', // Empty message for media files
-          message_type: messageType,
-          media_url: urlData.publicUrl,
-          media_type: selectedFile.type,
-          reply_to: replyingTo?.id || null,
-        });
-
-      if (dbError) throw dbError;
-
-      showSnackbar('Медиа отправлено!', 'success');
-      
-      // Clear media state
-      setSelectedFile(null);
-      setMediaPreview(null);
-      setReplyingTo(null);
-    } catch (error) {
-      console.error('Error sending media:', error);
-      
-      // More detailed error handling
-      if (error && typeof error === 'object' && 'message' in error) {
-        console.error('Error details:', {
-          message: error.message,
-          code: (error as any).code,
-          details: (error as any).details,
-          hint: (error as any).hint
-        });
-        
-        if ((error as any).code === '23514') {
-          showSnackbar('Ошибка: неподдерживаемый тип сообщения. Обратитесь к администратору.', 'error');
-        } else {
-          showSnackbar(`Ошибка при отправке медиа: ${error.message}`, 'error');
-        }
-      } else {
-        showSnackbar('Ошибка при отправке медиа', 'error');
-      }
-    } finally {
-      setUploadingMedia(false);
-    }
-  };
+  // Media functions are now in useChatInput hook
 
   // Cleanup on unmount
   useEffect(() => {
@@ -1552,322 +1201,28 @@ export const GlobalChat: React.FC = () => {
             }}
           >
             {messages.map((message) => (
-              <Box 
-                key={message.id} 
-                sx={{ 
-                  display: 'flex', 
-                      gap: isMobile ? 0.5 : 1, 
-                  alignItems: 'flex-start',
-                  cursor: user?.id === message.user_id ? 'pointer' : 'default',
-                  '&:hover': user?.id === message.user_id ? {
-                    backgroundColor: 'action.hover',
-                    borderRadius: 1,
-                        p: 0.5,
-                        m: -0.5,
-                  } : {}
-                }}
-                onClick={user?.id === message.user_id ? (e) => handleMessageMenuOpen(e, message) : undefined}
-              >
-                <Avatar 
-                  sx={{ 
-                    width: isMobile ? 28 : 32, 
-                    height: isMobile ? 28 : 32, 
-                    fontSize: isMobile ? '0.7rem' : '0.75rem',
-                    bgcolor: message.pfp_icon === 'Dev' ? 'transparent' : message.pfp_color,
-                    background: message.pfp_icon === 'Dev' 
-                      ? 'linear-gradient(45deg, #4CAF50, #2196F3)'
-                      : message.pfp_color,
-                    boxShadow: message.pfp_icon === 'Dev' ? '0 0 8px rgba(33, 150, 243, 0.6)' : 'none',
-                  }}
-                >
-                  {message.pfp_icon ? (
-                    message.pfp_icon === 'Dev' ? (
-                      <AnimatedDevIcon />
-                    ) : (
-                      React.cloneElement(getProfileIcon(message.pfp_icon), {
-                        sx: { fontSize: '1.2rem', color: 'white', opacity: 0.7 }
-                      })
-                    )
-                  ) : (
-                    message.user_name?.charAt(0) || 'U'
-                  )}
-                </Avatar>
-                    
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Box display="flex" alignItems="center" gap={1} mb={isMobile ? 0.25 : 0.5} flexWrap="wrap">
-                        <Typography variant={isMobile ? "body2" : "subtitle2"} sx={{ fontWeight: 'bold' }}>
-                      {message.user_name}
-                    </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                      {formatTime(message.created_at)}
-                    </Typography>
-                    {message.is_edited && (
-                          <Typography variant="caption" color="text.secondary">
-                        (ред.)
-                      </Typography>
-                    )}
-                  </Box>
-                  
-                  {/* Reply Context */}
-                  {message.reply_to_message && (
-                    <Box sx={{ 
-                      mb: 0.5, 
-                      p: 0.5, 
-                      bgcolor: 'action.hover', 
-                      borderRadius: 0.5, 
-                      borderLeft: 2, 
-                      borderColor: 'primary.main',
-                      maxWidth: '100%'
-                    }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.25 }}>
-                        <ReplyIcon fontSize="small" color="primary" />
-                        <Typography variant="caption" color="primary" sx={{ fontWeight: 'bold' }}>
-                          {message.reply_to_message.user_name}
-                        </Typography>
-                      </Box>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                        {message.reply_to_message.message.length > 100 
-                          ? message.reply_to_message.message.substring(0, 100) + '...' 
-                          : message.reply_to_message.message}
-                      </Typography>
-                    </Box>
-                  )}
-                  
-                  {editingMessage === message.id ? (
-                    <Box display="flex" gap={1} alignItems="center">
-                      <TextField
-                        value={editText}
-                        onChange={(e) => setEditText(e.target.value)}
-                        size="small"
-                        fullWidth
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter') {
-                            editMessage(message.id);
-                          }
-                        }}
-                      />
-                      <IconButton size="small" onClick={() => editMessage(message.id)}>
-                        <SendIcon />
-                      </IconButton>
-                      <IconButton size="small" onClick={() => setEditingMessage(null)}>
-                        <CloseIcon />
-                      </IconButton>
-                    </Box>
-                  ) : message.message_type === 'voice' ? (
-                    <Box sx={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: 1,
-                      p: 1,
-                      borderRadius: 1,
-                      bgcolor: 'action.hover',
-                      border: 1,
-                      borderColor: 'divider',
-                      minWidth: isMobile ? 200 : 250,
-                      maxWidth: isMobile ? 280 : 350
-                    }}>
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          message.audio_url && playAudio(message.audio_url, message.id);
-                        }}
-                        sx={{ 
-                          bgcolor: isPlaying === message.id ? 'error.main' : 'primary.main',
-                          color: 'white',
-                          '&:hover': {
-                            bgcolor: isPlaying === message.id ? 'error.dark' : 'primary.dark'
-                          }
-                        }}
-                      >
-                        {isPlaying === message.id ? <StopIcon /> : <PlayIcon />}
-                      </IconButton>
-                      
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                          <Typography variant="caption" color="text.secondary">
-                            {formatAudioTime(audioProgress[message.id] || 0)}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            /
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {audioDurations[message.id] && isFinite(audioDurations[message.id]) 
-                              ? formatAudioTime(audioDurations[message.id]) 
-                              : '--:--'
-                            }
-                          </Typography>
-                        </Box>
-                        
-                        <Box sx={{ position: 'relative', height: 4, bgcolor: 'action.disabled', borderRadius: 2 }}>
-                          <Box 
-                            sx={{
-                              position: 'absolute',
-                              top: 0,
-                              left: 0,
-                              height: '100%',
-                              bgcolor: 'primary.main',
-                              borderRadius: 2,
-                              width: audioDurations[message.id] && isFinite(audioDurations[message.id])
-                                ? `${Math.min((audioProgress[message.id] || 0) / audioDurations[message.id] * 100, 100)}%`
-                                : '0%',
-                              transition: 'width 0.1s ease'
-                            }}
-                          />
-                        </Box>
-                      </Box>
-                      
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <MicIcon fontSize="small" color="action" />
-                        <Typography variant="caption" color="text.secondary">
-                          Голос
-                      </Typography>
-                    </Box>
-                    </Box>
-                  ) : message.message_type === 'image' ? (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      {message.message && (
-                        <Typography variant="body1">
-                          {message.message}
-                        </Typography>
-                      )}
-                      <Box sx={{ 
-                        display: 'flex', 
-                        justifyContent: 'flex-start',
-                        maxWidth: '100%'
-                      }}>
-                        <Box
-                          component="img"
-                          src={message.media_url}
-                          alt={message.message}
-                          sx={{
-                            maxWidth: '100%',
-                            maxHeight: 300,
-                            width: 'auto',
-                            height: 'auto',
-                            objectFit: 'contain',
-                            borderRadius: 1,
-                            cursor: 'pointer',
-                            display: 'block',
-                            '&:hover': {
-                              opacity: 0.8,
-                            }
-                          }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            window.open(message.media_url, '_blank');
-                          }}
-                        />
-                      </Box>
-                    </Box>
-                  ) : message.message_type === 'video' ? (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      {message.message && (
-                        <Typography variant="body1">
-                          {message.message}
-                        </Typography>
-                      )}
-                      <Box sx={{ 
-                        display: 'flex', 
-                        justifyContent: 'flex-start',
-                        maxWidth: '100%'
-                      }}>
-                        <Box
-                          component="video"
-                          src={message.media_url}
-                          controls
-                          sx={{
-                            maxWidth: '100%',
-                            maxHeight: 300,
-                            width: 'auto',
-                            height: 'auto',
-                            objectFit: 'contain',
-                            borderRadius: 1,
-                            display: 'block',
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </Box>
-                    </Box>
-                  ) : message.message_type === 'html' ? (
-                    <Box 
-                      sx={{ 
-                        '& *': { 
-                          maxWidth: '100%',
-                          wordBreak: 'break-word'
-                        }
-                      }}
-                      dangerouslySetInnerHTML={{ __html: message.message }}
-                    />
-                  ) : message.message_type === 'money_gift' ? (
-                    <Box sx={{ 
-                      display: 'flex', 
-                      flexDirection: 'column', 
-                      gap: 1,
-                      p: 2,
-                      borderRadius: 2,
-                      bgcolor: 'background.paper',
-                      border: 1,
-                      borderColor: 'primary.main',
-                      maxWidth: 300
-                    }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <GiftIcon color="primary" />
-                        <Typography variant="subtitle2" color="primary" sx={{ fontWeight: 'bold' }}>
-                          Денежный подарок
-                        </Typography>
-                      </Box>
-                      
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <MoneyIcon color="success" />
-                        <Typography variant="h6" color="success.main" sx={{ fontWeight: 'bold' }}>
-                          {message.gift_amount} МР
-                        </Typography>
-                      </Box>
-                      
-                      {message.gift_claimed_by ? (
-                        <Box sx={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: 1,
-                          p: 1,
-                          borderRadius: 1,
-                          bgcolor: 'action.disabled'
-                        }}>
-                          <Typography variant="body2" color="text.secondary">
-                            Получено пользователем
-                          </Typography>
-                        </Box>
-                      ) : (
-                        <Button
-                          variant="contained"
-                          color="success"
-                          startIcon={<GiftIcon />}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openCardSelectionDialog(message.id, message.gift_amount || 0);
-                          }}
-                          disabled={claimingGift === message.id}
-                          sx={{ 
-                            alignSelf: 'flex-start',
-                            minWidth: 120
-                          }}
-                        >
-                          {claimingGift === message.id ? (
-                            <CircularProgress size={20} color="inherit" />
-                          ) : (
-                            'Получить'
-                          )}
-                        </Button>
-                      )}
-                    </Box>
-                  ) : (
-                        <Typography variant="body1">
-                      {message.message}
-                    </Typography>
-                  )}
-                </Box>
-              </Box>
+              <Message
+                key={message.id}
+                message={message}
+                isMobile={isMobile}
+                user={user}
+                editingMessage={editingMessage}
+                editText={editText}
+                setEditText={setEditText}
+                editMessage={editMessage}
+                setEditingMessage={setEditingMessage}
+                handleMessageMenuOpen={handleMessageMenuOpen}
+                getProfileIcon={getProfileIcon}
+                AnimatedDevIcon={AnimatedDevIcon}
+                formatTime={formatTime}
+                isPlaying={isPlaying}
+                playAudio={playAudio}
+                audioProgress={audioProgress}
+                audioDurations={audioDurations}
+                formatAudioTime={formatAudioTime}
+                openCardSelectionDialog={openCardSelectionDialog}
+                claimingGift={claimingGift}
+              />
             ))}
             <div ref={messagesEndRef} />
           </Box>
