@@ -72,13 +72,12 @@ const Message: React.FC<MessageProps> = ({
     setAnchorEl(null);
   };
 
-  const reactionsGrouped = (message.reactions || []).reduce((acc, reaction) => {
-    if (!acc[reaction.emoji]) {
-      acc[reaction.emoji] = [];
-    }
-    acc[reaction.emoji].push(reaction);
+  const reactionsGrouped = (message.reactions || []).reduce<{[key: string]: typeof message.reactions}>((acc, reaction) => {
+    const key = reaction.emoji;
+    const existing = acc[key] || [];
+    acc[key] = [...existing, reaction];
     return acc;
-  }, {} as { [key: string]: typeof message.reactions });
+  }, {});
 
   return (
     <Box
