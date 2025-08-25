@@ -65,6 +65,7 @@ const Message: React.FC<MessageProps> = ({
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
   const handleReactionClick = (event: React.MouseEvent<HTMLElement>) => {
+    event.stopPropagation();
     setAnchorEl(event.currentTarget);
   };
 
@@ -248,7 +249,7 @@ const Message: React.FC<MessageProps> = ({
                 emoji={emoji}
                 count={reactions?.length || 0}
                 reacted={!!reactions?.find(r => r.user_id === user?.id)}
-                onClick={() => onToggleReaction(emoji)}
+                onClick={(e) => { e.stopPropagation(); onToggleReaction(emoji); }}
               />
             </Tooltip>
           ))}

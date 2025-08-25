@@ -158,11 +158,24 @@ export const useChatMessages = (
       .channel(`message_reactions_${selectedChannel.id}`)
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'message_reactions' },
-        (payload) => {
+        async (payload) => {
           const newReaction = payload.new as MessageReaction;
+
+          // Fetch the user's name for the new reaction
+          const { data: userSetting } = await supabase
+            .from('user_chat_settings')
+            .select('chat_name')
+            .eq('user_id', newReaction.user_id)
+            .single();
+
+          const reactionWithUser: MessageReaction = {
+            ...newReaction,
+            user_name: userSetting?.chat_name || `User ${newReaction.user_id.slice(0, 8)}...`,
+          };
+
           setMessages(prevMessages => prevMessages.map(msg => {
-            if (msg.id === newReaction.message_id) {
-              const reactions = [...(msg.reactions || []), newReaction];
+            if (msg.id === reactionWithUser.message_id) {
+              const reactions = [...(msg.reactions || []), reactionWithUser];
               return { ...msg, reactions };
             }
             return msg;
