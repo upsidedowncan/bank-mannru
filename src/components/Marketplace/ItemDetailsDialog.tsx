@@ -35,7 +35,11 @@ import {
   LocationOn,
   CalendarToday,
   Person,
+  KeyboardArrowLeft,
+  KeyboardArrowRight,
 } from '@mui/icons-material'
+import { useTheme } from '@mui/material/styles';
+import MobileStepper from '@mui/material/MobileStepper';
 import { useAuthContext } from '../../contexts/AuthContext'
 import { supabase } from '../../config/supabase'
 import { formatCurrency } from '../../utils/formatters'
@@ -99,6 +103,18 @@ export const ItemDetailsDialog: React.FC<ItemDetailsDialogProps> = ({
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null)
 
   const isOwnItem = user?.id === item.seller_id
+
+  const theme = useTheme();
+  const [activeStep, setActiveStep] = useState(0);
+  const maxSteps = item.images.length;
+
+  const handleNext = () => {
+    setActiveStep((prevActiveStep) => prevActiveStep + 1);
+  };
+
+  const handleBack = () => {
+    setActiveStep((prevActiveStep) => prevActiveStep - 1);
+  };
 
   // Fetch user's active cards when cardDialogOpen opens
   React.useEffect(() => {
@@ -328,24 +344,63 @@ export const ItemDetailsDialog: React.FC<ItemDetailsDialogProps> = ({
 
         <Box sx={{ display: 'grid', gap: 3 }}>
           {/* Item Images */}
-          <Box>
-            {item.images && item.images.length > 0 ? (
-              <Box sx={{ display: 'flex', gap: 1, overflowX: 'auto', pb: 1 }}>
-                {item.images.map((image, index) => (
-                  <img
-                    key={index}
-                    src={image}
-                    alt={`${item.title} - фото ${index + 1}`}
-                    style={{
-                      width: '200px',
-                      height: '150px',
-                      objectFit: 'cover',
-                      borderRadius: '8px',
-                      flexShrink: 0,
-                    }}
-                  />
-                ))}
+          <Box sx={{ maxWidth: '100%', flexGrow: 1 }}>
+            {item.images && item.images.length > 1 ? (
+              <Box>
+                <img
+                  src={item.images[activeStep]}
+                  alt={`${item.title} - фото ${activeStep + 1}`}
+                  style={{
+                    height: 255,
+                    display: 'block',
+                    maxWidth: '100%',
+                    overflow: 'hidden',
+                    width: '100%',
+                    objectFit: 'cover',
+                    borderRadius: '8px',
+                  }}
+                />
+                <MobileStepper
+                  steps={maxSteps}
+                  position="static"
+                  activeStep={activeStep}
+                  nextButton={
+                    <Button
+                      size="small"
+                      onClick={handleNext}
+                      disabled={activeStep === maxSteps - 1}
+                    >
+                      Next
+                      {theme.direction === 'rtl' ? (
+                        <KeyboardArrowLeft />
+                      ) : (
+                        <KeyboardArrowRight />
+                      )}
+                    </Button>
+                  }
+                  backButton={
+                    <Button size="small" onClick={handleBack} disabled={activeStep === 0}>
+                      {theme.direction === 'rtl' ? (
+                        <KeyboardArrowRight />
+                      ) : (
+                        <KeyboardArrowLeft />
+                      )}
+                      Back
+                    </Button>
+                  }
+                />
               </Box>
+            ) : item.images && item.images.length === 1 ? (
+              <img
+                src={item.images[0]}
+                alt={item.title}
+                style={{
+                  width: '100%',
+                  maxHeight: '400px',
+                  objectFit: 'cover',
+                  borderRadius: '8px',
+                }}
+              />
             ) : (
               <Box sx={{ textAlign: 'center' }}>
                 <img
