@@ -28,6 +28,9 @@ import {
   Card,
   CardContent,
   Tooltip,
+  FormControl,
+  InputLabel,
+  Select,
 } from '@mui/material';
 import { keyframes } from '@emotion/react';
 import { styled } from '@mui/material/styles';
@@ -200,6 +203,7 @@ export const GlobalChat: React.FC = () => {
     balance: number;
     currency: string;
   }>>([]);
+  const [selectedCardIdForGift, setSelectedCardIdForGift] = useState<string>('');
 
   const [newDmDialogOpen, setNewDmDialogOpen] = useState(false);
 
@@ -1050,54 +1054,34 @@ export const GlobalChat: React.FC = () => {
             Получите {cardSelectionDialog.amount} МР на выбранную карту:
           </Typography>
           
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {userCards.map((card) => (
-              <Card
-                key={card.id}
-                sx={{
-                  cursor: 'pointer',
-                  border: 1,
-                  borderColor: 'divider',
-                  '&:hover': {
-                    borderColor: 'primary.main',
-                    bgcolor: 'action.hover'
-                  }
-                }}
-                onClick={() => {
-                  if (cardSelectionDialog.messageId) {
-                    claimMoneyGift(cardSelectionDialog.messageId, cardSelectionDialog.amount, card.id);
-                  }
-                }}
-              >
-                <CardContent sx={{ py: 1.5 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Box>
-                      <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                        {card.card_name}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {card.card_number}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ textAlign: 'right' }}>
-                      <Typography variant="h6" color="primary">
-                        {card.balance} {card.currency}
-                      </Typography>
-                      <Typography variant="body2" color="success.main">
-                        +{cardSelectionDialog.amount} {card.currency}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            ))}
-          </Box>
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel id="card-select-label">Выберите карту</InputLabel>
+            <Select
+              labelId="card-select-label"
+              value={selectedCardIdForGift}
+              label="Выберите карту"
+              onChange={(e) => setSelectedCardIdForGift(e.target.value)}
+            >
+              {userCards.map((card) => (
+                <MenuItem key={card.id} value={card.id}>
+                  {card.card_name} ({card.card_number}) - {card.balance} {card.currency}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
         </DialogContent>
         <DialogActions>
+          <Button onClick={() => setCardSelectionDialog({ open: false, messageId: null, amount: 0 })}>Отмена</Button>
           <Button
-            onClick={() => setCardSelectionDialog({ open: false, messageId: null, amount: 0 })}
+            onClick={() => {
+              if (cardSelectionDialog.messageId && selectedCardIdForGift) {
+                claimMoneyGift(cardSelectionDialog.messageId, cardSelectionDialog.amount, selectedCardIdForGift);
+              }
+            }}
+            disabled={!selectedCardIdForGift || !!claimingGift}
+            variant="contained"
           >
-            Отмена
+            {claimingGift ? <CircularProgress size={24} /> : 'Получить'}
           </Button>
         </DialogActions>
       </Dialog>
