@@ -58,16 +58,44 @@ export const useDirectMessages = (user: User | null) => {
 
       if (convos_error) throw convos_error;
 
-      // 3. For each conversation, fetch participants and last message
+      // 3. Get all participants for these conversations
+      const { data: all_participants_data, error: all_participants_error } = await supabase
+        .from('conversation_participants')
+        .select('conversation_id, user_id')
+        .in('conversation_id', conversationIds);
+
+      if (all_participants_error) throw all_participants_error;
+
+      // 4. Get all unique user IDs from the participants
+      const allUserIds = Array.from(new Set(all_participants_data.map(p => p.user_id)));
+
+      // 5. Fetch all user chat settings for these users
+      const { data: user_settings_data, error: user_settings_error } = await supabase
+        .from('user_chat_settings')
+        .select('user_id, chat_name, pfp_icon, pfp_color')
+        .in('user_id', allUserIds);
+
+      if (user_settings_error) throw user_settings_error;
+
+      // Create a map for easy lookup
+      const userSettingsMap = new Map(user_settings_data.map(s => [s.user_id, s]));
+
+      // 6. Fetch the last message for each conversation (this is tricky without a loop)
+      // For now, we will do it in a loop, but a better solution is a DB function.
       const detailedConversations = await Promise.all(
         convos_data.map(async (convo) => {
-          // Fetch participants and their profile info
-          const { data: participants_data } = await supabase
-            .from('conversation_participants')
-            .select('user_id, user_chat_settings ( chat_name, pfp_icon, pfp_color )')
-            .eq('conversation_id', convo.id);
+          const participants = all_participants_data
+            .filter(p => p.conversation_id === convo.id)
+            .map(p => {
+              const settings = userSettingsMap.get(p.user_id);
+              return {
+                user_id: p.user_id,
+                user_name: settings?.chat_name || 'User',
+                pfp_icon: settings?.pfp_icon || 'Person',
+                pfp_color: settings?.pfp_color || '#1976d2',
+              };
+            });
 
-          // Fetch last message
           const { data: last_message_data } = await supabase
             .from('direct_messages')
             .select('content')
@@ -75,16 +103,6 @@ export const useDirectMessages = (user: User | null) => {
             .order('created_at', { ascending: false })
             .limit(1)
             .single();
-
-          const participants = participants_data?.map(p => ({
-            user_id: p.user_id,
-            // @ts-ignore
-            user_name: p.user_chat_settings?.chat_name || 'User',
-            // @ts-ignore
-            pfp_icon: p.user_chat_settings?.pfp_icon || 'Person',
-            // @ts-ignore
-            pfp_color: p.user_chat_settings?.pfp_color || '#1976d2',
-          })) || [];
 
           return {
             ...convo,
