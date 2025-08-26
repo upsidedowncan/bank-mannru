@@ -28,9 +28,7 @@ export interface DirectMessage {
 
 export const useDirectMessages = (user: User | null) => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [messages, setMessages] = useState<DirectMessage[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
 
   const fetchConversations = useCallback(async () => {
     if (!user) return;
@@ -111,39 +109,6 @@ export const useDirectMessages = (user: User | null) => {
     }
   }, [user, fetchConversations]);
 
-  const fetchMessages = useCallback(async (conversationId: string) => {
-    if (!conversationId) {
-      setMessages([]);
-      return;
-    }
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('direct_messages')
-        .select('*, sender:user_chat_settings(chat_name, pfp_icon, pfp_color)')
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-
-      const formattedMessages = data.map(msg => ({
-        ...msg,
-        // @ts-ignore
-        sender_name: msg.sender?.chat_name || 'User',
-        // @ts-ignore
-        pfp_icon: msg.sender?.pfp_icon || 'Person',
-        // @ts-ignore
-        pfp_color: msg.sender?.pfp_color || '#1976d2',
-      }));
-
-      setMessages(formattedMessages);
-    } catch (error) {
-      console.error("Error fetching messages:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   const sendMessage = useCallback(async (receiverId: string, content: string) => {
     if (!user) return;
     try {
@@ -159,12 +124,6 @@ export const useDirectMessages = (user: User | null) => {
       // Optionally, show a snackbar to the user
     }
   }, [user, fetchConversations]);
-
-  useEffect(() => {
-    if (selectedConversation) {
-      fetchMessages(selectedConversation.id);
-    }
-  }, [selectedConversation, fetchMessages]);
 
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
@@ -213,23 +172,18 @@ export const useDirectMessages = (user: User | null) => {
       // This is still not ideal because we're re-fetching the whole list,
       // but it ensures we have the full conversation object to select.
       const newConvo = conversations.find(c => c.id === newConvoId);
-      if (newConvo) {
-        setSelectedConversation(newConvo);
-      }
+      return newConvo;
 
     } catch (error) {
       console.error("Error starting DM:", error);
+      return null;
     }
-  }, [user, fetchConversations, conversations, setSelectedConversation]);
+  }, [user, fetchConversations, conversations]);
 
   return {
     conversations,
-    messages,
     loading,
-    selectedConversation,
-    setSelectedConversation,
     sendMessage,
-    fetchMessages,
     fetchConversations,
     searchUsers,
     searchResults,

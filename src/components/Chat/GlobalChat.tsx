@@ -81,7 +81,6 @@ import {
 import { supabase } from '../../config/supabase';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { ChatChannel, ChatMessage, UserChatSettings } from './types';
-import { useChatMessages } from './hooks/useChatMessages';
 import { useChatInput } from './hooks/useChatInput';
 import { useDirectMessages, Conversation, DirectMessage } from './hooks/useDirectMessages';
 import { useVoiceRecording } from './hooks/useVoiceRecording';
@@ -207,9 +206,7 @@ export const GlobalChat: React.FC = () => {
   // Hook for DMs
   const {
     conversations: dmConversations,
-    messages: dmMessages,
-    selectedConversation,
-    setSelectedConversation,
+    // messages and selectedConversation are now managed in this component
     sendMessage: sendDm,
     fetchConversations,
     searchUsers,
@@ -219,9 +216,9 @@ export const GlobalChat: React.FC = () => {
   } = useDirectMessages(user);
 
   // Type guard to check if a chat is a channel
-  const isChannel = (chat: any): chat is ChatChannel => {
+  const isChannel = useCallback((chat: any): chat is ChatChannel => {
     return chat && 'is_active' in chat;
-  }
+  }, []);
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -315,54 +312,117 @@ export const GlobalChat: React.FC = () => {
       if (error) throw error;
       setChannels(data || []);
       
-        // Auto-select first channel if none selected
-      if (data && data.length > 0 && !selectedChat) {
-        setSelectedChat(data[0]);
-      }
     } catch (error) {
       console.error('Error fetching channels:', error);
       setSnackbar({ open: true, message: 'Ошибка при загрузке каналов', severity: 'error' });
     } finally {
       setLoading(false);
     }
-  }, [selectedChat]);
+  }, []);
 
   useEffect(() => {
     fetchChannels();
   }, [fetchChannels]);
 
-  const { messages: channelMessages, setMessages: setChannelMessages } = useChatMessages(isChannel(selectedChat) ? selectedChat : null, showSnackbar);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+
+  // This is the new central useEffect for fetching and subscriptions
+  useEffect(() => {
+    setMessages([]); // Clear messages when chat changes
+    setLoading(true);
+
+    if (!selectedChat) {
+      setLoading(false);
+      return;
+    }
+
+    let subscription: any = null;
+
+    const fetchAndSetMessages = async () => {
+      if (isChannel(selectedChat)) {
+        // Fetch channel messages (logic moved from useChatMessages)
+        const { data } = await supabase
+          .from('chat_messages')
+          .select('*, reactions(*, user:user_chat_settings(chat_name))')
+          .eq('channel_id', selectedChat.id)
+          .order('created_at', { ascending: true });
+        setMessages(data || []);
+      } else {
+        // Fetch DM messages
+        const { data } = await supabase
+          .from('direct_messages')
+          .select('*')
+          .eq('conversation_id', selectedChat.id)
+          .order('created_at', { ascending: true });
+
+        // Transform DMs to ChatMessage format
+        const transformed = data?.map(dm => {
+          const chatMessage: ChatMessage = {
+            id: dm.id,
+            created_at: dm.created_at,
+            message: dm.content,
+            user_id: dm.sender_id,
+            user_name: 'User', // This needs to be fetched
+            pfp_color: '#1976d2',
+            pfp_icon: 'Person',
+            channel_id: '',
+            message_type: 'text',
+            reactions: [],
+            is_edited: false,
+            edited_at: null,
+            reply_to: undefined,
+            reply_to_message: undefined,
+            media_url: undefined,
+            media_type: undefined,
+            audio_url: undefined,
+            gift_amount: undefined,
+            gift_claimed_by: undefined,
+          };
+          return chatMessage;
+        }) || [];
+        setMessages(transformed);
+      }
+      setLoading(false);
+    };
+
+    fetchAndSetMessages();
+
+    // Set up subscriptions
+    if (isChannel(selectedChat)) {
+      subscription = supabase
+        .channel(`public:chat_messages:channel_id=eq.${selectedChat.id}`)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `channel_id=eq.${selectedChat.id}` },
+          (payload) => {
+            // This needs to be more sophisticated to add user details to the new message
+            // For now, just re-fetch
+            fetchAndSetMessages();
+          }
+        )
+        .subscribe();
+    } else {
+      // DM subscription
+      subscription = supabase
+        .channel(`public:direct_messages:conversation_id=eq.${selectedChat.id}`)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'direct_messages', filter: `conversation_id=eq.${selectedChat.id}` },
+          (payload) => {
+            fetchAndSetMessages();
+          }
+        )
+        .subscribe();
+    }
+
+
+    return () => {
+      if (subscription) {
+        supabase.removeChannel(subscription);
+      }
+    };
+  }, [selectedChat, isChannel]);
+
 
   const forceScrollToBottom = useCallback(() => {
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 100);
   }, []);
-
-  const messagesToDisplay = isChannel(selectedChat)
-    ? channelMessages
-    : dmMessages.map(dm => {
-        const chatMessage: ChatMessage = {
-          id: dm.id,
-          created_at: dm.created_at,
-          message: dm.content,
-          user_id: dm.sender_id,
-          user_name: dm.sender_name || 'User',
-          pfp_color: dm.pfp_color || '#1976d2',
-          pfp_icon: dm.pfp_icon || 'Person',
-          channel_id: '',
-          message_type: 'text',
-          reactions: [],
-          is_edited: false,
-          edited_at: null,
-          reply_to: undefined,
-          reply_to_message: undefined,
-          media_url: undefined,
-          media_type: undefined,
-          audio_url: undefined,
-          gift_amount: undefined,
-          gift_claimed_by: undefined,
-        };
-        return chatMessage;
-      });
 
   useEffect(() => {
     const container = chatContainerRef.current;
@@ -376,7 +436,7 @@ export const GlobalChat: React.FC = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
       }
     }
-  }, [messagesToDisplay]);
+  }, [messages]);
 
   const formatTime = useCallback((dateString: string) => {
     return new Date(dateString).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
@@ -470,16 +530,31 @@ export const GlobalChat: React.FC = () => {
     cleanup: cleanupVoiceRecording,
   } = useVoiceRecording(user, isChannel(selectedChat) ? selectedChat : null, isUserAdmin, showSnackbar);
 
+  const handleSendMessage = useCallback(() => {
+    if (!selectedChat || !newMessage.trim()) return;
+
+    if (isChannel(selectedChat)) {
+      sendMessage();
+    } else {
+      // It's a DM
+      const receiver = selectedChat.participants.find(p => p.user_id !== user?.id);
+      if (receiver) {
+        sendDm(receiver.user_id, newMessage.trim());
+        setNewMessage(''); // Also clear message here
+      }
+    }
+  }, [selectedChat, newMessage, user, isChannel, sendMessage, sendDm, setNewMessage]);
+
   const handleKeyPress = useCallback((event: React.KeyboardEvent) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       if (selectedFile) {
         sendMediaMessage();
       } else {
-        sendMessage();
+        handleSendMessage();
       }
     }
-  }, [sendMessage, selectedFile, sendMediaMessage]);
+  }, [handleSendMessage, selectedFile, sendMediaMessage]);
 
   const handleMessageMenuOpen = (event: React.MouseEvent<HTMLElement>, message: ChatMessage) => {
     setMessageMenuAnchor(event.currentTarget);
@@ -519,7 +594,7 @@ export const GlobalChat: React.FC = () => {
 
   const handleToggleReaction = async (messageId: string, emoji: string) => {
     if (!user || !isChannel(selectedChat)) return; // Only allow reactions in channels for now
-    const message = channelMessages.find(m => m.id === messageId);
+    const message = messages.find(m => m.id === messageId);
     if (!message) return;
     const existingReaction = message.reactions?.find(r => r.emoji === emoji && r.user_id === user.id);
     if (existingReaction) {
@@ -598,10 +673,11 @@ export const GlobalChat: React.FC = () => {
     </List>
   );
 
-  const handleSelectUser = (userId: string) => {
-    const content = prompt(`What is your message to ${userId}?`);
-    if (content) {
-      sendDm(userId, content);
+  const handleSelectUser = async (userId: string) => {
+    // This now just opens the conversation. The user can then type their message.
+    const convo = await startDmWithUser(userId);
+    if (convo) {
+      setSelectedChat(convo);
     }
   };
 
@@ -650,7 +726,7 @@ export const GlobalChat: React.FC = () => {
           <>
             {/* Messages */}
             <Box ref={chatContainerRef} sx={{ flex: 1, overflowY: 'auto', p: 2 }}>
-              {messagesToDisplay.map((message) => (
+              {messages.map((message) => (
                 <Message
                   key={message.id}
                   message={message}
@@ -715,7 +791,7 @@ export const GlobalChat: React.FC = () => {
                     <IconButton component="label" htmlFor="media-upload" disabled={!selectedChat}><AddPhotoIcon /></IconButton>
                     <input type="file" accept="image/*,video/*" onChange={handleFileSelect} style={{ display: 'none' }} id="media-upload" />
                     <IconButton onClick={startRecording} disabled={!selectedChat}><MicIcon /></IconButton>
-                    <Button variant="contained" onClick={selectedFile ? sendMediaMessage : sendMessage} disabled={(!selectedFile && !newMessage.trim()) || sending || uploadingMedia}>
+                    <Button variant="contained" onClick={selectedFile ? sendMediaMessage : handleSendMessage} disabled={(!selectedFile && !newMessage.trim()) || sending || uploadingMedia}>
                       {sending || uploadingMedia ? <CircularProgress size={24} /> : <SendIcon />}
                     </Button>
                   </Box>
