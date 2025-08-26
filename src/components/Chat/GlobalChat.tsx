@@ -339,6 +339,7 @@ export const GlobalChat: React.FC = () => {
     let subscription: any = null;
 
     const fetchAndSetMessages = async () => {
+      try {
       if (isChannel(selectedChat)) {
         // This logic is restored from the original useChatMessages hook
         const { data: messagesData, error: messagesError } = await supabase
@@ -456,7 +457,12 @@ export const GlobalChat: React.FC = () => {
         });
         setMessages(finalMessages);
       }
-      setLoading(false);
+      } catch (error) {
+        console.error("Error fetching messages:", error);
+        showSnackbar('Ошибка при загрузке сообщений', 'error');
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchAndSetMessages();
@@ -787,7 +793,7 @@ export const GlobalChat: React.FC = () => {
       {/* Main Chat Area */}
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         {/* Header */}
-        <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>
+        <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', flexShrink: 0, display: { xs: 'none', sm: 'block' } }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {isMobile && (
               <IconButton onClick={() => setMobileDrawerOpen(true)}><MenuIcon /></IconButton>
