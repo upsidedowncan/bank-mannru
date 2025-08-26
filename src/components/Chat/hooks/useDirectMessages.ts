@@ -192,6 +192,36 @@ export const useDirectMessages = (user: User | null) => {
     }
   }, [user]);
 
+  const startDmWithUser = useCallback(async (receiverId: string) => {
+    if (!user) return;
+    try {
+      const { data: conversationData, error } = await supabase.rpc('get_or_create_conversation', {
+        receiver_id: receiverId,
+      });
+
+      if (error) throw error;
+
+      // After creating, refresh the list and find the new conversation
+      await fetchConversations();
+
+      const newConvoId = conversationData;
+
+      // After creating, refresh the list to get the new convo details
+      await fetchConversations();
+
+      // Find the new conversation in the updated list and select it
+      // This is still not ideal because we're re-fetching the whole list,
+      // but it ensures we have the full conversation object to select.
+      const newConvo = conversations.find(c => c.id === newConvoId);
+      if (newConvo) {
+        setSelectedConversation(newConvo);
+      }
+
+    } catch (error) {
+      console.error("Error starting DM:", error);
+    }
+  }, [user, fetchConversations, conversations, setSelectedConversation]);
+
   return {
     conversations,
     messages,
@@ -204,5 +234,6 @@ export const useDirectMessages = (user: User | null) => {
     searchUsers,
     searchResults,
     searching,
+    startDmWithUser,
   };
 };

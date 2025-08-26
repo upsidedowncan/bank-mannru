@@ -38,6 +38,7 @@ interface MessageProps {
   openCardSelectionDialog: (messageId: string, amount: number) => void;
   claimingGift: string | null;
   onToggleReaction: (emoji: string) => void;
+  onStartDm: (userId: string) => void;
 }
 
 const Message: React.FC<MessageProps> = ({
@@ -61,8 +62,16 @@ const Message: React.FC<MessageProps> = ({
   openCardSelectionDialog,
   claimingGift,
   onToggleReaction,
+  onStartDm,
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+
+  const handleUserClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (user?.id !== message.user_id) {
+      onStartDm(message.user_id);
+    }
+  };
 
   const handleReactionClick = (event: React.MouseEvent<HTMLElement>) => {
     event.stopPropagation();
@@ -98,6 +107,7 @@ const Message: React.FC<MessageProps> = ({
       onClick={user?.id === message.user_id ? (e) => handleMessageMenuOpen(e, message) : undefined}
     >
       <Avatar
+        onClick={handleUserClick}
         sx={{
           width: isMobile ? 28 : 32,
           height: isMobile ? 28 : 32,
@@ -107,6 +117,7 @@ const Message: React.FC<MessageProps> = ({
             ? 'linear-gradient(45deg, #4CAF50, #2196F3)'
             : message.pfp_color,
           boxShadow: message.pfp_icon === 'Dev' ? '0 0 8px rgba(33, 150, 243, 0.6)' : 'none',
+          cursor: user?.id !== message.user_id ? 'pointer' : 'default',
         }}
       >
         {message.pfp_icon ? (() => {
@@ -119,7 +130,17 @@ const Message: React.FC<MessageProps> = ({
 
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Box display="flex" alignItems="center" gap={1} mb={isMobile ? 0.25 : 0.5} flexWrap="wrap">
-          <Typography variant={isMobile ? "body2" : "subtitle2"} sx={{ fontWeight: 'bold' }}>
+          <Typography
+            variant={isMobile ? "body2" : "subtitle2"}
+            sx={{
+              fontWeight: 'bold',
+              cursor: user?.id !== message.user_id ? 'pointer' : 'default',
+              '&:hover': {
+                textDecoration: user?.id !== message.user_id ? 'underline' : 'none',
+              }
+            }}
+            onClick={handleUserClick}
+          >
             {message.user_name}
           </Typography>
           <Typography variant="caption" color="text.secondary">

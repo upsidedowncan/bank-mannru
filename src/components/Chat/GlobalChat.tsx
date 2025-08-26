@@ -215,6 +215,7 @@ export const GlobalChat: React.FC = () => {
     searchUsers,
     searchResults,
     searching,
+    startDmWithUser,
   } = useDirectMessages(user);
 
   // Type guard to check if a chat is a channel
@@ -672,6 +673,7 @@ export const GlobalChat: React.FC = () => {
                   openCardSelectionDialog={openCardSelectionDialog}
                   claimingGift={claimingGift}
                   onToggleReaction={(emoji) => handleToggleReaction(message.id, emoji)}
+                  onStartDm={startDmWithUser}
                 />
               ))}
               <div ref={messagesEndRef} />
