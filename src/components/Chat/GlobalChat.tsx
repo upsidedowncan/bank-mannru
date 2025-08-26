@@ -606,7 +606,19 @@ export const GlobalChat: React.FC = () => {
   };
 
   const fetchUserCards = async () => {
-    // ... (omitted for brevity, no changes needed here)
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('bank_cards')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_active', true);
+      if (error) throw error;
+      setUserCards(data || []);
+    } catch (error) {
+      console.error("Error fetching user cards:", error);
+      showSnackbar('Не удалось загрузить ваши карты', 'error');
+    }
   };
 
   const openCardSelectionDialog = async (messageId: string, amount: number) => {
@@ -1035,7 +1047,7 @@ export const GlobalChat: React.FC = () => {
         </DialogTitle>
         <DialogContent>
           <Typography variant="body1" sx={{ mb: 2 }}>
-            Получите {cardSelectionDialog.amount} монет на выбранную карту:
+            Получите {cardSelectionDialog.amount} МР на выбранную карту:
           </Typography>
           
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
