@@ -63,6 +63,7 @@ import {
   Image as ImageIcon,
   VideoLibrary as VideoIcon,
   AddPhotoAlternate as AddPhotoIcon,
+  Add as AddIcon,
   CardGiftcard as GiftIcon,
   Money as MoneyIcon,
   Group as GroupIcon,
@@ -82,7 +83,9 @@ import { useAuthContext } from '../../contexts/AuthContext';
 import { ChatChannel, ChatMessage, UserChatSettings } from './types';
 import { useChatMessages } from './hooks/useChatMessages';
 import { useChatInput } from './hooks/useChatInput';
+import { useDirectMessages, Conversation, DirectMessage } from './hooks/useDirectMessages';
 import { useVoiceRecording } from './hooks/useVoiceRecording';
+import { NewDmDialog } from './molecules/NewDmDialog';
 import Message from './molecules/Message';
 
 const iconMapping: { [key: string]: React.ComponentType } = {
@@ -156,7 +159,7 @@ export const GlobalChat: React.FC = () => {
   
   // Core state
   const [channels, setChannels] = useState<ChatChannel[]>([]);
-  const [selectedChannel, setSelectedChannel] = useState<ChatChannel | null>(null);
+  const [selectedChat, setSelectedChat] = useState<ChatChannel | Conversation | null>(null);
   const [loading, setLoading] = useState(true);
   const [userSettings, setUserSettings] = useState<UserChatSettings | null>(null);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
@@ -198,6 +201,26 @@ export const GlobalChat: React.FC = () => {
     balance: number;
     currency: string;
   }>>([]);
+
+  const [newDmDialogOpen, setNewDmDialogOpen] = useState(false);
+
+  // Hook for DMs
+  const {
+    conversations: dmConversations,
+    messages: dmMessages,
+    selectedConversation,
+    setSelectedConversation,
+    sendMessage: sendDm,
+    fetchConversations,
+    searchUsers,
+    searchResults,
+    searching,
+  } = useDirectMessages(user);
+
+  // Type guard to check if a chat is a channel
+  const isChannel = (chat: any): chat is ChatChannel => {
+    return chat && 'is_active' in chat;
+  }
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -292,8 +315,8 @@ export const GlobalChat: React.FC = () => {
       setChannels(data || []);
       
         // Auto-select first channel if none selected
-      if (data && data.length > 0 && !selectedChannel) {
-        setSelectedChannel(data[0]);
+      if (data && data.length > 0 && !selectedChat) {
+        setSelectedChat(data[0]);
       }
     } catch (error) {
       console.error('Error fetching channels:', error);
@@ -301,17 +324,44 @@ export const GlobalChat: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [selectedChannel]);
+  }, [selectedChat]);
 
   useEffect(() => {
     fetchChannels();
   }, [fetchChannels]);
 
-  const { messages, setMessages } = useChatMessages(selectedChannel, showSnackbar);
+  const { messages: channelMessages, setMessages: setChannelMessages } = useChatMessages(isChannel(selectedChat) ? selectedChat : null, showSnackbar);
 
   const forceScrollToBottom = useCallback(() => {
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 100);
   }, []);
+
+  const messagesToDisplay = isChannel(selectedChat)
+    ? channelMessages
+    : dmMessages.map(dm => {
+        const chatMessage: ChatMessage = {
+          id: dm.id,
+          created_at: dm.created_at,
+          message: dm.content,
+          user_id: dm.sender_id,
+          user_name: dm.sender_name || 'User',
+          pfp_color: dm.pfp_color || '#1976d2',
+          pfp_icon: dm.pfp_icon || 'Person',
+          channel_id: '',
+          message_type: 'text',
+          reactions: [],
+          is_edited: false,
+          edited_at: null,
+          reply_to: undefined,
+          reply_to_message: undefined,
+          media_url: undefined,
+          media_type: undefined,
+          audio_url: undefined,
+          gift_amount: undefined,
+          gift_claimed_by: undefined,
+        };
+        return chatMessage;
+      });
 
   useEffect(() => {
     const container = chatContainerRef.current;
@@ -325,7 +375,7 @@ export const GlobalChat: React.FC = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
       }
     }
-  }, [messages]);
+  }, [messagesToDisplay]);
 
   const formatTime = useCallback((dateString: string) => {
     return new Date(dateString).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
@@ -405,7 +455,7 @@ export const GlobalChat: React.FC = () => {
     sendMediaMessage,
     setNewMessage,
     newMessageRef,
-  } = useChatInput(user, selectedChannel, isUserAdmin, showSnackbar, replyingTo, setReplyingTo, forceScrollToBottom);
+  } = useChatInput(user, isChannel(selectedChat) ? selectedChat : null, isUserAdmin, showSnackbar, replyingTo, setReplyingTo, forceScrollToBottom);
 
   const {
     isRecording,
@@ -417,7 +467,7 @@ export const GlobalChat: React.FC = () => {
     resumeRecording,
     stopRecording,
     cleanup: cleanupVoiceRecording,
-  } = useVoiceRecording(user, selectedChannel, isUserAdmin, showSnackbar);
+  } = useVoiceRecording(user, isChannel(selectedChat) ? selectedChat : null, isUserAdmin, showSnackbar);
 
   const handleKeyPress = useCallback((event: React.KeyboardEvent) => {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -467,8 +517,8 @@ export const GlobalChat: React.FC = () => {
   };
 
   const handleToggleReaction = async (messageId: string, emoji: string) => {
-    if (!user || !selectedChannel) return;
-    const message = messages.find(m => m.id === messageId);
+    if (!user || !isChannel(selectedChat)) return; // Only allow reactions in channels for now
+    const message = channelMessages.find(m => m.id === messageId);
     if (!message) return;
     const existingReaction = message.reactions?.find(r => r.emoji === emoji && r.user_id === user.id);
     if (existingReaction) {
@@ -478,7 +528,7 @@ export const GlobalChat: React.FC = () => {
         message_id: messageId,
         user_id: user.id,
         emoji: emoji,
-        channel_id: selectedChannel.id,
+        channel_id: selectedChat.id,
       });
     }
   };
@@ -501,9 +551,9 @@ export const GlobalChat: React.FC = () => {
       {channels.map((channel) => (
         <ListItem key={channel.id} disablePadding>
           <ListItemButton
-            selected={selectedChannel?.id === channel.id}
+            selected={selectedChat?.id === channel.id}
             onClick={() => {
-              setSelectedChannel(channel);
+              setSelectedChat(channel);
               if (isMobile) setMobileDrawerOpen(false);
             }}
           >
@@ -516,10 +566,46 @@ export const GlobalChat: React.FC = () => {
           </ListItemButton>
         </ListItem>
       ))}
+      <Divider sx={{ my: 2 }} />
+      <Typography variant="overline" sx={{ px: 2 }}>Direct Messages</Typography>
+      {dmConversations.map((convo) => {
+        const otherParticipant = convo.participants.find(p => p.user_id !== user?.id);
+        const IconComponent = getProfileIconComponent(otherParticipant?.pfp_icon || 'Person');
+        return (
+          <ListItem key={convo.id} disablePadding>
+            <ListItemButton
+              selected={selectedChat?.id === convo.id}
+              onClick={() => {
+                setSelectedChat(convo);
+                if (isMobile) setMobileDrawerOpen(false);
+              }}
+            >
+              <ListItemIcon>
+                <Avatar sx={{ width: 24, height: 24, bgcolor: otherParticipant?.pfp_color, fontSize: '0.8rem' }}>
+                  <IconComponent sx={{ fontSize: '1rem' }} />
+                </Avatar>
+              </ListItemIcon>
+              <ListItemText
+                primary={otherParticipant?.user_name || 'User'}
+                secondary={convo.last_message_content}
+                secondaryTypographyProps={{ noWrap: true, textOverflow: 'ellipsis' }}
+              />
+            </ListItemButton>
+          </ListItem>
+        );
+      })}
     </List>
   );
 
+  const handleSelectUser = (userId: string) => {
+    const content = prompt(`What is your message to ${userId}?`);
+    if (content) {
+      sendDm(userId, content);
+    }
+  };
+
   return (
+    <>
     <Box sx={{ display: 'flex', flex: 1, width: '100%', minHeight: 0 }}>
       {/* Channels Sidebar */}
       {isMobile ? (
@@ -530,14 +616,19 @@ export const GlobalChat: React.FC = () => {
           sx={{ '& .MuiDrawer-paper': { width: '80%', boxSizing: 'border-box' } }}
         >
           <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6">Каналы</Typography>
+            <Typography variant="h6">Чаты</Typography>
             <IconButton onClick={() => setMobileDrawerOpen(false)}><CloseIcon /></IconButton>
           </Box>
           {renderChannels()}
         </Drawer>
       ) : (
         <Box sx={{ width: 280, flexShrink: 0, borderRight: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
-          <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}><Typography variant="h6">Каналы</Typography></Box>
+          <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6">Чаты</Typography>
+            <IconButton onClick={() => setNewDmDialogOpen(true)}>
+              <AddIcon />
+            </IconButton>
+          </Box>
           {renderChannels()}
         </Box>
       )}
@@ -550,15 +641,15 @@ export const GlobalChat: React.FC = () => {
             {isMobile && (
               <IconButton onClick={() => setMobileDrawerOpen(true)}><MenuIcon /></IconButton>
             )}
-            <Typography variant="h6">{selectedChannel ? selectedChannel.name : 'Глобальный чат'}</Typography>
+            <Typography variant="h6">{selectedChat ? (isChannel(selectedChat) ? selectedChat.name : selectedChat.participants.find(p=>p.user_id !== user?.id)?.user_name || 'DM') : 'Глобальный чат'}</Typography>
           </Box>
         </Box>
 
-        {selectedChannel ? (
+        {selectedChat ? (
           <>
             {/* Messages */}
             <Box ref={chatContainerRef} sx={{ flex: 1, overflowY: 'auto', p: 2 }}>
-              {messages.map((message) => (
+              {messagesToDisplay.map((message) => (
                 <Message
                   key={message.id}
                   message={message}
@@ -617,11 +708,11 @@ export const GlobalChat: React.FC = () => {
                       onKeyPress={handleKeyPress}
                       multiline
                       maxRows={4}
-                      disabled={!selectedChannel || (selectedChannel.admin_only && !isAdmin)}
+                      disabled={!selectedChat || (isChannel(selectedChat) && selectedChat.admin_only && !isAdmin)}
                     />
-                    <IconButton component="label" htmlFor="media-upload" disabled={!selectedChannel}><AddPhotoIcon /></IconButton>
+                    <IconButton component="label" htmlFor="media-upload" disabled={!selectedChat}><AddPhotoIcon /></IconButton>
                     <input type="file" accept="image/*,video/*" onChange={handleFileSelect} style={{ display: 'none' }} id="media-upload" />
-                    <IconButton onClick={startRecording} disabled={!selectedChannel}><MicIcon /></IconButton>
+                    <IconButton onClick={startRecording} disabled={!selectedChat}><MicIcon /></IconButton>
                     <Button variant="contained" onClick={selectedFile ? sendMediaMessage : sendMessage} disabled={(!selectedFile && !newMessage.trim()) || sending || uploadingMedia}>
                       {sending || uploadingMedia ? <CircularProgress size={24} /> : <SendIcon />}
                     </Button>
@@ -632,7 +723,7 @@ export const GlobalChat: React.FC = () => {
           </>
         ) : (
           <Box display="flex" flex={1} justifyContent="center" alignItems="center">
-            <Typography variant="h6" color="textSecondary">Выберите канал для начала общения</Typography>
+            <Typography variant="h6" color="textSecondary">Выберите чат для начала общения</Typography>
           </Box>
         )}
       </Box>
@@ -649,13 +740,13 @@ export const GlobalChat: React.FC = () => {
           </ListItemIcon>
           Ответить
         </MenuItem>
-        <MenuItem onClick={handleEditFromMenu}>
+        <MenuItem onClick={handleEditFromMenu} disabled={!isChannel(selectedChat)}>
           <ListItemIcon>
             <EditIcon fontSize="small" />
           </ListItemIcon>
           Редактировать
         </MenuItem>
-        <MenuItem onClick={handleDeleteFromMenu}>
+        <MenuItem onClick={handleDeleteFromMenu} disabled={!isChannel(selectedChat)}>
           <ListItemIcon>
             <DeleteIcon fontSize="small" />
           </ListItemIcon>
@@ -664,7 +755,7 @@ export const GlobalChat: React.FC = () => {
       </Menu>
 
       {/* Mobile Floating Channel Button */}
-      {isMobile && selectedChannel && (
+      {isMobile && selectedChat && (
         <Box
           sx={{
             position: 'fixed',
@@ -779,5 +870,14 @@ export const GlobalChat: React.FC = () => {
         </DialogActions>
       </Dialog>
     </Box>
+    <NewDmDialog
+      open={newDmDialogOpen}
+      onClose={() => setNewDmDialogOpen(false)}
+      onSelectUser={handleSelectUser}
+      searchUsers={searchUsers}
+      searchResults={searchResults}
+      searching={searching}
+    />
+    </>
   );
 }; 
