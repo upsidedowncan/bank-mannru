@@ -299,30 +299,38 @@ export const GlobalChat: React.FC = () => {
     initializeUserSettings();
   }, [user]);
 
-  // Fetch channels function
-  const fetchChannels = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('chat_channels')
-        .select('*')
-        .eq('is_active', true)
-        .order('is_pinned', { ascending: false })
+  // Fetch initial data on mount
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('chat_channels')
+          .select('*')
+          .eq('is_active', true)
+          .order('is_pinned', { ascending: false })
           .order('created_at', { ascending: true });
 
-      if (error) throw error;
-      setChannels(data || []);
-      
-    } catch (error) {
-      console.error('Error fetching channels:', error);
-      setSnackbar({ open: true, message: 'Ошибка при загрузке каналов', severity: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+        if (error) throw error;
 
-  useEffect(() => {
-    fetchChannels();
-  }, [fetchChannels]);
+        const fetchedChannels = data || [];
+        setChannels(fetchedChannels);
+
+        if (fetchedChannels.length > 0) {
+          setSelectedChat(currentSelectedChat => {
+            return currentSelectedChat ? currentSelectedChat : fetchedChannels[0];
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching channels:', error);
+        showSnackbar('Ошибка при загрузке каналов', 'error');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchInitialData();
+  }, []); // Runs once on mount
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
 
