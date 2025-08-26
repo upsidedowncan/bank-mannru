@@ -9,7 +9,8 @@ export const useChatInput = (
   isUserAdmin: () => Promise<boolean>,
   showSnackbar: (message: string, severity: 'success' | 'error') => void,
   replyingTo: ChatMessage | null,
-  setReplyingTo: (message: ChatMessage | null) => void
+  setReplyingTo: (message: ChatMessage | null) => void,
+  onMessageSent: () => void
 ) => {
   const [newMessage, setNewMessage] = useState('');
   const newMessageRef = useRef('');
@@ -53,6 +54,7 @@ export const useChatInput = (
 
       if (error) throw error;
 
+      onMessageSent();
       setNewMessage('');
       newMessageRef.current = '';
       setReplyingTo(null);
@@ -62,9 +64,9 @@ export const useChatInput = (
     } finally {
       setSending(false);
     }
-  }, [user, selectedChannel, showSnackbar, sending, isUserAdmin, replyingTo, setReplyingTo]);
+  }, [user, selectedChannel, showSnackbar, sending, isUserAdmin, replyingTo, setReplyingTo, onMessageSent]);
 
-  const sendMediaMessage = async () => {
+  const sendMediaMessage = useCallback(async () => {
     if (!selectedFile || !user || !selectedChannel) return;
 
     if (selectedChannel.admin_only) {
@@ -108,6 +110,7 @@ export const useChatInput = (
 
       if (dbError) throw dbError;
 
+      onMessageSent();
       showSnackbar('Медиа отправлено!', 'success');
       setSelectedFile(null);
       setMediaPreview(null);
@@ -118,7 +121,7 @@ export const useChatInput = (
     } finally {
       setUploadingMedia(false);
     }
-  };
+  }, [selectedFile, user, selectedChannel, isUserAdmin, showSnackbar, onMessageSent, replyingTo, setReplyingTo, setSelectedFile, setMediaPreview]);
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;

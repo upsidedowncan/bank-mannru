@@ -104,19 +104,25 @@ export const useChatMessages = (
   }, [selectedChannel, showSnackbar]);
 
   useEffect(() => {
-    if (!selectedChannel) return;
+    if (!selectedChannel) {
+      setMessages([]);
+      return;
+    }
 
-    // Initial fetch
     fetchMessages();
 
-    // Set up polling to refresh messages every 2 seconds
-    const interval = setInterval(() => {
-      fetchMessages();
-    }, 2000); // 2 seconds
+    const channelSubscription = supabase
+      .channel(`chat:${selectedChannel.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_messages', filter: `channel_id=eq.${selectedChannel.id}` }, payload => {
+        fetchMessages();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'message_reactions', filter: `channel_id=eq.${selectedChannel.id}` }, payload => {
+        fetchMessages();
+      })
+      .subscribe();
 
-    // Clean up the interval on component unmount or when channel changes
     return () => {
-      clearInterval(interval);
+      supabase.removeChannel(channelSubscription);
     };
   }, [selectedChannel, fetchMessages]);
 

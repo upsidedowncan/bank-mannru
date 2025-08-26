@@ -309,23 +309,23 @@ export const GlobalChat: React.FC = () => {
 
   const { messages, setMessages } = useChatMessages(selectedChannel, showSnackbar);
 
-  const scrollToBottom = useCallback(() => {
-    setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
+  const forceScrollToBottom = useCallback(() => {
+    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 100);
   }, []);
 
-  const debouncedScrollToBottom = useRef<NodeJS.Timeout | null>(null);
-  const scrollToBottomDebounced = useCallback(() => {
-    if (debouncedScrollToBottom.current) {
-      clearTimeout(debouncedScrollToBottom.current);
-    }
-    debouncedScrollToBottom.current = setTimeout(scrollToBottom, 50);
-  }, [scrollToBottom]);
-
   useEffect(() => {
-    scrollToBottomDebounced();
-  }, [messages, scrollToBottomDebounced]);
+    const container = chatContainerRef.current;
+    if (container) {
+      // A threshold to avoid scrolling if the user has scrolled up significantly.
+      // We check if the user is within this threshold of the bottom.
+      const scrollThreshold = 200; // pixels
+      const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + scrollThreshold;
+
+      if (isAtBottom) {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }
+    }
+  }, [messages]);
 
   const formatTime = useCallback((dateString: string) => {
     return new Date(dateString).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
@@ -405,7 +405,7 @@ export const GlobalChat: React.FC = () => {
     sendMediaMessage,
     setNewMessage,
     newMessageRef,
-  } = useChatInput(user, selectedChannel, isUserAdmin, showSnackbar, replyingTo, setReplyingTo);
+  } = useChatInput(user, selectedChannel, isUserAdmin, showSnackbar, replyingTo, setReplyingTo, forceScrollToBottom);
 
   const {
     isRecording,
@@ -488,9 +488,6 @@ export const GlobalChat: React.FC = () => {
       cleanupVoiceRecording();
       if (currentAudio) {
         currentAudio.pause();
-      }
-      if (debouncedScrollToBottom.current) {
-        clearTimeout(debouncedScrollToBottom.current);
       }
     };
   }, [cleanupVoiceRecording, currentAudio]);
