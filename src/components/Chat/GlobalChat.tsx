@@ -554,9 +554,35 @@ export const GlobalChat: React.FC = () => {
     // ... (omitted for brevity, no changes needed here)
   };
 
-  const playAudio = (audioUrl: string, messageId: string) => {
-    // ... (omitted for brevity, no changes needed here)
-  };
+  const playAudio = useCallback((audioUrl: string, messageId: string) => {
+    if (currentAudio) {
+      currentAudio.pause();
+      if (isPlaying === messageId) {
+        setCurrentAudio(null);
+        setIsPlaying(null);
+        return;
+      }
+    }
+
+    const audio = new Audio(audioUrl);
+    setCurrentAudio(audio);
+    setIsPlaying(messageId);
+
+    audio.onloadedmetadata = () => {
+      setAudioDurations(prev => ({ ...prev, [messageId]: audio.duration }));
+    };
+
+    audio.ontimeupdate = () => {
+      setAudioProgress(prev => ({ ...prev, [messageId]: audio.currentTime }));
+    };
+
+    audio.onended = () => {
+      setIsPlaying(null);
+      setCurrentAudio(null);
+    };
+
+    audio.play();
+  }, [currentAudio, isPlaying]);
 
   const formatRecordingTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -584,11 +610,39 @@ export const GlobalChat: React.FC = () => {
   };
 
   const openCardSelectionDialog = async (messageId: string, amount: number) => {
-    // ... (omitted for brevity, no changes needed here)
+    await fetchUserCards();
+    setCardSelectionDialog({ open: true, messageId, amount });
   };
 
   const claimMoneyGift = async (messageId: string, amount: number, cardId: string) => {
-    // ... (omitted for brevity, no changes needed here)
+    if (!user) {
+      showSnackbar('Вам нужно войти в систему, чтобы получить подарок', 'error');
+      return;
+    }
+    setClaimingGift(messageId);
+    try {
+      const { error } = await supabase.rpc('claim_gift', {
+        message_id: messageId,
+        claiming_user_id: user.id,
+        target_card_id: cardId,
+      });
+
+      if (error) throw error;
+
+      showSnackbar(`Вы получили ${amount} монет!`, 'success');
+      setClaimedGifts(prev => new Set(prev).add(messageId));
+      setCardSelectionDialog({ open: false, messageId: null, amount: 0 });
+      // Manually update the message in the state to reflect it's been claimed
+      setMessages(prev => prev.map(m =>
+        m.id === messageId ? { ...m, gift_claimed_by: user.id } : m
+      ));
+
+    } catch (error: any) {
+      console.error("Error claiming gift:", error);
+      showSnackbar(error.message || 'Не удалось получить подарок', 'error');
+    } finally {
+      setClaimingGift(null);
+    }
   };
 
   const {
