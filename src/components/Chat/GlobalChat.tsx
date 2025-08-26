@@ -340,34 +340,108 @@ export const GlobalChat: React.FC = () => {
 
     const fetchAndSetMessages = async () => {
       if (isChannel(selectedChat)) {
-        // Fetch channel messages (logic moved from useChatMessages)
-        const { data } = await supabase
+        // This logic is restored from the original useChatMessages hook
+        const { data: messagesData, error: messagesError } = await supabase
           .from('chat_messages')
-          .select('*, reactions(*, user:user_chat_settings(chat_name))')
+          .select('*')
           .eq('channel_id', selectedChat.id)
           .order('created_at', { ascending: true });
-        setMessages(data || []);
+
+        if (messagesError) throw messagesError;
+        if (!messagesData) return;
+
+        const messageIds = messagesData.map(msg => msg.id);
+        const { data: reactionsData, error: reactionsError } = await supabase
+          .from('message_reactions')
+          .select('*')
+          .in('message_id', messageIds);
+
+        if (reactionsError) throw reactionsError;
+
+        const userIdsFromMessages = messagesData.map(msg => msg.user_id);
+        const userIdsFromReactions = reactionsData?.map(r => r.user_id) || [];
+        const allUserIds = Array.from(new Set([...userIdsFromMessages, ...userIdsFromReactions]));
+
+        const { data: userSettingsData } = await supabase
+          .from('user_chat_settings')
+          .select('user_id, chat_name, pfp_color, pfp_icon')
+          .in('user_id', allUserIds);
+
+        const settingsMap = new Map(userSettingsData?.map(s => [s.user_id, s]));
+
+        const reactionsByMessageId = new Map();
+        reactionsData?.forEach(reaction => {
+          const userSetting = settingsMap.get(reaction.user_id);
+          const reactionWithUser = {
+            ...reaction,
+            user_name: userSetting?.chat_name || `User ${reaction.user_id.slice(0, 8)}...`,
+          };
+          const existing = reactionsByMessageId.get(reaction.message_id) || [];
+          reactionsByMessageId.set(reaction.message_id, [...existing, reactionWithUser]);
+        });
+
+        const finalMessages = await Promise.all(
+          messagesData.map(async (msg) => {
+            const userSetting = settingsMap.get(msg.user_id);
+            let replyToMessage = null;
+            if (msg.reply_to) {
+              const { data: replyData } = await supabase
+                .from('chat_messages')
+                .select('id, message, user_id')
+                .eq('id', msg.reply_to)
+                .single();
+
+              if (replyData) {
+                const replyUserSetting = settingsMap.get(replyData.user_id);
+                replyToMessage = {
+                  ...replyData,
+                  user_name: replyUserSetting?.chat_name || `User ${replyData.user_id.slice(0, 8)}...`,
+                };
+              }
+            }
+            return {
+              ...msg,
+              user_name: userSetting?.chat_name || `User ${msg.user_id.slice(0, 8)}...`,
+              pfp_color: userSetting?.pfp_color || '#1976d2',
+              pfp_icon: userSetting?.pfp_icon || 'Person',
+              reply_to_message: replyToMessage,
+              reactions: reactionsByMessageId.get(msg.id) || [],
+            };
+          })
+        );
+        setMessages(finalMessages);
       } else {
         // Fetch DM messages
-        const { data } = await supabase
+        const { data: dms, error: dmsError } = await supabase
           .from('direct_messages')
           .select('*')
           .eq('conversation_id', selectedChat.id)
           .order('created_at', { ascending: true });
 
-        // Transform DMs to ChatMessage format
-        const transformed = data?.map(dm => {
+        if (dmsError) throw dmsError;
+        if (!dms) return;
+
+        const senderIds = Array.from(new Set(dms.map(dm => dm.sender_id)));
+        const { data: userSettingsData } = await supabase
+          .from('user_chat_settings')
+          .select('user_id, chat_name, pfp_color, pfp_icon')
+          .in('user_id', senderIds);
+
+        const settingsMap = new Map(userSettingsData?.map(s => [s.user_id, s]));
+
+        const finalMessages = dms.map(dm => {
+          const settings = settingsMap.get(dm.sender_id);
           const chatMessage: ChatMessage = {
             id: dm.id,
             created_at: dm.created_at,
             message: dm.content,
             user_id: dm.sender_id,
-            user_name: 'User', // This needs to be fetched
-            pfp_color: '#1976d2',
-            pfp_icon: 'Person',
-            channel_id: '',
+            user_name: settings?.chat_name || 'User',
+            pfp_color: settings?.pfp_color || '#1976d2',
+            pfp_icon: settings?.pfp_icon || 'Person',
+            channel_id: '', // Not applicable for DMs
             message_type: 'text',
-            reactions: [],
+            reactions: [], // DMs don't have reactions in this implementation
             is_edited: false,
             edited_at: null,
             reply_to: undefined,
@@ -379,8 +453,8 @@ export const GlobalChat: React.FC = () => {
             gift_claimed_by: undefined,
           };
           return chatMessage;
-        }) || [];
-        setMessages(transformed);
+        });
+        setMessages(finalMessages);
       }
       setLoading(false);
     };
