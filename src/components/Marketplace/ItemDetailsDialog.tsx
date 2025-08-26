@@ -36,6 +36,9 @@ import {
   CalendarToday,
   Person,
 } from '@mui/icons-material'
+import Slider from "react-slick";
+import "slick-carousel/slick/slick.css";
+import "slick-carousel/slick/slick-theme.css";
 import { useAuthContext } from '../../contexts/AuthContext'
 import { supabase } from '../../config/supabase'
 import { formatCurrency } from '../../utils/formatters'
@@ -329,23 +332,41 @@ export const ItemDetailsDialog: React.FC<ItemDetailsDialogProps> = ({
         <Box sx={{ display: 'grid', gap: 3 }}>
           {/* Item Images */}
           <Box>
-            {item.images && item.images.length > 0 ? (
-              <Box sx={{ display: 'flex', gap: 1, overflowX: 'auto', pb: 1 }}>
+            {item.images && item.images.length > 1 ? (
+              <Slider {...{
+                dots: true,
+                infinite: true,
+                speed: 500,
+                slidesToShow: 1,
+                slidesToScroll: 1,
+                adaptiveHeight: true
+              }}>
                 {item.images.map((image, index) => (
-                  <img
-                    key={index}
-                    src={image}
-                    alt={`${item.title} - фото ${index + 1}`}
-                    style={{
-                      width: '200px',
-                      height: '150px',
-                      objectFit: 'cover',
-                      borderRadius: '8px',
-                      flexShrink: 0,
-                    }}
-                  />
+                  <div key={index}>
+                    <img
+                      src={image}
+                      alt={`${item.title} - фото ${index + 1}`}
+                      style={{
+                        width: '100%',
+                        height: '400px', // A fixed height for the carousel
+                        objectFit: 'cover',
+                        borderRadius: '8px',
+                      }}
+                    />
+                  </div>
                 ))}
-              </Box>
+              </Slider>
+            ) : item.images && item.images.length === 1 ? (
+              <img
+                src={item.images[0]}
+                alt={item.title}
+                style={{
+                  width: '100%',
+                  maxHeight: '400px',
+                  objectFit: 'cover',
+                  borderRadius: '8px',
+                }}
+              />
             ) : (
               <Box sx={{ textAlign: 'center' }}>
                 <img
