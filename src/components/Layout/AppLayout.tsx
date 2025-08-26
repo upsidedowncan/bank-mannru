@@ -365,8 +365,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           flexGrow: 1,
           p: 0,
           width: { sm: `calc(100% - ${drawerWidth}px)` },
-          // Add top padding on mobile to account for the fixed header
-          pt: { xs: '64px', sm: 0 }, // 64px is the standard MUI AppBar height
+          pt: { xs: '64px', sm: 0 },
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
         {children || <Outlet />}

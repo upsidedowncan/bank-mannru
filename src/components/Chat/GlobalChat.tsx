@@ -520,7 +520,7 @@ export const GlobalChat: React.FC = () => {
   );
 
   return (
-    <Box sx={{ display: 'flex', height: '100%', width: '100%' }}>
+    <Box sx={{ display: 'flex', flex: 1, width: '100%', minHeight: 0 }}>
       {/* Channels Sidebar */}
       {isMobile ? (
         <Drawer
