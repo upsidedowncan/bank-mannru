@@ -210,6 +210,10 @@ export const GlobalChat: React.FC = () => {
     severity: 'success',
   });
 
+  const showSnackbar = (message: string, severity: 'success' | 'error') => {
+    setSnackbar({ open: true, message, severity });
+  };
+
   // Admin checking function
   const isUserAdmin = useCallback(async () => {
     if (!user) return false;
