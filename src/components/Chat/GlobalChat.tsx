@@ -911,405 +911,146 @@ export const GlobalChat: React.FC = () => {
     );
   }
 
+  const renderChannels = () => (
+    <List sx={{ flex: 1, overflow: 'auto', '&::-webkit-scrollbar': { display: 'none' }, scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+      {channels.map((channel) => (
+        <ListItem key={channel.id} disablePadding>
+          <ListItemButton
+            selected={selectedChannel?.id === channel.id}
+            onClick={() => {
+              setSelectedChannel(channel);
+              if (isMobile) setMobileDrawerOpen(false);
+            }}
+          >
+            <ListItemIcon>{getChannelIcon(channel.icon)}</ListItemIcon>
+            <ListItemText primary={channel.name} secondary={channel.description} />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              {channel.is_pinned && <PinIcon fontSize="small" />}
+              {channel.admin_only && <AdminIcon fontSize="small" color="error" />}
+            </Box>
+          </ListItemButton>
+        </ListItem>
+      ))}
+    </List>
+  );
+
   return (
-    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {/* Header */}
-      <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: { xs: 'none', md: 'block' } }}>
-        <Box display="flex" alignItems="center" gap={2}>
-          {isMobile && (
-            <IconButton onClick={() => setMobileDrawerOpen(true)}>
-              <MenuIcon />
-            </IconButton>
-          )}
-          <Typography variant="h6">Глобальный чат</Typography>
-        </Box>
-      </Box>
-
-            <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* Channels Sidebar */}
-        {isMobile ? (
-          <Drawer
-            variant="temporary"
-            open={mobileDrawerOpen}
-            onClose={() => setMobileDrawerOpen(false)}
-            sx={{
-              width: '100%',
-              '& .MuiDrawer-paper': {
-                width: '100%',
-                boxSizing: 'border-box',
-              },
-            }}
-          >
-      <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h6">Каналы</Typography>
-        <IconButton onClick={() => setMobileDrawerOpen(false)}>
-          <CloseIcon />
-        </IconButton>
-      </Box>
-            <List sx={{ 
-              flex: 1, 
-              overflow: 'auto',
-              '&::-webkit-scrollbar': {
-                display: 'none'
-              },
-        scrollbarWidth: 'none',
-              msOverflowStyle: 'none'
-      }}>
-          {channels.map((channel) => (
-            <ListItem key={channel.id} disablePadding>
-              <ListItemButton
-                selected={selectedChannel?.id === channel.id}
-                    onClick={() => {
-                      setSelectedChannel(channel);
-                      setMobileDrawerOpen(false);
-                    }}
-              >
-                <ListItemIcon>
-                  {getChannelIcon(channel.icon)}
-                </ListItemIcon>
-                <ListItemText 
-                      primary={channel.name}
-                  secondary={channel.description}
-                    />
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      {channel.is_pinned && <PinIcon fontSize="small" />}
-                      {channel.admin_only && <AdminIcon fontSize="small" color="error" />}
-                    </Box>
-              </ListItemButton>
-            </ListItem>
-          ))}
-        </List>
-          </Drawer>
-        ) : (
-          /* Desktop: Regular sidebar instead of drawer */
-          <Box sx={{ 
-            width: 240, 
-            flexShrink: 0, 
-            borderRight: 1, 
-            borderColor: 'divider',
-            display: 'flex',
-            flexDirection: 'column'
-          }}>
-            <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-              <Typography variant="h6">Каналы</Typography>
-      </Box>
-            <List sx={{ 
-              flex: 1, 
-              overflow: 'auto',
-              '&::-webkit-scrollbar': {
-                display: 'none'
-              },
-              scrollbarWidth: 'none',
-              msOverflowStyle: 'none'
-            }}>
-              {channels.map((channel) => (
-                <ListItem key={channel.id} disablePadding>
-                  <ListItemButton
-                    selected={selectedChannel?.id === channel.id}
-                    onClick={() => {
-                      setSelectedChannel(channel);
-                    }}
-                  >
-                    <ListItemIcon>
-                      {getChannelIcon(channel.icon)}
-                    </ListItemIcon>
-                    <ListItemText 
-                      primary={channel.name}
-                  secondary={channel.description}
-                />
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      {channel.is_pinned && <PinIcon fontSize="small" />}
-                      {channel.admin_only && <AdminIcon fontSize="small" color="error" />}
-    </Box>
-              </ListItemButton>
-            </ListItem>
-          ))}
-        </List>
-      </Box>
-        )}
-
-                {/* Chat Area */}
-        <Box sx={{ 
-          flex: 1, 
-          display: 'flex', 
-          flexDirection: 'column',
-        }}>
-      {selectedChannel ? (
-        <>
-
-
-                {/* Messages */}
-          <Box 
-            ref={chatContainerRef}
-            sx={{ 
-              flex: 1, 
-              overflowY: 'auto', 
-              p: isMobile ? 0.5 : 2,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: isMobile ? 0.5 : 1,
-              '&::-webkit-scrollbar': {
-                display: 'none'
-              },
-              scrollbarWidth: 'none',
-              msOverflowStyle: 'none'
-            }}
-          >
-            {messages.map((message) => (
-              <Message
-                key={message.id}
-                message={message}
-                isMobile={isMobile}
-                user={user}
-                editingMessage={editingMessage}
-                editText={editText}
-                setEditText={setEditText}
-                editMessage={editMessage}
-                setEditingMessage={setEditingMessage}
-                handleMessageMenuOpen={handleMessageMenuOpen}
-                getProfileIconComponent={getProfileIconComponent}
-                AnimatedDevIcon={AnimatedDevIcon}
-                formatTime={formatTime}
-                isPlaying={isPlaying}
-                playAudio={playAudio}
-                audioProgress={audioProgress}
-                audioDurations={audioDurations}
-                formatAudioTime={formatAudioTime}
-                openCardSelectionDialog={openCardSelectionDialog}
-                claimingGift={claimingGift}
-                onToggleReaction={(emoji) => handleToggleReaction(message.id, emoji)}
-              />
-            ))}
-            <div ref={messagesEndRef} />
+    <Box sx={{ display: 'flex', height: '100%', width: '100%' }}>
+      {/* Channels Sidebar */}
+      {isMobile ? (
+        <Drawer
+          variant="temporary"
+          open={mobileDrawerOpen}
+          onClose={() => setMobileDrawerOpen(false)}
+          sx={{ '& .MuiDrawer-paper': { width: '80%', boxSizing: 'border-box' } }}
+        >
+          <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6">Каналы</Typography>
+            <IconButton onClick={() => setMobileDrawerOpen(false)}><CloseIcon /></IconButton>
           </Box>
-
-              {/* Message Input */}
-          <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider', flexShrink: 0, position: 'sticky', bottom: 0, bgcolor: 'background.paper' }}>
-            {isRecording ? (
-                  <Box display="flex" alignItems="center" gap={2} flexDirection={isMobile ? 'column' : 'row'}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Box sx={{ 
-                    width: 12, 
-                    height: 12, 
-                    borderRadius: '50%', 
-                    bgcolor: 'red', 
-                    animation: 'pulse 1s infinite',
-                    '@keyframes pulse': {
-                      '0%': { opacity: 1 },
-                      '50%': { opacity: 0.5 },
-                      '100%': { opacity: 1 },
-                    },
-                  }} />
-                  <Typography variant="body2" color="text.secondary">
-                    {formatRecordingTime(recordingTime)}
-                  </Typography>
-                </Box>
-                
-                    {/* Waveform */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1, maxWidth: isMobile ? '100%' : 'auto' }}>
-                      {[8, 12, 15, 10, 18, 14, 9, 16, 11, 13, 7, 17, 12, 15, 10].map((height, i) => (
-                    <Box
-                      key={i}
-                      sx={{
-                            width: isMobile ? 1 : 2,
-                            height: isMobile ? height * 0.7 : height,
-                            bgcolor: isPaused ? 'text.disabled' : 'error.main',
-                        borderRadius: 1,
-                            animation: isPaused ? 'none' : 'waveform 0.8s ease-in-out infinite',
-                        animationDelay: `${i * 0.06}s`,
-                            '@keyframes waveform': {
-                              '0%, 100%': { height: isMobile ? height * 0.7 : height },
-                              '50%': { height: isMobile ? (height * 0.7) + 2 : height + 4 },
-                            },
-                      }}
-                    />
-                  ))}
-                </Box>
-                
-                    <Box display="flex" gap={1} flexWrap="wrap" justifyContent="center">
-                      <Button
-                        variant="contained"
-                        color={isPaused ? "primary" : "secondary"}
-                        onClick={isPaused ? resumeRecording : pauseRecording}
-                        startIcon={isPaused ? <PlayIcon /> : <PauseIcon />}
-                        size={isMobile ? 'small' : 'medium'}
-                      >
-                        {isPaused ? "Возобновить" : "Пауза"}
-                      </Button>
-                <Button
-                  variant="contained"
-                  color="error"
-                  onClick={stopRecording}
-                  startIcon={<StopIcon />}
-                        size={isMobile ? 'small' : 'medium'}
-                >
-                  Остановить
-                </Button>
-                    </Box>
-              </Box>
-            ) : (
-              <>
-                {/* Reply Indicator */}
-                {replyingTo && (
-                  <Box sx={{ 
-                    p: 1, 
-                    mb: 1, 
-                    bgcolor: 'action.hover', 
-                    borderRadius: 1, 
-                    border: 1, 
-                    borderColor: 'primary.main',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between'
-                  }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
-                      <ReplyIcon fontSize="small" color="primary" />
-                      <Typography variant="body2" color="primary">
-                        Ответ на сообщение от {replyingTo.user_name}:
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                        {replyingTo.message.length > 50 ? replyingTo.message.substring(0, 50) + '...' : replyingTo.message}
-                      </Typography>
-                    </Box>
-                    <IconButton size="small" onClick={handleCancelReply}>
-                      <CloseIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
-                )}
-                
-                {/* Media Preview */}
-                {mediaPreview && selectedFile && (
-                  <Box sx={{ 
-                    p: 1, 
-                    mb: 1, 
-                    bgcolor: 'action.hover', 
-                    borderRadius: 1, 
-                    border: 1, 
-                    borderColor: 'secondary.main',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between'
-                  }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
-                      {selectedFile.type.startsWith('image/') ? (
-                        <ImageIcon fontSize="small" color="secondary" />
-                      ) : (
-                        <VideoIcon fontSize="small" color="secondary" />
-                      )}
-                      <Typography variant="body2" color="secondary">
-                        {selectedFile.name}
-                      </Typography>
-                      {selectedFile.type.startsWith('image/') && (
-                        <Box
-                          component="img"
-                          src={mediaPreview}
-                          sx={{ 
-                            width: 40, 
-                            height: 40, 
-                            borderRadius: 1, 
-                            objectFit: 'cover' 
-                          }}
-                        />
-                      )}
-                    </Box>
-                    <IconButton size="small" onClick={handleCancelMedia}>
-                      <CloseIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
-                )}
-                
-                <Box display="flex" gap={1} alignItems="flex-end">
-                <TextField
-                  fullWidth
-                  placeholder={selectedChannel?.admin_only && !isAdmin ? "Только администраторы могут отправлять сообщения" : "Введите сообщение..."}
-                  value={newMessage}
-                  onChange={handleInputChange}
-                  onKeyPress={handleKeyPress}
-                  multiline
-                  maxRows={isMobile ? 2 : 3}
-                  disabled={sending || (selectedChannel?.admin_only && !isAdmin)}
-                  size={isMobile ? 'small' : 'medium'}
-                  InputProps={{
-                    endAdornment: (
-                      <IconButton
-                        component="label"
-                        htmlFor="media-upload"
-                        disabled={sending || uploadingMedia || (selectedChannel?.admin_only && !isAdmin)}
-                        size="small"
-                        sx={{ 
-                          color: 'action.active',
-                          '&:hover': { 
-                            color: 'primary.main',
-                            backgroundColor: 'action.hover'
-                          }
-                        }}
-                      >
-                        <AddPhotoIcon fontSize="small" />
-                      </IconButton>
-                    ),
-                  }}
-                />
-                <Box display="flex" gap={0.5} flexShrink={0}>
-                  {/* Hidden file input */}
-                  <input
-                    type="file"
-                    accept="image/*,video/*"
-                    onChange={handleFileSelect}
-                    style={{ display: 'none' }}
-                    id="media-upload"
-                  />
-                  
-                <Button
-                  variant="contained"
-                  onClick={startRecording}
-                    disabled={sending || uploadingMedia || isSendingVoice || (selectedChannel?.admin_only && !isAdmin)}
-                  sx={{ 
-                    bgcolor: 'primary.main', 
-                    color: 'white',
-                    minWidth: 'auto',
-                        width: isMobile ? '40px' : '56px',
-                        height: isMobile ? '40px' : '56px',
-                    borderRadius: '50%',
-                    px: 0,
-                    '&:hover': { bgcolor: 'primary.dark' }
-                  }}
-                >
-                      <MicIcon fontSize={isMobile ? 'small' : 'medium'} />
-                </Button>
-                <Button
-                  variant="contained"
-                  onClick={selectedFile ? sendMediaMessage : sendMessage}
-                  disabled={
-                    (selectedFile ? false : !newMessage.trim()) || 
-                    sending || 
-                    uploadingMedia || 
-                    isSendingVoice ||
-                    (selectedChannel?.admin_only && !isAdmin)
-                  }
-                    sx={{ 
-                      minWidth: 'auto', 
-                      width: isMobile ? '40px' : 'auto',
-                      height: isMobile ? '40px' : '56px',
-                      px: isMobile ? 0 : 2,
-                      borderRadius: isMobile ? '50%' : '4px'
-                    }}
-                  >
-                    {sending || uploadingMedia || isSendingVoice ? <CircularProgress size={isMobile ? 16 : 20} /> : <SendIcon fontSize={isMobile ? 'small' : 'medium'} />}
-                </Button>
-              </Box>
-              </Box>
-              </>
-            )}
-          </Box>
-        </>
+          {renderChannels()}
+        </Drawer>
       ) : (
-        <Box display="flex" justifyContent="center" alignItems="center" height="100%">
-          <Typography variant="h6" color="textSecondary">
-            Выберите канал для начала общения
-          </Typography>
+        <Box sx={{ width: 280, flexShrink: 0, borderRight: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
+          <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}><Typography variant="h6">Каналы</Typography></Box>
+          {renderChannels()}
         </Box>
       )}
-    </Box>
+
+      {/* Main Chat Area */}
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        {/* Header */}
+        <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {isMobile && (
+              <IconButton onClick={() => setMobileDrawerOpen(true)}><MenuIcon /></IconButton>
+            )}
+            <Typography variant="h6">{selectedChannel ? selectedChannel.name : 'Глобальный чат'}</Typography>
+          </Box>
+        </Box>
+
+        {selectedChannel ? (
+          <>
+            {/* Messages */}
+            <Box ref={chatContainerRef} sx={{ flex: 1, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {messages.map((message) => (
+                <Message
+                  key={message.id}
+                  message={message}
+                  isMobile={isMobile}
+                  user={user}
+                  editingMessage={editingMessage}
+                  editText={editText}
+                  setEditText={setEditText}
+                  editMessage={editMessage}
+                  setEditingMessage={setEditingMessage}
+                  handleMessageMenuOpen={handleMessageMenuOpen}
+                  getProfileIconComponent={getProfileIconComponent}
+                  AnimatedDevIcon={AnimatedDevIcon}
+                  formatTime={formatTime}
+                  isPlaying={isPlaying}
+                  playAudio={playAudio}
+                  audioProgress={audioProgress}
+                  audioDurations={audioDurations}
+                  formatAudioTime={formatAudioTime}
+                  openCardSelectionDialog={openCardSelectionDialog}
+                  claimingGift={claimingGift}
+                  onToggleReaction={(emoji) => handleToggleReaction(message.id, emoji)}
+                />
+              ))}
+              <div ref={messagesEndRef} />
+            </Box>
+
+            {/* Message Input */}
+            <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider', bgcolor: 'background.paper', flexShrink: 0 }}>
+              {isRecording ? (
+                <Box display="flex" alignItems="center" gap={2}>
+                  {/* Recording UI */}
+                  <Typography variant="body2" color="text.secondary">{formatRecordingTime(recordingTime)}</Typography>
+                  <Button onClick={isPaused ? resumeRecording : pauseRecording}>{isPaused ? "Resume" : "Pause"}</Button>
+                  <Button onClick={stopRecording}>Stop</Button>
+                </Box>
+              ) : (
+                <>
+                  {replyingTo && (
+                    <Box sx={{ p: 1, mb: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
+                      <Typography variant="body2">Replying to {replyingTo.user_name}</Typography>
+                      <IconButton size="small" onClick={handleCancelReply}><CloseIcon fontSize="small" /></IconButton>
+                    </Box>
+                  )}
+                  {mediaPreview && (
+                     <Box sx={{ p: 1, mb: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
+                      <Typography variant="body2">Attachment: {selectedFile?.name}</Typography>
+                      <IconButton size="small" onClick={handleCancelMedia}><CloseIcon fontSize="small" /></IconButton>
+                    </Box>
+                  )}
+                  <Box display="flex" gap={1}>
+                    <TextField
+                      fullWidth
+                      placeholder="Введите сообщение..."
+                      value={newMessage}
+                      onChange={handleInputChange}
+                      onKeyPress={handleKeyPress}
+                      multiline
+                      maxRows={4}
+                      disabled={!selectedChannel || (selectedChannel.admin_only && !isAdmin)}
+                    />
+                    <IconButton component="label" htmlFor="media-upload" disabled={!selectedChannel}><AddPhotoIcon /></IconButton>
+                    <input type="file" accept="image/*,video/*" onChange={handleFileSelect} style={{ display: 'none' }} id="media-upload" />
+                    <IconButton onClick={startRecording} disabled={!selectedChannel}><MicIcon /></IconButton>
+                    <Button variant="contained" onClick={selectedFile ? sendMediaMessage : sendMessage} disabled={(!selectedFile && !newMessage.trim()) || sending || uploadingMedia}>
+                      {sending || uploadingMedia ? <CircularProgress size={24} /> : <SendIcon />}
+                    </Button>
+                  </Box>
+                </>
+              )}
+            </Box>
+          </>
+        ) : (
+          <Box display="flex" flex={1} justifyContent="center" alignItems="center">
+            <Typography variant="h6" color="textSecondary">Выберите канал для начала общения</Typography>
+          </Box>
+        )}
       </Box>
       
       {/* Message Menu */}
