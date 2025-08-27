@@ -637,20 +637,58 @@ export const GlobalChat: React.FC = () => {
     }
     setClaimingGift(messageId);
     try {
-      const { error } = await supabase.rpc('claim_gift', {
-        message_id: messageId,
-        claiming_user_id: user.id,
-        target_card_id: cardId,
-      });
+      // Step 1: Atomically claim the gift
+      const { data: updatedMessage, error: claimError } = await supabase
+        .from('chat_messages')
+        .update({
+          gift_claimed_by: user.id,
+          gift_claimed_at: new Date().toISOString(),
+        })
+        .eq('id', messageId)
+        .is('gift_claimed_by', null)
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (claimError || !updatedMessage) {
+        throw new Error('Подарок уже кто-то получил или произошла ошибка.');
+      }
 
+      // Step 2: Update the user's card balance
+      const { data: card, error: cardError } = await supabase
+        .from('bank_cards')
+        .select('balance')
+        .eq('id', cardId)
+        .single();
+
+      if (cardError) throw cardError;
+
+      const newBalance = (card.balance || 0) + amount;
+
+      const { error: updateBalanceError } = await supabase
+        .from('bank_cards')
+        .update({ balance: newBalance })
+        .eq('id', cardId);
+
+      if (updateBalanceError) {
+        // If updating the balance fails, roll back the gift claim,
+        // but only if this user was the one who claimed it.
+        await supabase
+          .from('chat_messages')
+          .update({
+            gift_claimed_by: null,
+            gift_claimed_at: null,
+          })
+          .eq('id', messageId)
+          .eq('gift_claimed_by', user.id);
+        throw new Error('Не удалось обновить баланс. Подарок не был получен.');
+      }
+
+      // If everything is successful
       showSnackbar(`Вы получили ${amount} монет!`, 'success');
       setClaimedGifts(prev => new Set(prev).add(messageId));
       setCardSelectionDialog({ open: false, messageId: null, amount: 0 });
-      // Manually update the message in the state to reflect it's been claimed
       setMessages(prev => prev.map(m =>
-        m.id === messageId ? { ...m, gift_claimed_by: user.id } : m
+        m.id === messageId ? { ...m, gift_claimed_by: user.id, gift_claimed_at: updatedMessage.gift_claimed_at } : m
       ));
 
     } catch (error: any) {
