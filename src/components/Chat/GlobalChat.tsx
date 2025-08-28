@@ -625,7 +625,31 @@ export const GlobalChat: React.FC = () => {
   };
 
   const sendMoneyGift = async (amount: number) => {
-    // ... (omitted for brevity, no changes needed here)
+    if (!user) {
+      showSnackbar('Вам нужно войти в систему, чтобы отправить подарок', 'error');
+      return;
+    }
+    if (!selectedChat || !isChannel(selectedChat)) {
+      showSnackbar('Подарки можно отправлять только в каналы.', 'error');
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from('chat_messages').insert({
+        channel_id: selectedChat.id,
+        user_id: user.id,
+        message: `Отправил подарок в размере ${amount} монет!`,
+        message_type: 'money_gift',
+        gift_amount: amount,
+      });
+
+      if (error) throw error;
+
+      showSnackbar('Подарок успешно отправлен!', 'success');
+    } catch (error) {
+      console.error('Error sending money gift:', error);
+      showSnackbar('Не удалось отправить подарок.', 'error');
+    }
   };
 
   const fetchUserCards = async () => {
