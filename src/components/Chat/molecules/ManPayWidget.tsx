@@ -9,25 +9,33 @@ const gradientAnimation = keyframes`
   100% { background-position: 0% 50%; }
 `;
 
-const spin3D = keyframes`
-  from {
-    transform: rotateY(0deg);
-  }
-  to {
-    transform: rotateY(360deg);
-  }
-`;
+const AnimatedGradientText = styled(Typography)(({ theme }) => {
+  const spin3D = keyframes`
+    0% {
+      transform: rotate3d(0.5, 1, 0.2, 0deg);
+      text-shadow: 0 0 2px #fff, 0 0 8px #fff, 0 0 12px ${theme.palette.primary.main};
+    }
+    50% {
+      transform: rotate3d(0.5, 1, 0.2, 180deg);
+      text-shadow: 0 0 2px #fff, 0 0 8px #fff, 0 0 12px ${theme.palette.secondary.main};
+    }
+    100% {
+      transform: rotate3d(0.5, 1, 0.2, 360deg);
+      text-shadow: 0 0 2px #fff, 0 0 8px #fff, 0 0 12px ${theme.palette.primary.main};
+    }
+  `;
 
-const AnimatedGradientText = styled(Typography)(({ theme }) => ({
-  background: `linear-gradient(45deg, ${theme.palette.success.main}, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-  backgroundSize: '200% 200%',
-  WebkitBackgroundClip: 'text',
-  WebkitTextFillColor: 'transparent',
-  animation: `${gradientAnimation} 3s ease infinite, ${spin3D} 4s linear infinite`,
-  fontWeight: 'bold',
-  transformStyle: 'preserve-3d',
-  display: 'inline-block',
-}));
+  return {
+    background: `linear-gradient(45deg, ${theme.palette.success.main}, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+    backgroundSize: '200% 200%',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+    animation: `${gradientAnimation} 3s ease infinite, ${spin3D} 5s ease-in-out infinite`,
+    fontWeight: 'bold',
+    transformStyle: 'preserve-3d',
+    display: 'inline-block',
+  };
+});
 
 interface ManPayWidgetProps {
   amount: number;
