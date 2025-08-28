@@ -42,7 +42,7 @@ export const useVoiceRecording = (
       console.error('Error starting recording:', error);
       showSnackbar('Ошибка при записи голоса', 'error');
     }
-  }, [sendVoiceMessage, showSnackbar]);
+  }, [onRecordingComplete, showSnackbar]);
 
   const pauseRecording = useCallback(() => {
     if (mediaRecorder && isRecording && !isPaused) {
