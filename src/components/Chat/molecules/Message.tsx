@@ -33,7 +33,6 @@ interface MessageProps {
   isPlaying: string | null;
   playAudio: (audioUrl: string, messageId: string) => void;
   audioProgress: { [key: string]: number };
-  audioDurations: { [key: string]: number };
   formatAudioTime: (seconds: number) => string;
   openCardSelectionDialog: (messageId: string, amount: number) => void;
   claimingGift: string | null;
