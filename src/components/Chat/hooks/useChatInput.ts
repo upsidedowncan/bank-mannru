@@ -64,7 +64,7 @@ export const useChatInput = (
     } finally {
       setSending(false);
     }
-  }, [user, selectedChannel, newMessage, showSnackbar, sending, isUserAdmin, replyingTo, setReplyingTo, onMessageSent]);
+  }, [user, selectedChannel, newMessage, showSnackbar, sending, isUserAdmin, replyingTo, setReplyingTo, onMessageSent, handleCommand]);
 
   const sendMediaMessage = useCallback(async () => {
     if (!selectedFile || !user || !selectedChannel) return;

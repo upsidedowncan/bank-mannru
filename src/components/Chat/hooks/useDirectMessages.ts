@@ -142,12 +142,47 @@ export const useDirectMessages = (user: User | null) => {
     if (!user) return;
 
     try {
-      // Step 1: Get or create the conversation
-      const { data: conversationData, error: convoError } = await supabase.rpc('get_or_create_conversation', {
-        receiver_id: receiverId,
-      });
-      if (convoError) throw convoError;
-      const conversationId = conversationData;
+      // Step 1: Find an existing conversation between the two users.
+      const { data: userConvos, error: userConvosError } = await supabase
+        .from('conversation_participants')
+        .select('conversation_id')
+        .eq('user_id', user.id);
+
+      if (userConvosError) throw userConvosError;
+
+      const { data: receiverConvos, error: receiverConvosError } = await supabase
+        .from('conversation_participants')
+        .select('conversation_id')
+        .eq('user_id', receiverId);
+
+      if (receiverConvosError) throw receiverConvosError;
+
+      const userConvoIds = new Set(userConvos.map(c => c.conversation_id));
+      const commonConvo = receiverConvos.find(c => userConvoIds.has(c.conversation_id));
+
+      let conversationId: string;
+
+      if (commonConvo) {
+        conversationId = commonConvo.conversation_id;
+      } else {
+        // Step 2: If no conversation exists, create a new one.
+        const { data: new_convo, error: create_convo_error } = await supabase
+          .from('conversations')
+          .insert({})
+          .select()
+          .single();
+        if (create_convo_error) throw create_convo_error;
+        conversationId = new_convo.id;
+
+        // Step 3: Add both users to the conversation.
+        const { error: participants_error } = await supabase
+          .from('conversation_participants')
+          .insert([
+            { conversation_id: conversationId, user_id: user.id },
+            { conversation_id: conversationId, user_id: receiverId },
+          ]);
+        if (participants_error) throw participants_error;
+      }
 
       let mediaUrl: string | null = null;
       let mediaType: string | null = null;

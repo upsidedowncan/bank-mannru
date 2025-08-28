@@ -445,12 +445,12 @@ export const GlobalChat: React.FC = () => {
         const finalMessages = await Promise.all(
           dms.map(async (dm) => {
             const settings = settingsMap.get(dm.sender_id);
-            let replyToMessage = null;
+            let replyToMessage: ChatMessage | undefined = undefined;
             if (dm.reply_to) {
               // In DMs, we need to fetch the replied-to message from direct_messages table
               const { data: replyData } = await supabase
                 .from('direct_messages')
-                .select('id, content, sender_id')
+                .select('id, content, sender_id, created_at, message_type, media_url, media_type')
                 .eq('id', dm.reply_to)
                 .single();
 
@@ -461,6 +461,15 @@ export const GlobalChat: React.FC = () => {
                   message: replyData.content,
                   user_id: replyData.sender_id,
                   user_name: replyUserSetting?.chat_name || `User ${replyData.sender_id.slice(0, 8)}...`,
+                  pfp_color: replyUserSetting?.pfp_color,
+                  pfp_icon: replyUserSetting?.pfp_icon,
+                  created_at: replyData.created_at,
+                  message_type: replyData.message_type,
+                  media_url: replyData.media_url,
+                  media_type: replyData.media_type,
+                  channel_id: '',
+                  is_edited: false,
+                  edited_at: null,
                 };
               }
             }
@@ -851,7 +860,7 @@ export const GlobalChat: React.FC = () => {
       // Direct Message
       const receiver = selectedChat.participants.find(p => p.user_id !== user.id);
       if (receiver) {
-        sendMessage(receiver.user_id, text, file, replyId);
+        sendDm(receiver.user_id, text, file, replyId);
       }
     }
 
@@ -862,7 +871,7 @@ export const GlobalChat: React.FC = () => {
       handleCancelMedia();
     }
 
-  }, [selectedChat, user, selectedFile, newMessage, replyingTo, isChannel, sendMediaMessage, sendMessage, handleCancelMedia, setNewMessage, setReplyingTo]);
+  }, [selectedChat, user, selectedFile, newMessage, replyingTo, isChannel, sendMediaMessage, sendMessage, sendDm, handleCancelMedia, setNewMessage, setReplyingTo]);
 
   const handleKeyPress = useCallback((event: React.KeyboardEvent) => {
     if (event.key === 'Enter' && !event.shiftKey) {
