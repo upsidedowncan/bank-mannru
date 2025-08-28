@@ -56,7 +56,6 @@ const Message: React.FC<MessageProps> = ({
   isPlaying,
   playAudio,
   audioProgress,
-  audioDurations,
   formatAudioTime,
   openCardSelectionDialog,
   claimingGift,
