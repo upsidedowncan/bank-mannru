@@ -63,6 +63,7 @@ const Message: React.FC<MessageProps> = ({
   claimingGift,
   onToggleReaction,
   onStartDm,
+  participants,
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
