@@ -711,7 +711,6 @@ export const GlobalChat: React.FC = () => {
     handleCancelMedia,
     sendMediaMessage,
     setNewMessage,
-    newMessageRef,
   } = useChatInput(user, isChannel(selectedChat) ? selectedChat : null, isUserAdmin, showSnackbar, replyingTo, setReplyingTo, forceScrollToBottom);
 
   const {
