@@ -1,38 +1,65 @@
 import React from 'react';
 import { Box, Typography, Paper } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
-import { Money as MoneyIcon, CheckCircle as CheckCircleIcon } from '@mui/icons-material';
+import { useInView } from 'react-intersection-observer';
 
-const gradientAnimation = keyframes`
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+// --- Keyframe Animations (using only transform and opacity for performance) ---
+const subtleFadeInUp = keyframes`
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 `;
 
-const AnimatedGradientText = styled(Typography)(({ theme }) => {
-  const gentleFlip = keyframes`
-    0% {
-      transform: rotateY(0deg);
-    }
-    50% {
-      transform: rotateY(20deg);
-    }
-    100% {
-      transform: rotateY(0deg);
-    }
-  `;
+// --- Styled Components (Optimized for Performance) ---
+const StyledPaper = styled(Paper, {
+  shouldForwardProp: (prop) => prop !== 'isInView',
+})<{ isInView: boolean }>(({ theme, isInView }) => ({
+  fontFamily: "'Inter', sans-serif", // Assuming Inter is loaded in your index.html
+  width: 'fit-content',
+  minWidth: '240px',
+  padding: '14px 18px',
+  borderRadius: '20px',
+  backgroundColor: '#1C1C1E', // A dark, modern background
+  color: '#FFFFFF',
+  // Conditional animation based on visibility
+  animation: isInView
+    ? `${subtleFadeInUp} 0.7s cubic-bezier(0.33, 1, 0.68, 1) forwards`
+    : 'none',
+  opacity: 0, // Start as invisible
+  transition: 'background-color 0.3s ease',
 
-  return {
-    background: `linear-gradient(45deg, ${theme.palette.success.main}, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-    backgroundSize: '200% 200%',
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent',
-    animation: `${gradientAnimation} 4s ease infinite, ${gentleFlip} 6s ease-in-out infinite`,
-    fontWeight: 'bold',
-    transformStyle: 'preserve-3d',
-    display: 'inline-block',
-  };
+  '&:hover': {
+    backgroundColor: '#2C2C2E',
+  },
+}));
+
+const Header = styled(Typography)({
+  fontWeight: 500,
+  fontSize: '0.9rem',
+  color: '#8E8E93', // Softer color for secondary text
+  marginBottom: '12px',
 });
+
+const Amount = styled(Typography)({
+  fontWeight: 700,
+  fontSize: '2.2rem',
+  lineHeight: 1.2,
+  color: '#FFFFFF',
+});
+
+const Status = styled(Typography)({
+  fontWeight: 500,
+  fontSize: '0.85rem',
+  color: '#34C759', // Apple's green for success
+  marginTop: '12px',
+});
+
+// --- Widget Component ---
 
 interface ManPayWidgetProps {
   amount: number;
@@ -41,44 +68,32 @@ interface ManPayWidgetProps {
   isSender: boolean;
 }
 
-export const ManPayWidget: React.FC<ManPayWidgetProps> = ({ amount, senderName, receiverName, isSender }) => {
+const ManPayWidget: React.FC<ManPayWidgetProps> = ({
+  amount,
+  senderName,
+  receiverName,
+  isSender,
+}) => {
+  // This hook triggers the animation only when the widget is in the viewport
+  const { ref, inView } = useInView({
+    triggerOnce: true, // Only animate once
+    threshold: 0.1, // Trigger when 10% of the element is visible
+  });
+
   return (
-    <Paper
-      elevation={3}
-      sx={{
-        p: 2,
-        borderRadius: 2,
-        maxWidth: 320,
-        background: 'linear-gradient(135deg, #2a2d3d 0%, #1f212e 100%)',
-        border: '1px solid',
-        borderColor: 'primary.main',
-        color: 'white',
-        perspective: '1000px',
-      }}
-    >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
-        <MoneyIcon sx={{ color: 'primary.light' }} />
-        <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-          ManPay
-        </Typography>
-      </Box>
-      <Box sx={{ my: 2, textAlign: 'center' }}>
-        <Typography variant="body2" sx={{ color: 'grey.400' }}>
-          {isSender ? 'Вы отправили' : `${senderName} отправил(а)`}
-        </Typography>
-        <AnimatedGradientText variant="h4">
-          {amount} МР
-        </AnimatedGradientText>
-        <Typography variant="body2" sx={{ color: 'grey.400' }}>
-          {isSender ? `кому ${receiverName}` : 'вам'}
-        </Typography>
-      </Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, color: 'success.main' }}>
-        <CheckCircleIcon fontSize="small" />
-        <Typography variant="caption">
-          Завершено
-        </Typography>
-      </Box>
-    </Paper>
+    <StyledPaper ref={ref} elevation={0} isInView={inView}>
+      <Header>
+        {isSender ? `Вы отправили ${receiverName}` : `${senderName} отправил(а) вам`}
+      </Header>
+      <Amount>
+        {amount} ₽
+      </Amount>
+      <Status>
+        Доставлено
+      </Status>
+    </StyledPaper>
   );
 };
+
+// Wrap the component with React.memo for performance optimization
+export default React.memo(ManPayWidget);
