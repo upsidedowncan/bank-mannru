@@ -83,7 +83,7 @@ import {
 } from '@mui/icons-material';
 import { supabase } from '../../config/supabase';
 import { useAuthContext } from '../../contexts/AuthContext';
-import { ChatChannel, ChatMessage, UserChatSettings } from './types';
+import { ChatChannel, ChatMessage, UserChatSettings, MessageReaction } from './types';
 import { useChatInput } from './hooks/useChatInput';
 import { useDirectMessages, Conversation, DirectMessage } from './hooks/useDirectMessages';
 import { useVoiceRecording } from './hooks/useVoiceRecording';
