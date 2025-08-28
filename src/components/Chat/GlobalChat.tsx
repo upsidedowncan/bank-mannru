@@ -88,6 +88,7 @@ import { useChatInput } from './hooks/useChatInput';
 import { useDirectMessages, Conversation, DirectMessage } from './hooks/useDirectMessages';
 import { useVoiceRecording } from './hooks/useVoiceRecording';
 import { NewDmDialog } from './molecules/NewDmDialog';
+import { ManPayDialog } from './molecules/ManPayDialog';
 import Message from './molecules/Message';
 
 const iconMapping: { [key: string]: React.ComponentType } = {
@@ -205,6 +206,7 @@ export const GlobalChat: React.FC = () => {
   const [selectedCardIdForGift, setSelectedCardIdForGift] = useState<string>('');
 
   const [newDmDialogOpen, setNewDmDialogOpen] = useState(false);
+  const [manPayDialogOpen, setManPayDialogOpen] = useState(false);
 
   // Hook for DMs
   const {
@@ -1083,6 +1085,44 @@ export const GlobalChat: React.FC = () => {
     }
   };
 
+  const handleSendManPay = async (amount: number) => {
+    if (!user || !selectedChat || isChannel(selectedChat)) return;
+    const receiver = selectedChat.participants.find(p => p.user_id !== user.id);
+    if (!receiver) return;
+
+    try {
+      const { data, error } = await supabase.rpc('handle_manpay_transaction', {
+        sender_id_in: user.id,
+        receiver_id_in: receiver.user_id,
+        amount_in: amount,
+      });
+
+      if (error) throw new Error(error.message);
+      if (!data) throw new Error('Transaction failed for an unknown reason.');
+
+      // If transaction is successful, send a message
+      const manpayData = {
+        manpay_amount: amount,
+        manpay_sender_id: user.id,
+        manpay_receiver_id: receiver.user_id,
+        manpay_status: 'complete',
+      };
+      await sendDm(
+        receiver.user_id,
+        `Sent ${amount} МР`, // This is the content of the message
+        null, // No file
+        null, // No reply
+        null, // No voice blob
+        null, // No voice duration
+        manpayData
+      );
+      showSnackbar('ManPay transfer successful!', 'success');
+    } catch (error: any) {
+      console.error('ManPay Error:', error);
+      showSnackbar(error.message || 'ManPay transfer failed.', 'error');
+    }
+  };
+
   return (
     <>
     <Box sx={{ display: 'flex', flex: 1, width: '100%', minHeight: 0 }}>
@@ -1151,6 +1191,7 @@ export const GlobalChat: React.FC = () => {
                   claimingGift={claimingGift}
                   onToggleReaction={(emoji) => handleToggleReaction(message.id, emoji)}
                   onStartDm={startDmWithUser}
+                  participants={isChannel(selectedChat) ? [] : selectedChat.participants}
                 />
               ))}
               <div ref={messagesEndRef} />
@@ -1191,6 +1232,11 @@ export const GlobalChat: React.FC = () => {
                     />
                     <IconButton component="label" htmlFor="media-upload" disabled={!selectedChat}><AddPhotoIcon /></IconButton>
                     <input type="file" accept="image/*,video/*" onChange={handleFileSelect} style={{ display: 'none' }} id="media-upload" />
+                    {!isChannel(selectedChat) && (
+                      <IconButton onClick={() => setManPayDialogOpen(true)} disabled={!selectedChat}>
+                        <MoneyIcon />
+                      </IconButton>
+                    )}
                     <IconButton onClick={startRecording} disabled={!selectedChat}><MicIcon /></IconButton>
                     <Button variant="contained" onClick={handleSend} disabled={(!selectedFile && !newMessage.trim()) || sending || uploadingMedia}>
                       {sending || uploadingMedia ? <CircularProgress size={24} /> : <SendIcon />}
@@ -1337,6 +1383,14 @@ export const GlobalChat: React.FC = () => {
       searchResults={searchResults}
       searching={searching}
     />
+    {selectedChat && !isChannel(selectedChat) && (
+      <ManPayDialog
+        open={manPayDialogOpen}
+        onClose={() => setManPayDialogOpen(false)}
+        onSend={handleSendManPay}
+        receiverName={selectedChat.participants.find(p => p.user_id !== user?.id)?.user_name || 'user'}
+      />
+    )}
     </>
   );
 }; 

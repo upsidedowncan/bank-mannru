@@ -26,6 +26,10 @@ export interface DirectMessage {
   audio_url?: string;
   audio_duration?: number;
   reply_to?: string;
+  manpay_amount?: number;
+  manpay_sender_id?: string;
+  manpay_receiver_id?: string;
+  manpay_status?: string;
   // Joined from user_chat_settings
   sender_name?: string;
   pfp_icon?: string;
@@ -141,7 +145,8 @@ export const useDirectMessages = (user: User | null) => {
     file?: File | null,
     replyToId?: string | null,
     voiceBlob?: Blob | null,
-    voiceDuration?: number | null
+    voiceDuration?: number | null,
+    manpayData?: { [key: string]: any } | null
   ) => {
     if (!user) return;
 
@@ -187,6 +192,7 @@ export const useDirectMessages = (user: User | null) => {
         sender_id: user.id,
         content: content,
         reply_to: replyToId,
+        ...manpayData, // Spread manpay data here
       };
 
       if (file) {
@@ -214,7 +220,10 @@ export const useDirectMessages = (user: User | null) => {
         const { data: urlData } = supabase.storage.from('chat-audio').getPublicUrl(filePath);
         messagePayload.audio_url = urlData.publicUrl;
         messagePayload.audio_duration = voiceDuration;
-      } else {
+      } else if (manpayData) {
+        messagePayload.message_type = 'manpay';
+      }
+      else {
         messagePayload.message_type = 'text';
       }
 

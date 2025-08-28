@@ -16,6 +16,7 @@ import {
   Money as MoneyIcon,
 } from '@mui/icons-material';
 import { ChatMessage } from '../types';
+import { ManPayWidget } from './ManPayWidget';
 
 interface MessageProps {
   message: ChatMessage;
@@ -38,6 +39,7 @@ interface MessageProps {
   claimingGift: string | null;
   onToggleReaction: (emoji: string) => void;
   onStartDm: (userId: string) => void;
+  participants: { user_id: string; user_name: string }[];
 }
 
 const Message: React.FC<MessageProps> = ({
@@ -250,6 +252,13 @@ const Message: React.FC<MessageProps> = ({
               </Button>
             )}
           </Box>
+        ) : message.message_type === 'manpay' ? (
+          <ManPayWidget
+            amount={message.manpay_amount || 0}
+            senderName={participants.find(p => p.user_id === message.manpay_sender_id)?.user_name || 'User'}
+            receiverName={participants.find(p => p.user_id === message.manpay_receiver_id)?.user_name || 'User'}
+            isSender={user?.id === message.manpay_sender_id}
+          />
         ) : (
           <Typography variant="body1">{message.message}</Typography>
         )}
