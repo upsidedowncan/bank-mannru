@@ -153,7 +153,7 @@ export const ManPayWidget: React.FC<ManPayWidgetProps> = ({
       </Header>
 
       <AmountDisplay>
-        {amount} ₽
+        {amount} МР
       </AmountDisplay>
 
       <Footer>
