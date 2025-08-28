@@ -467,6 +467,7 @@ export const GlobalChat: React.FC = () => {
                   message_type: replyData.message_type,
                   media_url: replyData.media_url,
                   media_type: replyData.media_type,
+                  audio_url: replyData.audio_url,
                   channel_id: '',
                   is_edited: false,
                   edited_at: null,
@@ -491,7 +492,7 @@ export const GlobalChat: React.FC = () => {
               reply_to_message: replyToMessage,
               media_url: dm.media_url,
               media_type: dm.media_type,
-              audio_url: undefined, // DMs don't have audio messages yet
+              audio_url: dm.audio_url,
               gift_amount: undefined, // DMs don't have gifts
               gift_claimed_by: undefined,
             };

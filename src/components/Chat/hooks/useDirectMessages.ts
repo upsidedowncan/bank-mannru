@@ -177,38 +177,44 @@ export const useDirectMessages = (user: User | null) => {
         if (participants_error) throw participants_error;
       }
 
-      let mediaUrl: string | null = null;
-      let mediaType: string | null = null;
-      let messageType: 'text' | 'image' | 'video' = 'text';
+      // Step 2: Prepare message payload
+      let messagePayload: any = {
+        conversation_id: conversationId,
+        sender_id: user.id,
+        content: content,
+        reply_to: replyToId,
+      };
 
-      // Step 2: If there's a file, upload it
       if (file) {
+        messagePayload.message_type = file.type.startsWith('image/') ? 'image' : 'video';
         const timestamp = Date.now();
         const fileExtension = file.name.split('.').pop();
         const fileName = `media_${user.id}_${timestamp}.${fileExtension}`;
         const filePath = `dm-media/${conversationId}/${fileName}`;
 
-        const { error: uploadError } = await supabase.storage
-          .from('chat-media')
-          .upload(filePath, file, { cacheControl: '3600' });
+        const { error: uploadError } = await supabase.storage.from('chat-media').upload(filePath, file);
         if (uploadError) throw uploadError;
 
         const { data: urlData } = supabase.storage.from('chat-media').getPublicUrl(filePath);
-        mediaUrl = urlData.publicUrl;
-        mediaType = file.type;
-        messageType = file.type.startsWith('image/') ? 'image' : 'video';
+        messagePayload.media_url = urlData.publicUrl;
+        messagePayload.media_type = file.type;
+      } else if (voiceBlob) {
+        messagePayload.message_type = 'voice';
+        const timestamp = Date.now();
+        const fileName = `voice_${user.id}_${timestamp}.webm`;
+        const filePath = `dm-media/${conversationId}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage.from('chat-audio').upload(filePath, voiceBlob, { contentType: 'audio/webm' });
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = supabase.storage.from('chat-audio').getPublicUrl(filePath);
+        messagePayload.audio_url = urlData.publicUrl;
+      } else {
+        messagePayload.message_type = 'text';
       }
 
       // Step 3: Insert the message record
-      const { error: dbError } = await supabase.from('direct_messages').insert({
-        conversation_id: conversationId,
-        sender_id: user.id,
-        content: content,
-        message_type: messageType,
-        media_url: mediaUrl,
-        media_type: mediaType,
-        reply_to: replyToId,
-      });
+      const { error: dbError } = await supabase.from('direct_messages').insert(messagePayload);
 
       if (dbError) throw dbError;
 
