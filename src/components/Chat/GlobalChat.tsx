@@ -522,8 +522,25 @@ export const GlobalChat: React.FC = () => {
       const messagesSubscription = supabase
         .channel(`public:chat_messages:channel_id=eq.${selectedChat.id}`)
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `channel_id=eq.${selectedChat.id}` },
-          (payload) => {
-            fetchAndSetMessages();
+          async (payload) => {
+            const newMessage = payload.new as ChatMessage;
+
+            // Fetch user settings for the new message sender
+            const { data: userSettingsData } = await supabase
+              .from('user_chat_settings')
+              .select('user_id, chat_name, pfp_color, pfp_icon')
+              .eq('user_id', newMessage.user_id)
+              .single();
+
+            const finalMessage = {
+              ...newMessage,
+              user_name: userSettingsData?.chat_name || `User ${newMessage.user_id.slice(0, 8)}...`,
+              pfp_color: userSettingsData?.pfp_color || '#1976d2',
+              pfp_icon: userSettingsData?.pfp_icon || 'Person',
+              reactions: [], // New messages won't have reactions yet
+            };
+
+            setMessages(currentMessages => [...currentMessages, finalMessage]);
           }
         )
         .subscribe();
