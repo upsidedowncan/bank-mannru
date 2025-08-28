@@ -479,21 +479,31 @@ export const GlobalChat: React.FC = () => {
 
     fetchAndSetMessages();
 
-    // Set up subscriptions
+    const subscriptions: any[] = [];
+
     if (isChannel(selectedChat)) {
-      subscription = supabase
+      const messagesSubscription = supabase
         .channel(`public:chat_messages:channel_id=eq.${selectedChat.id}`)
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `channel_id=eq.${selectedChat.id}` },
           (payload) => {
-            // This needs to be more sophisticated to add user details to the new message
-            // For now, just re-fetch
             fetchAndSetMessages();
           }
         )
         .subscribe();
-    } else {
-      // DM subscription
-      subscription = supabase
+      subscriptions.push(messagesSubscription);
+
+      const reactionsSubscription = supabase
+        .channel(`public:message_reactions:channel_id=eq.${selectedChat.id}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'message_reactions', filter: `channel_id=eq.${selectedChat.id}` },
+          (payload) => {
+            fetchAndSetMessages();
+          }
+        )
+        .subscribe();
+      subscriptions.push(reactionsSubscription);
+
+    } else { // DM subscription
+      const dmSubscription = supabase
         .channel(`public:direct_messages:conversation_id=eq.${selectedChat.id}`)
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'direct_messages', filter: `conversation_id=eq.${selectedChat.id}` },
           (payload) => {
@@ -501,13 +511,11 @@ export const GlobalChat: React.FC = () => {
           }
         )
         .subscribe();
+      subscriptions.push(dmSubscription);
     }
 
-
     return () => {
-      if (subscription) {
-        supabase.removeChannel(subscription);
-      }
+      subscriptions.forEach(sub => supabase.removeChannel(sub));
     };
   }, [selectedChat, isChannel]);
 
