@@ -10,18 +10,15 @@ const gradientAnimation = keyframes`
 `;
 
 const AnimatedGradientText = styled(Typography)(({ theme }) => {
-  const spin3D = keyframes`
+  const gentleFlip = keyframes`
     0% {
-      transform: rotate3d(0.5, 1, 0.2, 0deg);
-      text-shadow: 0 0 2px #fff, 0 0 8px #fff, 0 0 12px ${theme.palette.primary.main};
+      transform: rotateY(0deg);
     }
     50% {
-      transform: rotate3d(0.5, 1, 0.2, 180deg);
-      text-shadow: 0 0 2px #fff, 0 0 8px #fff, 0 0 12px ${theme.palette.secondary.main};
+      transform: rotateY(20deg);
     }
     100% {
-      transform: rotate3d(0.5, 1, 0.2, 360deg);
-      text-shadow: 0 0 2px #fff, 0 0 8px #fff, 0 0 12px ${theme.palette.primary.main};
+      transform: rotateY(0deg);
     }
   `;
 
@@ -30,7 +27,7 @@ const AnimatedGradientText = styled(Typography)(({ theme }) => {
     backgroundSize: '200% 200%',
     WebkitBackgroundClip: 'text',
     WebkitTextFillColor: 'transparent',
-    animation: `${gradientAnimation} 3s ease infinite, ${spin3D} 5s ease-in-out infinite`,
+    animation: `${gradientAnimation} 4s ease infinite, ${gentleFlip} 6s ease-in-out infinite`,
     fontWeight: 'bold',
     transformStyle: 'preserve-3d',
     display: 'inline-block',
