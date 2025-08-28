@@ -1,13 +1,22 @@
-import React, { useState, MouseEvent } from 'react';
+import React from 'react';
 import { Box, Typography, Paper } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
-import { Money as MoneyIcon, CheckCircle as CheckCircleIcon } from '@mui/icons-material';
+import { ArrowForward, CheckCircleOutline } from '@mui/icons-material';
 
-// Keyframes for animations
-const fadeIn = keyframes`
+// --- Keyframe Animations ---
+
+// Subtle background gradient animation
+const auroraAnimation = keyframes`
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+`;
+
+// Gentle fade-in animation for the widget
+const fadeInAnimation = keyframes`
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -15,61 +24,85 @@ const fadeIn = keyframes`
   }
 `;
 
-const gradientAnimation = keyframes`
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+// Pulsing animation for the status icon
+const pulseAnimation = keyframes`
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
 `;
 
-const pulse = keyframes`
-  0% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(0, 255, 127, 0.4);
-  }
-  70% {
-    transform: scale(1.05);
-    box-shadow: 0 0 10px 10px rgba(0, 255, 127, 0);
-  }
-  100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(0, 255, 127, 0);
-  }
-`;
+// --- Styled Components ---
 
-// Styled components
-const AnimatedGradientText = styled(Typography)(({ theme }) => ({
-  background: `linear-gradient(45deg, ${theme.palette.success.light}, ${theme.palette.primary.light}, #ff8e53, #FE6B8B)`,
-  backgroundSize: '300% 300%',
-  WebkitBackgroundClip: 'text',
-  WebkitTextFillColor: 'transparent',
-  animation: `${gradientAnimation} 5s ease infinite`,
-  fontWeight: 'bold',
+const GlassmorphicPaper = styled(Paper)(({ theme }) => ({
+  padding: '24px',
+  borderRadius: '16px',
+  maxWidth: 380,
+  color: '#fff',
+  position: 'relative',
+  overflow: 'hidden',
+  background: 'rgba(30, 30, 45, 0.6)', // Semi-transparent background
+  backdropFilter: 'blur(12px)', // The glass effect
+  border: '1px solid rgba(255, 255, 255, 0.1)',
+  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+  transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+  animation: `${fadeInAnimation} 0.5s ease-out`,
+
+  '&:hover': {
+    transform: 'scale(1.03)',
+    boxShadow: '0 12px 40px rgba(0, 0, 0, 0.4)',
+  },
+
+  // Aurora effect
+  '&::before': {
+    content: '""',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    zIndex: -1,
+    opacity: 0.15,
+    background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main}, ${theme.palette.success.main})`,
+    backgroundSize: '200% 200%',
+    animation: `${auroraAnimation} 10s ease infinite`,
+  },
 }));
 
-const StyledPaper = styled(Paper)({
-  padding: '16px',
-  borderRadius: '12px',
-  maxWidth: 340,
-  background: 'linear-gradient(145deg, #2c3e50, #1a222e)',
-  border: '1px solid #4a4a4a',
-  color: 'white',
-  perspective: '1000px',
-  transition: 'transform 0.3s ease, box-shadow 0.3s ease',
-  animation: `${fadeIn} 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) both`,
-  '&:hover': {
-    boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
-  },
+const Header = styled(Box)({
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: '24px',
+  paddingBottom: '12px',
+  borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
 });
 
-const IconWrapper = styled(Box)(({ theme }) => ({
+const TransactionFlow = styled(Box)({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  textAlign: 'center',
+  margin: '32px 0',
+});
+
+const FlowNode = styled(Box)({
+  flex: 1,
+});
+
+const StatusFooter = styled(Box)(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   gap: theme.spacing(1),
-  color: theme.palette.success.main,
-  animation: `${pulse} 2s infinite`,
-  borderRadius: '50%',
+  color: theme.palette.success.light,
+  marginTop: '24px',
+
+  '.status-icon': {
+    animation: `${pulseAnimation} 2s infinite ease-in-out`,
+  },
 }));
+
+// --- Widget Component ---
 
 interface ManPayWidgetProps {
   amount: number;
@@ -78,53 +111,57 @@ interface ManPayWidgetProps {
   isSender: boolean;
 }
 
-export const ManPayWidget: React.FC<ManPayWidgetProps> = ({ amount, senderName, receiverName, isSender }) => {
-  const [rotate, setRotate] = useState({ x: 0, y: 0 });
-
-  const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
-    const { clientX, clientY, currentTarget } = e;
-    const { left, top, width, height } = currentTarget.getBoundingClientRect();
-    const x = (clientX - left) / width - 0.5;
-    const y = (clientY - top) / height - 0.5;
-    setRotate({ x: -y * 10, y: x * 10 });
-  };
-
-  const handleMouseLeave = () => {
-    setRotate({ x: 0, y: 0 });
-  };
-
+export const ManPayWidget: React.FC<ManPayWidgetProps> = ({
+  amount,
+  senderName,
+  receiverName,
+  isSender,
+}) => {
   return (
-    <StyledPaper
-      elevation={5}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      style={{
-        transform: `rotateX(${rotate.x}deg) rotateY(${rotate.y}deg)`,
-      }}
-    >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
-        <MoneyIcon sx={{ color: 'primary.light', filter: 'drop-shadow(0 0 5px rgba(100,200,255,0.7))' }} />
-        <Typography variant="h6" sx={{ fontWeight: 'bold', letterSpacing: '0.5px' }}>
-          ManPay
+    <GlassmorphicPaper>
+      <Header>
+        <Typography variant="h6" fontWeight="bold">
+          ManPay Transaction
+        </Typography>
+        <Typography variant="caption" sx={{ color: 'grey.400' }}>
+          {new Date().toLocaleDateString()}
+        </Typography>
+      </Header>
+
+      <TransactionFlow>
+        <FlowNode>
+          <Typography variant="body2" color="grey.300">
+            {isSender ? 'You' : senderName}
+          </Typography>
+          <Typography variant="h6" fontWeight="bold">
+            Sender
+          </Typography>
+        </FlowNode>
+
+        <Box sx={{ mx: 2 }}>
+          <ArrowForward sx={{ color: 'grey.500' }} />
+        </Box>
+
+        <FlowNode>
+          <Typography variant="body2" color="grey.300">
+            {isSender ? receiverName : 'You'}
+          </Typography>
+          <Typography variant="h6" fontWeight="bold">
+            Receiver
+          </Typography>
+        </FlowNode>
+      </TransactionFlow>
+
+      <Box textAlign="center">
+        <Typography variant="h2" fontWeight="bold" sx={{ textShadow: '0 0 10px rgba(255, 255, 255, 0.5)' }}>
+          {amount} MP
         </Typography>
       </Box>
-      <Box sx={{ my: 3, textAlign: 'center' }}>
-        <Typography variant="body2" sx={{ color: 'grey.400', mb: 1 }}>
-          {isSender ? 'Вы отправили' : `${senderName} отправил(а)`}
-        </Typography>
-        <AnimatedGradientText variant="h3">
-          {amount} МР
-        </AnimatedGradientText>
-        <Typography variant="body2" sx={{ color: 'grey.400', mt: 1 }}>
-          {isSender ? `для ${receiverName}` : 'вам'}
-        </Typography>
-      </Box>
-      <IconWrapper>
-        <CheckCircleIcon fontSize="small" />
-        <Typography variant="caption" sx={{ fontWeight: 'medium' }}>
-          Завершено
-        </Typography>
-      </IconWrapper>
-    </StyledPaper>
+
+      <StatusFooter>
+        <CheckCircleOutline className="status-icon" />
+        <Typography variant="body1">Completed</Typography>
+      </StatusFooter>
+    </GlassmorphicPaper>
   );
 };
