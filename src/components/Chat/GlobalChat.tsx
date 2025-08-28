@@ -217,7 +217,6 @@ export const GlobalChat: React.FC = () => {
     searchResults,
     searching,
     startDmWithUser,
-    sendDirectMediaMessage,
   } = useDirectMessages(user);
 
   // Type guard to check if a chat is a channel
@@ -836,34 +835,34 @@ export const GlobalChat: React.FC = () => {
   const handleSend = useCallback(() => {
     if (!selectedChat || !user) return;
 
-    if (selectedFile) {
-      // Handle media message
-      if (isChannel(selectedChat)) {
-        sendMediaMessage();
+    const text = newMessage.trim();
+    const file = selectedFile;
+    const replyId = replyingTo?.id;
+
+    if (!text && !file) return;
+
+    if (isChannel(selectedChat)) {
+      if (file) {
+        sendMediaMessage(); // useChatInput handles replies for channel media
       } else {
-        const receiver = selectedChat.participants.find(p => p.user_id !== user.id);
-        if (receiver) {
-          sendDirectMediaMessage(receiver.user_id, selectedFile, showSnackbar);
-          // Also clear the file input after sending
-          handleCancelMedia();
-        }
+        sendMessage(); // useChatInput handles replies for channel text
       }
     } else {
-      // Handle text message
-      if (!newMessage.trim()) return;
-      if (isChannel(selectedChat)) {
-        sendMessage(); // This one already handles replies from useChatInput's state
-      } else {
-        const receiver = selectedChat.participants.find(p => p.user_id !== user.id);
-        if (receiver) {
-          // The old sendDm is now replaced by the new sendMessage
-          sendMessage(receiver.user_id, newMessage.trim(), null, replyingTo?.id);
-          setNewMessage('');
-          setReplyingTo(null);
-        }
+      // Direct Message
+      const receiver = selectedChat.participants.find(p => p.user_id !== user.id);
+      if (receiver) {
+        sendMessage(receiver.user_id, text, file, replyId);
       }
     }
-  }, [selectedChat, user, selectedFile, newMessage, isChannel, sendMediaMessage, sendDirectMediaMessage, sendMessage, sendDm, setNewMessage, showSnackbar]);
+
+    // Reset input state
+    setNewMessage('');
+    setReplyingTo(null);
+    if(file) {
+      handleCancelMedia();
+    }
+
+  }, [selectedChat, user, selectedFile, newMessage, replyingTo, isChannel, sendMediaMessage, sendMessage, handleCancelMedia, setNewMessage, setReplyingTo]);
 
   const handleKeyPress = useCallback((event: React.KeyboardEvent) => {
     if (event.key === 'Enter' && !event.shiftKey) {
