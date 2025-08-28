@@ -815,6 +815,44 @@ export const GlobalChat: React.FC = () => {
     }
   };
 
+  const sendChannelVoiceMessage = async (blob: Blob) => {
+    if (!blob || !user || !selectedChat || !isChannel(selectedChat)) return;
+
+    if (selectedChat.admin_only && !isAdmin) {
+      showSnackbar('Только администраторы могут отправлять голосовые сообщения в этот канал', 'error');
+      return;
+    }
+
+    try {
+      const timestamp = Date.now();
+      const filename = `voice_${user.id}_${timestamp}.webm`;
+      const filePath = `voice-messages/${selectedChat.id}/${filename}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('chat-audio')
+        .upload(filePath, blob, { contentType: 'audio/webm', cacheControl: '3600' });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('chat-audio')
+        .getPublicUrl(filePath);
+
+      await supabase.from('chat_messages').insert({
+        channel_id: selectedChat.id,
+        user_id: user.id,
+        message: '[Голосовое сообщение]',
+        message_type: 'voice',
+        audio_url: urlData.publicUrl,
+      });
+
+      showSnackbar('Голосовое сообщение отправлено', 'success');
+    } catch (error) {
+      console.error('Error sending voice message:', error);
+      showSnackbar('Ошибка при отправке голосового сообщения', 'error');
+    }
+  };
+
   const {
     newMessage,
     sending,
@@ -829,17 +867,29 @@ export const GlobalChat: React.FC = () => {
     setNewMessage,
   } = useChatInput(user, isChannel(selectedChat) ? selectedChat : null, isUserAdmin, showSnackbar, replyingTo, setReplyingTo, forceScrollToBottom, handleCommand);
 
+  const handleRecordingComplete = (blob: Blob) => {
+    if (!selectedChat || !user) return;
+
+    if (isChannel(selectedChat)) {
+      sendChannelVoiceMessage(blob);
+    } else {
+      const receiver = selectedChat.participants.find(p => p.user_id !== user.id);
+      if (receiver) {
+        sendDm(receiver.user_id, '[Голосовое сообщение]', null, null, blob);
+      }
+    }
+  };
+
   const {
     isRecording,
     isPaused,
     recordingTime,
-    isSendingVoice,
     startRecording,
     pauseRecording,
     resumeRecording,
     stopRecording,
     cleanup: cleanupVoiceRecording,
-  } = useVoiceRecording(user, isChannel(selectedChat) ? selectedChat : null, isUserAdmin, showSnackbar);
+  } = useVoiceRecording(handleRecordingComplete, showSnackbar);
 
   const handleSend = useCallback(() => {
     if (!selectedChat || !user) return;

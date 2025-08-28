@@ -137,44 +137,37 @@ export const useDirectMessages = (user: User | null) => {
     receiverId: string,
     content: string,
     file?: File | null,
-    replyToId?: string | null
+    replyToId?: string | null,
+    voiceBlob?: Blob | null
   ) => {
     if (!user) return;
 
     try {
-      // Step 1: Find an existing conversation between the two users.
+      // Step 1: Find or create a conversation
       const { data: userConvos, error: userConvosError } = await supabase
         .from('conversation_participants')
         .select('conversation_id')
         .eq('user_id', user.id);
-
       if (userConvosError) throw userConvosError;
 
       const { data: receiverConvos, error: receiverConvosError } = await supabase
         .from('conversation_participants')
         .select('conversation_id')
         .eq('user_id', receiverId);
-
       if (receiverConvosError) throw receiverConvosError;
 
       const userConvoIds = new Set(userConvos.map(c => c.conversation_id));
       const commonConvo = receiverConvos.find(c => userConvoIds.has(c.conversation_id));
 
       let conversationId: string;
-
       if (commonConvo) {
         conversationId = commonConvo.conversation_id;
       } else {
-        // Step 2: If no conversation exists, create a new one.
         const { data: new_convo, error: create_convo_error } = await supabase
-          .from('conversations')
-          .insert({})
-          .select()
-          .single();
+          .from('conversations').insert({}).select().single();
         if (create_convo_error) throw create_convo_error;
         conversationId = new_convo.id;
 
-        // Step 3: Add both users to the conversation.
         const { error: participants_error } = await supabase
           .from('conversation_participants')
           .insert([
