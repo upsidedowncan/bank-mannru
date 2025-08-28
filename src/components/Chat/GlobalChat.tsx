@@ -498,15 +498,21 @@ export const GlobalChat: React.FC = () => {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'message_reactions', filter: `channel_id=eq.${selectedChat.id}` },
           (payload) => {
             if (payload.eventType === 'INSERT') {
-              const newReaction = payload.new;
+              const newReactionData = payload.new;
+              const newReaction: MessageReaction = {
+                id: newReactionData.id,
+                message_id: newReactionData.message_id,
+                user_id: newReactionData.user_id,
+                channel_id: newReactionData.channel_id,
+                emoji: newReactionData.emoji,
+                user_name: '...', // Placeholder for now
+              };
               setMessages(currentMessages =>
                 currentMessages.map(message => {
                   if (message.id === newReaction.message_id) {
-                    // It's better to get user details, but for now, this is a simple update
-                    const reactionWithUser = { ...newReaction, user_name: '...' };
                     return {
                       ...message,
-                      reactions: [...(message.reactions || []), reactionWithUser],
+                      reactions: [...(message.reactions || []), newReaction],
                     };
                   }
                   return message;
