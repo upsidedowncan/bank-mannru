@@ -443,31 +443,53 @@ export const GlobalChat: React.FC = () => {
 
         const settingsMap = new Map(userSettingsData?.map(s => [s.user_id, s]));
 
-        const finalMessages = dms.map(dm => {
-          const settings = settingsMap.get(dm.sender_id);
-          const chatMessage: ChatMessage = {
-            id: dm.id,
-            created_at: dm.created_at,
-            message: dm.content,
-            user_id: dm.sender_id,
-            user_name: settings?.chat_name || 'User',
-            pfp_color: settings?.pfp_color || '#1976d2',
-            pfp_icon: settings?.pfp_icon || 'Person',
-            channel_id: '', // Not applicable for DMs
-            message_type: 'text',
-            reactions: [], // DMs don't have reactions in this implementation
-            is_edited: false,
-            edited_at: null,
-            reply_to: undefined,
-            reply_to_message: undefined,
-            media_url: undefined,
-            media_type: undefined,
-            audio_url: undefined,
-            gift_amount: undefined,
-            gift_claimed_by: undefined,
-          };
-          return chatMessage;
-        });
+        const finalMessages = await Promise.all(
+          dms.map(async (dm) => {
+            const settings = settingsMap.get(dm.sender_id);
+            let replyToMessage = null;
+            if (dm.reply_to) {
+              // In DMs, we need to fetch the replied-to message from direct_messages table
+              const { data: replyData } = await supabase
+                .from('direct_messages')
+                .select('id, content, sender_id')
+                .eq('id', dm.reply_to)
+                .single();
+
+              if (replyData) {
+                const replyUserSetting = settingsMap.get(replyData.sender_id);
+                replyToMessage = {
+                  id: replyData.id,
+                  message: replyData.content,
+                  user_id: replyData.sender_id,
+                  user_name: replyUserSetting?.chat_name || `User ${replyData.sender_id.slice(0, 8)}...`,
+                };
+              }
+            }
+
+            const chatMessage: ChatMessage = {
+              id: dm.id,
+              created_at: dm.created_at,
+              message: dm.content,
+              user_id: dm.sender_id,
+              user_name: settings?.chat_name || 'User',
+              pfp_color: settings?.pfp_color || '#1976d2',
+              pfp_icon: settings?.pfp_icon || 'Person',
+              channel_id: '', // Not applicable for DMs
+              message_type: dm.message_type,
+              reactions: [], // DMs don't have reactions in this implementation
+              is_edited: false, // DMs don't support editing in this implementation
+              edited_at: null,
+              reply_to: dm.reply_to,
+              reply_to_message: replyToMessage,
+              media_url: dm.media_url,
+              media_type: dm.media_type,
+              audio_url: undefined, // DMs don't have audio messages yet
+              gift_amount: undefined, // DMs don't have gifts
+              gift_claimed_by: undefined,
+            };
+            return chatMessage;
+          })
+        );
         setMessages(finalMessages);
       }
       } catch (error) {
@@ -830,12 +852,14 @@ export const GlobalChat: React.FC = () => {
       // Handle text message
       if (!newMessage.trim()) return;
       if (isChannel(selectedChat)) {
-        sendMessage();
+        sendMessage(); // This one already handles replies from useChatInput's state
       } else {
         const receiver = selectedChat.participants.find(p => p.user_id !== user.id);
         if (receiver) {
-          sendDm(receiver.user_id, newMessage.trim());
-          setNewMessage(''); // Also clear message here
+          // The old sendDm is now replaced by the new sendMessage
+          sendMessage(receiver.user_id, newMessage.trim(), null, replyingTo?.id);
+          setNewMessage('');
+          setReplyingTo(null);
         }
       }
     }

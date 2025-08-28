@@ -20,10 +20,16 @@ export interface DirectMessage {
   sender_id: string;
   content: string;
   created_at: string;
+  message_type: 'text' | 'image' | 'video';
+  media_url?: string;
+  media_type?: string;
+  reply_to?: string;
   // Joined from user_chat_settings
   sender_name?: string;
   pfp_icon?: string;
   pfp_color?: string;
+  // Joined from other messages
+  reply_to_message?: DirectMessage;
 }
 
 export const useDirectMessages = (user: User | null) => {
@@ -127,19 +133,63 @@ export const useDirectMessages = (user: User | null) => {
     }
   }, [user, fetchConversations]);
 
-  const sendMessage = useCallback(async (receiverId: string, content: string) => {
+  const sendMessage = useCallback(async (
+    receiverId: string,
+    content: string,
+    file?: File | null,
+    replyToId?: string | null
+  ) => {
     if (!user) return;
+
     try {
-      const { error } = await supabase.rpc('create_conversation_and_send_message', {
+      // Step 1: Get or create the conversation
+      const { data: conversationData, error: convoError } = await supabase.rpc('get_or_create_conversation', {
         receiver_id: receiverId,
-        message_content: content,
       });
-      if (error) throw error;
-      // After sending, refresh conversations to show the new last message
+      if (convoError) throw convoError;
+      const conversationId = conversationData;
+
+      let mediaUrl: string | null = null;
+      let mediaType: string | null = null;
+      let messageType: 'text' | 'image' | 'video' = 'text';
+
+      // Step 2: If there's a file, upload it
+      if (file) {
+        const timestamp = Date.now();
+        const fileExtension = file.name.split('.').pop();
+        const fileName = `media_${user.id}_${timestamp}.${fileExtension}`;
+        const filePath = `dm-media/${conversationId}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('chat-media')
+          .upload(filePath, file, { cacheControl: '3600' });
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = supabase.storage.from('chat-media').getPublicUrl(filePath);
+        mediaUrl = urlData.publicUrl;
+        mediaType = file.type;
+        messageType = file.type.startsWith('image/') ? 'image' : 'video';
+      }
+
+      // Step 3: Insert the message record
+      const { error: dbError } = await supabase.from('direct_messages').insert({
+        conversation_id: conversationId,
+        sender_id: user.id,
+        content: content,
+        message_type: messageType,
+        media_url: mediaUrl,
+        media_type: mediaType,
+        reply_to: replyToId,
+      });
+
+      if (dbError) throw dbError;
+
+      // Step 4: Refresh conversations to show the new message
       fetchConversations();
+
     } catch (error) {
-      console.error("Error sending message:", error);
-      // Optionally, show a snackbar to the user
+      console.error('Error sending direct message:', error);
+      // Consider showing a snackbar here
     }
   }, [user, fetchConversations]);
 
@@ -198,56 +248,6 @@ export const useDirectMessages = (user: User | null) => {
     }
   }, [user, fetchConversations, conversations]);
 
-  const sendDirectMediaMessage = async (receiverId: string, file: File, showSnackbar: (message: string, severity: 'success' | 'error') => void) => {
-    if (!user) return;
-
-    try {
-      // Step 1: Get or create the conversation to get a conversation_id
-      const { data: conversationData, error: convoError } = await supabase.rpc('get_or_create_conversation', {
-        receiver_id: receiverId,
-      });
-
-      if (convoError) throw convoError;
-      const conversationId = conversationData;
-
-      // Step 2: Upload the file to storage
-      const timestamp = Date.now();
-      const fileExtension = file.name.split('.').pop();
-      const fileName = `media_${user.id}_${timestamp}.${fileExtension}`;
-      const filePath = `dm-media/${conversationId}/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('chat-media') // Using the same bucket as channel media for simplicity
-        .upload(filePath, file, { cacheControl: '3600' });
-
-      if (uploadError) throw uploadError;
-
-      // Step 3: Get the public URL of the uploaded file
-      const { data: urlData } = supabase.storage
-        .from('chat-media')
-        .getPublicUrl(filePath);
-
-      // Step 4: Insert a new record into the direct_messages table
-      const messageType = file.type.startsWith('image/') ? 'image' : 'video';
-      const { error: dbError } = await supabase.from('direct_messages').insert({
-        conversation_id: conversationId,
-        sender_id: user.id,
-        content: '', // No text content for media messages
-        message_type: messageType,
-        media_url: urlData.publicUrl,
-        media_type: file.type,
-      });
-
-      if (dbError) throw dbError;
-
-      showSnackbar('Медиа отправлено!', 'success');
-      fetchConversations(); // Refresh conversations to show the new last message
-    } catch (error) {
-      console.error('Error sending direct media message:', error);
-      showSnackbar('Ошибка при отправке медиа', 'error');
-    }
-  };
-
   return {
     conversations,
     loading,
@@ -257,6 +257,5 @@ export const useDirectMessages = (user: User | null) => {
     searchResults,
     searching,
     startDmWithUser,
-    sendDirectMediaMessage,
   };
 };
