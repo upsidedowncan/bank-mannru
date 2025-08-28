@@ -496,6 +496,10 @@ export const GlobalChat: React.FC = () => {
               audio_url: dm.audio_url,
               gift_amount: undefined, // DMs don't have gifts
               gift_claimed_by: undefined,
+              manpay_amount: dm.manpay_amount,
+              manpay_sender_id: dm.manpay_sender_id,
+              manpay_receiver_id: dm.manpay_receiver_id,
+              manpay_status: dm.manpay_status,
             };
             return chatMessage;
           })

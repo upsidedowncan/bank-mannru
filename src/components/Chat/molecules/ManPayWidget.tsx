@@ -47,19 +47,19 @@ export const ManPayWidget: React.FC<ManPayWidgetProps> = ({ amount, senderName, 
       </Box>
       <Box sx={{ my: 2, textAlign: 'center' }}>
         <Typography variant="body2" sx={{ color: 'grey.400' }}>
-          {isSender ? 'You sent' : `${senderName} sent`}
+          {isSender ? 'Вы отправили' : `${senderName} отправил(а)`}
         </Typography>
         <AnimatedGradientText variant="h4">
           {amount} МР
         </AnimatedGradientText>
         <Typography variant="body2" sx={{ color: 'grey.400' }}>
-          {isSender ? `to ${receiverName}` : 'to you'}
+          {isSender ? `кому ${receiverName}` : 'вам'}
         </Typography>
       </Box>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, color: 'success.main' }}>
         <CheckCircleIcon fontSize="small" />
         <Typography variant="caption">
-          Completed
+          Завершено
         </Typography>
       </Box>
     </Paper>
