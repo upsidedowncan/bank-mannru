@@ -450,7 +450,7 @@ export const GlobalChat: React.FC = () => {
               // In DMs, we need to fetch the replied-to message from direct_messages table
               const { data: replyData } = await supabase
                 .from('direct_messages')
-                .select('id, content, sender_id, created_at, message_type, media_url, media_type')
+                .select('id, content, sender_id, created_at, message_type, media_url, media_type, audio_url')
                 .eq('id', dm.reply_to)
                 .single();
 
