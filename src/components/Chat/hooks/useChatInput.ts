@@ -10,7 +10,8 @@ export const useChatInput = (
   showSnackbar: (message: string, severity: 'success' | 'error') => void,
   replyingTo: ChatMessage | null,
   setReplyingTo: (message: ChatMessage | null) => void,
-  onMessageSent: () => void
+  onMessageSent: () => void,
+  handleCommand: (command: string) => void
 ) => {
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
@@ -23,6 +24,12 @@ export const useChatInput = (
   const sendMessage = useCallback(async () => {
     const messageText = newMessage.trim();
     if (!user || !selectedChannel || !messageText) return;
+
+    if (messageText.startsWith('/')) {
+      handleCommand(messageText);
+      setNewMessage('');
+      return;
+    }
 
     if (sending) return;
 

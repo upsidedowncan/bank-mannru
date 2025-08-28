@@ -550,6 +550,25 @@ export const GlobalChat: React.FC = () => {
     // ... (omitted for brevity, no changes needed here)
   };
 
+  const handleCommand = (command: string) => {
+    const parts = command.slice(1).split(' ');
+    const commandName = parts[0];
+    const args = parts.slice(1);
+
+    switch (commandName) {
+      case 'gift':
+        const amount = parseInt(args[0], 10);
+        if (!isNaN(amount) && amount > 0) {
+          sendMoneyGift(amount);
+        } else {
+          showSnackbar('Сумма подарка должна быть положительным числом.', 'error');
+        }
+        break;
+      default:
+        showSnackbar(`Неизвестная команда: ${commandName}`, 'error');
+    }
+  };
+
   const editMessage = async (messageId: string) => {
     // ... (omitted for brevity, no changes needed here)
   };
@@ -711,7 +730,7 @@ export const GlobalChat: React.FC = () => {
     handleCancelMedia,
     sendMediaMessage,
     setNewMessage,
-  } = useChatInput(user, isChannel(selectedChat) ? selectedChat : null, isUserAdmin, showSnackbar, replyingTo, setReplyingTo, forceScrollToBottom);
+  } = useChatInput(user, isChannel(selectedChat) ? selectedChat : null, isUserAdmin, showSnackbar, replyingTo, setReplyingTo, forceScrollToBottom, handleCommand);
 
   const {
     isRecording,
