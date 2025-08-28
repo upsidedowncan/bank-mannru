@@ -13,7 +13,6 @@ export const useChatInput = (
   onMessageSent: () => void
 ) => {
   const [newMessage, setNewMessage] = useState('');
-  const newMessageRef = useRef('');
   const [sending, setSending] = useState(false);
 
   // Media upload state
@@ -22,15 +21,10 @@ export const useChatInput = (
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
 
   const sendMessage = useCallback(async () => {
-    const messageText = newMessageRef.current.trim();
+    const messageText = newMessage.trim();
     if (!user || !selectedChannel || !messageText) return;
 
     if (sending) return;
-
-    if (messageText.startsWith('/')) {
-      // Admin commands are handled in the main component for now
-      return;
-    }
 
     if (selectedChannel.admin_only) {
       const isAdmin = await isUserAdmin();
@@ -56,7 +50,6 @@ export const useChatInput = (
 
       onMessageSent();
       setNewMessage('');
-      newMessageRef.current = '';
       setReplyingTo(null);
     } catch (error) {
       console.error('Error sending message:', error);
@@ -64,7 +57,7 @@ export const useChatInput = (
     } finally {
       setSending(false);
     }
-  }, [user, selectedChannel, showSnackbar, sending, isUserAdmin, replyingTo, setReplyingTo, onMessageSent]);
+  }, [user, selectedChannel, newMessage, showSnackbar, sending, isUserAdmin, replyingTo, setReplyingTo, onMessageSent]);
 
   const sendMediaMessage = useCallback(async () => {
     if (!selectedFile || !user || !selectedChannel) return;
@@ -126,8 +119,7 @@ export const useChatInput = (
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setNewMessage(value);
-    newMessageRef.current = value;
-  }, []);
+  }, [setNewMessage]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -172,6 +164,5 @@ export const useChatInput = (
     handleCancelMedia,
     sendMediaMessage,
     setNewMessage,
-    newMessageRef,
   };
 };
