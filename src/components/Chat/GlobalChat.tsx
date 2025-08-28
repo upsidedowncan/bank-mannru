@@ -178,7 +178,6 @@ export const GlobalChat: React.FC = () => {
   // Audio playback state
   const [isPlaying, setIsPlaying] = useState<string | null>(null);
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
-  const [audioDurations, setAudioDurations] = useState<{ [key: string]: number }>({});
   const [audioProgress, setAudioProgress] = useState<{ [key: string]: number }>({});
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -665,10 +664,6 @@ export const GlobalChat: React.FC = () => {
     setCurrentAudio(audio);
     setIsPlaying(messageId);
 
-    audio.onloadedmetadata = () => {
-      setAudioDurations(prev => ({ ...prev, [messageId]: audio.duration }));
-    };
-
     audio.ontimeupdate = () => {
       setAudioProgress(prev => ({ ...prev, [messageId]: audio.currentTime }));
     };
@@ -816,7 +811,7 @@ export const GlobalChat: React.FC = () => {
     }
   };
 
-  const sendChannelVoiceMessage = async (blob: Blob) => {
+  const sendChannelVoiceMessage = async (blob: Blob, duration: number) => {
     if (!blob || !user || !selectedChat || !isChannel(selectedChat)) return;
 
     if (selectedChat.admin_only && !isAdmin) {
@@ -845,6 +840,7 @@ export const GlobalChat: React.FC = () => {
         message: '[Голосовое сообщение]',
         message_type: 'voice',
         audio_url: urlData.publicUrl,
+        audio_duration: duration,
       });
 
       showSnackbar('Голосовое сообщение отправлено', 'success');
@@ -868,15 +864,15 @@ export const GlobalChat: React.FC = () => {
     setNewMessage,
   } = useChatInput(user, isChannel(selectedChat) ? selectedChat : null, isUserAdmin, showSnackbar, replyingTo, setReplyingTo, forceScrollToBottom, handleCommand);
 
-  const handleRecordingComplete = (blob: Blob) => {
+  const handleRecordingComplete = (blob: Blob, duration: number) => {
     if (!selectedChat || !user) return;
 
     if (isChannel(selectedChat)) {
-      sendChannelVoiceMessage(blob);
+      sendChannelVoiceMessage(blob, duration);
     } else {
       const receiver = selectedChat.participants.find(p => p.user_id !== user.id);
       if (receiver) {
-        sendDm(receiver.user_id, '[Голосовое сообщение]', null, null, blob);
+        sendDm(receiver.user_id, '[Голосовое сообщение]', null, null, blob, duration);
       }
     }
   };
@@ -1150,7 +1146,6 @@ export const GlobalChat: React.FC = () => {
                   isPlaying={isPlaying}
                   playAudio={playAudio}
                   audioProgress={audioProgress}
-                  audioDurations={audioDurations}
                   formatAudioTime={formatAudioTime}
                   openCardSelectionDialog={openCardSelectionDialog}
                   claimingGift={claimingGift}

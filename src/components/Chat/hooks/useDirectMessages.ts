@@ -20,9 +20,11 @@ export interface DirectMessage {
   sender_id: string;
   content: string;
   created_at: string;
-  message_type: 'text' | 'image' | 'video';
+  message_type: 'text' | 'image' | 'video' | 'voice';
   media_url?: string;
   media_type?: string;
+  audio_url?: string;
+  audio_duration?: number;
   reply_to?: string;
   // Joined from user_chat_settings
   sender_name?: string;
@@ -138,12 +140,14 @@ export const useDirectMessages = (user: User | null) => {
     content: string,
     file?: File | null,
     replyToId?: string | null,
-    voiceBlob?: Blob | null
+    voiceBlob?: Blob | null,
+    voiceDuration?: number | null
   ) => {
     if (!user) return;
 
     try {
       // Step 1: Find or create a conversation
+      // (This logic remains the same)
       const { data: userConvos, error: userConvosError } = await supabase
         .from('conversation_participants')
         .select('conversation_id')
@@ -209,6 +213,7 @@ export const useDirectMessages = (user: User | null) => {
 
         const { data: urlData } = supabase.storage.from('chat-audio').getPublicUrl(filePath);
         messagePayload.audio_url = urlData.publicUrl;
+        messagePayload.audio_duration = voiceDuration;
       } else {
         messagePayload.message_type = 'text';
       }

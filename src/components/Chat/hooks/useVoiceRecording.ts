@@ -1,7 +1,23 @@
 import { useState, useCallback, useRef } from 'react';
 
+const getBlobDuration = (blob: Blob): Promise<number> => {
+  const tempAudio = document.createElement('audio');
+  const tempUrl = URL.createObjectURL(blob);
+  return new Promise((resolve, reject) => {
+    tempAudio.addEventListener('loadedmetadata', () => {
+      URL.revokeObjectURL(tempUrl);
+      resolve(tempAudio.duration);
+    });
+    tempAudio.addEventListener('error', (e) => {
+      URL.revokeObjectURL(tempUrl);
+      reject(new Error('Failed to load audio metadata.'));
+    });
+    tempAudio.src = tempUrl;
+  });
+};
+
 export const useVoiceRecording = (
-  onRecordingComplete: (blob: Blob) => void,
+  onRecordingComplete: (blob: Blob, duration: number) => void,
   showSnackbar: (message: string, severity: 'success' | 'error') => void
 ) => {
   const [isRecording, setIsRecording] = useState(false);
@@ -20,14 +36,23 @@ export const useVoiceRecording = (
         if (event.data.size > 0) chunks.push(event.data);
       };
 
-      recorder.onstop = () => {
+      recorder.onstop = async () => {
         if (chunks.length === 0) {
           showSnackbar('Ошибка: нет аудиоданных', 'error');
           return;
         }
         const blob = new Blob(chunks, { type: 'audio/webm' });
-        onRecordingComplete(blob);
-        stream.getTracks().forEach(track => track.stop());
+        try {
+          const duration = await getBlobDuration(blob);
+          onRecordingComplete(blob, duration);
+        } catch (error) {
+          console.error(error);
+          showSnackbar('Не удалось получить длительность аудио', 'error');
+          // Still send the message, just without the duration
+          onRecordingComplete(blob, 0);
+        } finally {
+          stream.getTracks().forEach(track => track.stop());
+        }
       };
 
       recorder.start();

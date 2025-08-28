@@ -205,10 +205,10 @@ const Message: React.FC<MessageProps> = ({
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                 <Typography variant="caption" color="text.secondary">{formatAudioTime(audioProgress[message.id] || 0)}</Typography>
                 <Typography variant="caption" color="text.secondary">/</Typography>
-                <Typography variant="caption" color="text.secondary">{audioDurations[message.id] && isFinite(audioDurations[message.id]) ? formatAudioTime(audioDurations[message.id]) : '--:--'}</Typography>
+                <Typography variant="caption" color="text.secondary">{message.audio_duration ? formatAudioTime(message.audio_duration) : '--:--'}</Typography>
               </Box>
               <Box sx={{ position: 'relative', height: 4, bgcolor: 'action.disabled', borderRadius: 2 }}>
-                <Box sx={{ position: 'absolute', top: 0, left: 0, height: '100%', bgcolor: 'primary.main', borderRadius: 2, width: audioDurations[message.id] && isFinite(audioDurations[message.id]) ? `${Math.min((audioProgress[message.id] || 0) / audioDurations[message.id] * 100, 100)}%` : '0%', transition: 'width 0.1s ease' }} />
+                <Box sx={{ position: 'absolute', top: 0, left: 0, height: '100%', bgcolor: 'primary.main', borderRadius: 2, width: message.audio_duration ? `${Math.min((audioProgress[message.id] || 0) / message.audio_duration * 100, 100)}%` : '0%', transition: 'width 0.1s ease' }} />
               </Box>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>

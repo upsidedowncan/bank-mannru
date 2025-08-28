@@ -33,6 +33,7 @@ export interface ChatMessage {
   pfp_color?: string;
   pfp_icon?: string;
   audio_url?: string;
+  audio_duration?: number;
   media_url?: string;
   media_type?: string;
   gift_amount?: number;
