@@ -25,7 +25,7 @@ export const ManPayDialog: React.FC<ManPayDialogProps> = ({ open, onClose, onSen
   const handleSend = () => {
     const numericAmount = parseFloat(amount);
     if (isNaN(numericAmount) || numericAmount <= 0) {
-      setError('Please enter a valid amount.');
+      setError('Пожалуйста, введите корректную сумму.');
       return;
     }
     setError('');
@@ -43,18 +43,18 @@ export const ManPayDialog: React.FC<ManPayDialogProps> = ({ open, onClose, onSen
       <DialogTitle>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <MoneyIcon color="primary" />
-          <Typography variant="h6">ManPay Transfer</Typography>
+          <Typography variant="h6">Перевод ManPay</Typography>
         </Box>
       </DialogTitle>
       <DialogContent>
         <Typography gutterBottom>
-          You are sending money to <strong>{receiverName}</strong>.
+          Вы отправляете деньги <strong>{receiverName}</strong>.
         </Typography>
         <TextField
           autoFocus
           margin="dense"
           id="amount"
-          label="Amount (МР)"
+          label="Сумма (МР)"
           type="number"
           fullWidth
           variant="outlined"
@@ -68,9 +68,9 @@ export const ManPayDialog: React.FC<ManPayDialogProps> = ({ open, onClose, onSen
         />
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>Отмена</Button>
         <Button onClick={handleSend} variant="contained" startIcon={<SendIcon />}>
-          Send
+          Отправить
         </Button>
       </DialogActions>
     </Dialog>

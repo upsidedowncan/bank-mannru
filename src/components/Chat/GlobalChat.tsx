@@ -1120,10 +1120,10 @@ export const GlobalChat: React.FC = () => {
         null, // No voice duration
         manpayData
       );
-      showSnackbar('ManPay transfer successful!', 'success');
+      showSnackbar('Перевод ManPay успешен!', 'success');
     } catch (error: any) {
       console.error('ManPay Error:', error);
-      showSnackbar(error.message || 'ManPay transfer failed.', 'error');
+      showSnackbar(error.message || 'Перевод ManPay не удался.', 'error');
     }
   };
 
@@ -1233,14 +1233,22 @@ export const GlobalChat: React.FC = () => {
                       multiline
                       maxRows={4}
                       disabled={!selectedChat || (isChannel(selectedChat) && selectedChat.admin_only && !isAdmin)}
+                      InputProps={{
+                        endAdornment: (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <IconButton component="label" htmlFor="media-upload" disabled={!selectedChat}>
+                              <AddPhotoIcon />
+                            </IconButton>
+                            {!isChannel(selectedChat) && (
+                              <IconButton onClick={() => setManPayDialogOpen(true)} disabled={!selectedChat}>
+                                <MoneyIcon />
+                              </IconButton>
+                            )}
+                          </Box>
+                        ),
+                      }}
                     />
-                    <IconButton component="label" htmlFor="media-upload" disabled={!selectedChat}><AddPhotoIcon /></IconButton>
                     <input type="file" accept="image/*,video/*" onChange={handleFileSelect} style={{ display: 'none' }} id="media-upload" />
-                    {!isChannel(selectedChat) && (
-                      <IconButton onClick={() => setManPayDialogOpen(true)} disabled={!selectedChat}>
-                        <MoneyIcon />
-                      </IconButton>
-                    )}
                     <IconButton onClick={startRecording} disabled={!selectedChat}><MicIcon /></IconButton>
                     <Button variant="contained" onClick={handleSend} disabled={(!selectedFile && !newMessage.trim()) || sending || uploadingMedia}>
                       {sending || uploadingMedia ? <CircularProgress size={24} /> : <SendIcon />}
