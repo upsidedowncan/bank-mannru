@@ -198,6 +198,56 @@ export const useDirectMessages = (user: User | null) => {
     }
   }, [user, fetchConversations, conversations]);
 
+  const sendDirectMediaMessage = async (receiverId: string, file: File, showSnackbar: (message: string, severity: 'success' | 'error') => void) => {
+    if (!user) return;
+
+    try {
+      // Step 1: Get or create the conversation to get a conversation_id
+      const { data: conversationData, error: convoError } = await supabase.rpc('get_or_create_conversation', {
+        receiver_id: receiverId,
+      });
+
+      if (convoError) throw convoError;
+      const conversationId = conversationData;
+
+      // Step 2: Upload the file to storage
+      const timestamp = Date.now();
+      const fileExtension = file.name.split('.').pop();
+      const fileName = `media_${user.id}_${timestamp}.${fileExtension}`;
+      const filePath = `dm-media/${conversationId}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('chat-media') // Using the same bucket as channel media for simplicity
+        .upload(filePath, file, { cacheControl: '3600' });
+
+      if (uploadError) throw uploadError;
+
+      // Step 3: Get the public URL of the uploaded file
+      const { data: urlData } = supabase.storage
+        .from('chat-media')
+        .getPublicUrl(filePath);
+
+      // Step 4: Insert a new record into the direct_messages table
+      const messageType = file.type.startsWith('image/') ? 'image' : 'video';
+      const { error: dbError } = await supabase.from('direct_messages').insert({
+        conversation_id: conversationId,
+        sender_id: user.id,
+        content: '', // No text content for media messages
+        message_type: messageType,
+        media_url: urlData.publicUrl,
+        media_type: file.type,
+      });
+
+      if (dbError) throw dbError;
+
+      showSnackbar('Медиа отправлено!', 'success');
+      fetchConversations(); // Refresh conversations to show the new last message
+    } catch (error) {
+      console.error('Error sending direct media message:', error);
+      showSnackbar('Ошибка при отправке медиа', 'error');
+    }
+  };
+
   return {
     conversations,
     loading,
@@ -207,5 +257,6 @@ export const useDirectMessages = (user: User | null) => {
     searchResults,
     searching,
     startDmWithUser,
+    sendDirectMediaMessage,
   };
 };

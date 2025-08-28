@@ -217,6 +217,7 @@ export const GlobalChat: React.FC = () => {
     searchResults,
     searching,
     startDmWithUser,
+    sendDirectMediaMessage,
   } = useDirectMessages(user);
 
   // Type guard to check if a chat is a channel
@@ -496,7 +497,35 @@ export const GlobalChat: React.FC = () => {
         .channel(`public:message_reactions:channel_id=eq.${selectedChat.id}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'message_reactions', filter: `channel_id=eq.${selectedChat.id}` },
           (payload) => {
-            fetchAndSetMessages();
+            if (payload.eventType === 'INSERT') {
+              const newReaction = payload.new;
+              setMessages(currentMessages =>
+                currentMessages.map(message => {
+                  if (message.id === newReaction.message_id) {
+                    // It's better to get user details, but for now, this is a simple update
+                    const reactionWithUser = { ...newReaction, user_name: '...' };
+                    return {
+                      ...message,
+                      reactions: [...(message.reactions || []), reactionWithUser],
+                    };
+                  }
+                  return message;
+                })
+              );
+            } else if (payload.eventType === 'DELETE') {
+              const oldReaction = payload.old;
+              setMessages(currentMessages =>
+                currentMessages.map(message => {
+                  if (message.id === oldReaction.message_id) {
+                    return {
+                      ...message,
+                      reactions: message.reactions?.filter(r => r.id !== oldReaction.id) || [],
+                    };
+                  }
+                  return message;
+                })
+              );
+            }
           }
         )
         .subscribe();
@@ -776,31 +805,42 @@ export const GlobalChat: React.FC = () => {
     cleanup: cleanupVoiceRecording,
   } = useVoiceRecording(user, isChannel(selectedChat) ? selectedChat : null, isUserAdmin, showSnackbar);
 
-  const handleSendMessage = useCallback(() => {
-    if (!selectedChat || !newMessage.trim()) return;
+  const handleSend = useCallback(() => {
+    if (!selectedChat || !user) return;
 
-    if (isChannel(selectedChat)) {
-      sendMessage();
+    if (selectedFile) {
+      // Handle media message
+      if (isChannel(selectedChat)) {
+        sendMediaMessage();
+      } else {
+        const receiver = selectedChat.participants.find(p => p.user_id !== user.id);
+        if (receiver) {
+          sendDirectMediaMessage(receiver.user_id, selectedFile, showSnackbar);
+          // Also clear the file input after sending
+          handleCancelMedia();
+        }
+      }
     } else {
-      // It's a DM
-      const receiver = selectedChat.participants.find(p => p.user_id !== user?.id);
-      if (receiver) {
-        sendDm(receiver.user_id, newMessage.trim());
-        setNewMessage(''); // Also clear message here
+      // Handle text message
+      if (!newMessage.trim()) return;
+      if (isChannel(selectedChat)) {
+        sendMessage();
+      } else {
+        const receiver = selectedChat.participants.find(p => p.user_id !== user.id);
+        if (receiver) {
+          sendDm(receiver.user_id, newMessage.trim());
+          setNewMessage(''); // Also clear message here
+        }
       }
     }
-  }, [selectedChat, newMessage, user, isChannel, sendMessage, sendDm, setNewMessage]);
+  }, [selectedChat, user, selectedFile, newMessage, isChannel, sendMediaMessage, sendDirectMediaMessage, sendMessage, sendDm, setNewMessage, showSnackbar]);
 
   const handleKeyPress = useCallback((event: React.KeyboardEvent) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
-      if (selectedFile) {
-        sendMediaMessage();
-      } else {
-        handleSendMessage();
-      }
+      handleSend();
     }
-  }, [handleSendMessage, selectedFile, sendMediaMessage]);
+  }, [handleSend]);
 
   const handleMessageMenuOpen = (event: React.MouseEvent<HTMLElement>, message: ChatMessage) => {
     setMessageMenuAnchor(event.currentTarget);
@@ -839,10 +879,40 @@ export const GlobalChat: React.FC = () => {
   };
 
   const handleToggleReaction = async (messageId: string, emoji: string) => {
-    if (!user || !isChannel(selectedChat)) return; // Only allow reactions in channels for now
+    if (!user || !isChannel(selectedChat)) return;
+
     const message = messages.find(m => m.id === messageId);
     if (!message) return;
+
     const existingReaction = message.reactions?.find(r => r.emoji === emoji && r.user_id === user.id);
+
+    // Optimistic UI update
+    if (existingReaction) {
+      // Remove reaction
+      const updatedReactions = message.reactions?.filter(r => r.id !== existingReaction.id) || [];
+      setMessages(currentMessages =>
+        currentMessages.map(m =>
+          m.id === messageId ? { ...m, reactions: updatedReactions } : m
+        )
+      );
+    } else {
+      // Add reaction
+      const newReaction = {
+        id: `temp-${Date.now()}`, // Temporary ID
+        message_id: messageId,
+        user_id: user.id,
+        emoji: emoji,
+        channel_id: selectedChat.id,
+        user_name: userSettings?.chat_name || 'You',
+      };
+      setMessages(currentMessages =>
+        currentMessages.map(m =>
+          m.id === messageId ? { ...m, reactions: [...(m.reactions || []), newReaction] } : m
+        )
+      );
+    }
+
+    // Perform the database operation
     if (existingReaction) {
       await supabase.from('message_reactions').delete().eq('id', existingReaction.id);
     } else {
@@ -853,6 +923,7 @@ export const GlobalChat: React.FC = () => {
         channel_id: selectedChat.id,
       });
     }
+    // The real-time subscription will handle syncing the final state for all clients.
   };
 
   useEffect(() => {
@@ -1037,7 +1108,7 @@ export const GlobalChat: React.FC = () => {
                     <IconButton component="label" htmlFor="media-upload" disabled={!selectedChat}><AddPhotoIcon /></IconButton>
                     <input type="file" accept="image/*,video/*" onChange={handleFileSelect} style={{ display: 'none' }} id="media-upload" />
                     <IconButton onClick={startRecording} disabled={!selectedChat}><MicIcon /></IconButton>
-                    <Button variant="contained" onClick={selectedFile ? sendMediaMessage : handleSendMessage} disabled={(!selectedFile && !newMessage.trim()) || sending || uploadingMedia}>
+                    <Button variant="contained" onClick={handleSend} disabled={(!selectedFile && !newMessage.trim()) || sending || uploadingMedia}>
                       {sending || uploadingMedia ? <CircularProgress size={24} /> : <SendIcon />}
                     </Button>
                   </Box>
