@@ -16,7 +16,7 @@ import {
   Money as MoneyIcon,
 } from '@mui/icons-material';
 import { ChatMessage } from '../types';
-import { ManPayWidget } from './ManPayWidget';
+import ManPayWidget from './ManPayWidget';
 
 interface MessageProps {
   message: ChatMessage;
