@@ -9,13 +9,24 @@ const gradientAnimation = keyframes`
   100% { background-position: 0% 50%; }
 `;
 
+const spin3D = keyframes`
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
+    transform: rotateY(360deg);
+  }
+`;
+
 const AnimatedGradientText = styled(Typography)(({ theme }) => ({
   background: `linear-gradient(45deg, ${theme.palette.success.main}, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
   backgroundSize: '200% 200%',
   WebkitBackgroundClip: 'text',
   WebkitTextFillColor: 'transparent',
-  animation: `${gradientAnimation} 3s ease infinite`,
+  animation: `${gradientAnimation} 3s ease infinite, ${spin3D} 4s linear infinite`,
   fontWeight: 'bold',
+  transformStyle: 'preserve-3d',
+  display: 'inline-block',
 }));
 
 interface ManPayWidgetProps {
@@ -37,6 +48,7 @@ export const ManPayWidget: React.FC<ManPayWidgetProps> = ({ amount, senderName, 
         border: '1px solid',
         borderColor: 'primary.main',
         color: 'white',
+        perspective: '1000px',
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
@@ -53,7 +65,7 @@ export const ManPayWidget: React.FC<ManPayWidgetProps> = ({ amount, senderName, 
           {amount} МР
         </AnimatedGradientText>
         <Typography variant="body2" sx={{ color: 'grey.400' }}>
-          {isSender ? `кому ${receiverName}` : 'вам'}
+          {isSender ? receiverName : 'вам'}
         </Typography>
       </Box>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, color: 'success.main' }}>
