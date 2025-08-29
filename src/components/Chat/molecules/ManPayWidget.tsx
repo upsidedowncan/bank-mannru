@@ -92,7 +92,7 @@ const ManPayWidget: React.FC<ManPayWidgetProps> = ({
         {isSender ? `Вы → ${receiverName}` : `${senderName} → Вам`}
       </Header>
       <Amount>
-        {formattedAmount} ₽
+        {formattedAmount} МР
       </Amount>
       <Status>
         Доставлено
