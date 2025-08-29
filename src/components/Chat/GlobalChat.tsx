@@ -607,6 +607,14 @@ export const GlobalChat: React.FC = () => {
     };
   }, [selectedChat, isChannel]);
 
+  useEffect(() => {
+    // When the chat context changes, scroll to the bottom.
+    // Using 'auto' for an instant jump instead of smooth scrolling.
+    if (selectedChat) {
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' }), 100);
+    }
+  }, [selectedChat]);
+
 
   const forceScrollToBottom = useCallback(() => {
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 100);
