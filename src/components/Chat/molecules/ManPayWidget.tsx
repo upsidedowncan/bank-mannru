@@ -1,9 +1,9 @@
 import React from 'react';
-import { Box, Typography, Paper } from '@mui/material';
+import { Typography, Paper } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
 import { useInView } from 'react-intersection-observer';
 
-// --- Keyframe Animations (No changes here) ---
+// --- Keyframe Animations (Optimized for Performance) ---
 const subtleFadeInUp = keyframes`
   from {
     opacity: 0;
@@ -15,16 +15,15 @@ const subtleFadeInUp = keyframes`
   }
 `;
 
-// --- Styled Components (Optimized for Performance & Adaptiveness) ---
+// --- Styled Components (Designed for Text Wrapping) ---
 const StyledPaper = styled(Paper, {
   shouldForwardProp: (prop) => prop !== 'isInView',
-})<{ isInView: boolean }>(({ theme, isInView }) => ({
+})<{ isInView: boolean }>(({ isInView }) => ({
   fontFamily: "'Inter', sans-serif",
-  boxSizing: 'border-box', // Ensures padding is included in the width
-  width: 'fit-content',
-  minWidth: '240px',
-  maxWidth: '90vw', // Prevents the widget from ever touching the screen edges
-  padding: '14px 18px',
+  boxSizing: 'border-box',
+  width: '260px', // A fixed base width is better for predictable wrapping
+  maxWidth: '90vw',
+  padding: '16px 20px',
   borderRadius: '20px',
   backgroundColor: '#1C1C1E',
   color: '#FFFFFF',
@@ -48,14 +47,13 @@ const Header = styled(Typography)({
 
 const Amount = styled(Typography)({
   fontWeight: 700,
-  // The key change is here! This makes the font size responsive.
-  fontSize: 'clamp(1.6rem, 8vw, 2.2rem)',
-  lineHeight: 1.2,
+  fontSize: '2.1rem', // A consistent font size
+  lineHeight: 1.25, // Controls spacing when the text wraps to a new line
   color: '#FFFFFF',
-  // These properties prevent the number from breaking in the middle if it still somehow overflows
-  whiteSpace: 'nowrap',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
+
+  // --- THIS IS THE FIX ---
+  // This forces the text to break onto a new line instead of overflowing.
+  wordBreak: 'break-all',
 });
 
 const Status = styled(Typography)({
@@ -65,7 +63,7 @@ const Status = styled(Typography)({
   marginTop: '12px',
 });
 
-// --- Widget Component (No changes in logic) ---
+// --- Widget Component ---
 
 interface ManPayWidgetProps {
   amount: number;
@@ -85,13 +83,13 @@ const ManPayWidget: React.FC<ManPayWidgetProps> = ({
     threshold: 0.1,
   });
   
-  // Formatting the number with non-breaking spaces for better readability
+  // Intl.NumberFormat adds spaces, which also helps with readability.
   const formattedAmount = new Intl.NumberFormat('ru-RU').format(amount);
 
   return (
     <StyledPaper ref={ref} elevation={0} isInView={inView}>
       <Header>
-        {isSender ? `Вы отправили ${receiverName}` : `${senderName} отправил(а) вам`}
+        {isSender ? `Вы → ${receiverName}` : `${senderName} → Вам`}
       </Header>
       <Amount>
         {formattedAmount} ₽
@@ -103,4 +101,5 @@ const ManPayWidget: React.FC<ManPayWidgetProps> = ({
   );
 };
 
+// Memoized for high performance in long lists
 export default React.memo(ManPayWidget);
