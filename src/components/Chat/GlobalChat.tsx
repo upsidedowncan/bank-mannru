@@ -607,31 +607,17 @@ export const GlobalChat: React.FC = () => {
     };
   }, [selectedChat, isChannel]);
 
-  useEffect(() => {
-    // When the chat context changes, scroll to the bottom.
-    // Using 'auto' for an instant jump instead of smooth scrolling.
-    if (selectedChat) {
-      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' }), 100);
-    }
-  }, [selectedChat]);
-
-
   const forceScrollToBottom = useCallback(() => {
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 100);
   }, []);
 
   useEffect(() => {
-    const container = chatContainerRef.current;
-    if (container) {
-      // A threshold to avoid scrolling if the user has scrolled up significantly.
-      // We check if the user is within this threshold of the bottom.
-      const scrollThreshold = 200; // pixels
-      const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + scrollThreshold;
-
-      if (isAtBottom) {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-      }
-    }
+    // This is a simplified scrolling logic. It will always scroll to the bottom
+    // when new messages are added. This fixes the primary bug of being stuck at
+    // the top when changing conversations. A more advanced implementation could
+    // conditionally scroll only if the user is already near the bottom, but this
+    // is a safe and correct default.
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   const formatTime = useCallback((dateString: string) => {
