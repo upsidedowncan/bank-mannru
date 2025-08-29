@@ -1248,7 +1248,7 @@ export const GlobalChat: React.FC = () => {
                       onChange={handleInputChange}
                       onKeyPress={handleKeyPress}
                       multiline
-                      maxRows={4}
+                      maxRows={2}
                       disabled={!selectedChat || (isChannel(selectedChat) && selectedChat.admin_only && !isAdmin)}
                       InputProps={{
                         endAdornment: (
