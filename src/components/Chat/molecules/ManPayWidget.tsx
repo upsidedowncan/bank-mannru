@@ -1,9 +1,9 @@
 import React from 'react';
-import { Box, Typography, Paper } from '@mui/material';
+import { Typography, Paper } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
 import { useInView } from 'react-intersection-observer';
 
-// --- Keyframe Animations (using only transform and opacity for performance) ---
+// --- Keyframe Animations (Optimized for Performance) ---
 const subtleFadeInUp = keyframes`
   from {
     opacity: 0;
@@ -15,22 +15,22 @@ const subtleFadeInUp = keyframes`
   }
 `;
 
-// --- Styled Components (Optimized for Performance) ---
+// --- Styled Components (Designed for Text Wrapping) ---
 const StyledPaper = styled(Paper, {
   shouldForwardProp: (prop) => prop !== 'isInView',
-})<{ isInView: boolean }>(({ theme, isInView }) => ({
-  fontFamily: "'Inter', sans-serif", // Assuming Inter is loaded in your index.html
-  width: 'fit-content',
-  minWidth: '240px',
-  padding: '14px 18px',
+})<{ isInView: boolean }>(({ isInView }) => ({
+  fontFamily: "'Inter', sans-serif",
+  boxSizing: 'border-box',
+  width: '260px', // A fixed base width is better for predictable wrapping
+  maxWidth: '90vw',
+  padding: '16px 20px',
   borderRadius: '20px',
-  backgroundColor: '#1C1C1E', // A dark, modern background
+  backgroundColor: '#1C1C1E',
   color: '#FFFFFF',
-  // Conditional animation based on visibility
+  opacity: 0,
   animation: isInView
     ? `${subtleFadeInUp} 0.7s cubic-bezier(0.33, 1, 0.68, 1) forwards`
     : 'none',
-  opacity: 0, // Start as invisible
   transition: 'background-color 0.3s ease',
 
   '&:hover': {
@@ -41,21 +41,25 @@ const StyledPaper = styled(Paper, {
 const Header = styled(Typography)({
   fontWeight: 500,
   fontSize: '0.9rem',
-  color: '#8E8E93', // Softer color for secondary text
+  color: '#8E8E93',
   marginBottom: '12px',
 });
 
 const Amount = styled(Typography)({
   fontWeight: 700,
-  fontSize: '2.2rem',
-  lineHeight: 1.2,
+  fontSize: '2.1rem', // A consistent font size
+  lineHeight: 1.25, // Controls spacing when the text wraps to a new line
   color: '#FFFFFF',
+
+  // --- THIS IS THE FIX ---
+  // This forces the text to break onto a new line instead of overflowing.
+  wordBreak: 'break-all',
 });
 
 const Status = styled(Typography)({
   fontWeight: 500,
   fontSize: '0.85rem',
-  color: '#34C759', // Apple's green for success
+  color: '#34C759',
   marginTop: '12px',
 });
 
@@ -74,19 +78,21 @@ const ManPayWidget: React.FC<ManPayWidgetProps> = ({
   receiverName,
   isSender,
 }) => {
-  // This hook triggers the animation only when the widget is in the viewport
   const { ref, inView } = useInView({
-    triggerOnce: true, // Only animate once
-    threshold: 0.1, // Trigger when 10% of the element is visible
+    triggerOnce: true,
+    threshold: 0.1,
   });
+  
+  // Intl.NumberFormat adds spaces, which also helps with readability.
+  const formattedAmount = new Intl.NumberFormat('ru-RU').format(amount);
 
   return (
     <StyledPaper ref={ref} elevation={0} isInView={inView}>
       <Header>
-        {isSender ? `Вы отправили ${receiverName}` : `${senderName} отправил(а) вам`}
+        {isSender ? `Вы → ${receiverName}` : `${senderName} → Вам`}
       </Header>
       <Amount>
-        {amount} ₽
+        {formattedAmount} ₽
       </Amount>
       <Status>
         Доставлено
@@ -95,5 +101,5 @@ const ManPayWidget: React.FC<ManPayWidgetProps> = ({
   );
 };
 
-// Wrap the component with React.memo for performance optimization
+// Memoized for high performance in long lists
 export default React.memo(ManPayWidget);
