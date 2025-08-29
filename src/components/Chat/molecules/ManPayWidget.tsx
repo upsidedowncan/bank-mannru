@@ -3,7 +3,7 @@ import { Box, Typography, Paper } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
 import { useInView } from 'react-intersection-observer';
 
-// --- Keyframe Animations (using only transform and opacity for performance) ---
+// --- Keyframe Animations (No changes here) ---
 const subtleFadeInUp = keyframes`
   from {
     opacity: 0;
@@ -15,22 +15,23 @@ const subtleFadeInUp = keyframes`
   }
 `;
 
-// --- Styled Components (Optimized for Performance) ---
+// --- Styled Components (Optimized for Performance & Adaptiveness) ---
 const StyledPaper = styled(Paper, {
   shouldForwardProp: (prop) => prop !== 'isInView',
 })<{ isInView: boolean }>(({ theme, isInView }) => ({
-  fontFamily: "'Inter', sans-serif", // Assuming Inter is loaded in your index.html
+  fontFamily: "'Inter', sans-serif",
+  boxSizing: 'border-box', // Ensures padding is included in the width
   width: 'fit-content',
   minWidth: '240px',
+  maxWidth: '90vw', // Prevents the widget from ever touching the screen edges
   padding: '14px 18px',
   borderRadius: '20px',
-  backgroundColor: '#1C1C1E', // A dark, modern background
+  backgroundColor: '#1C1C1E',
   color: '#FFFFFF',
-  // Conditional animation based on visibility
+  opacity: 0,
   animation: isInView
     ? `${subtleFadeInUp} 0.7s cubic-bezier(0.33, 1, 0.68, 1) forwards`
     : 'none',
-  opacity: 0, // Start as invisible
   transition: 'background-color 0.3s ease',
 
   '&:hover': {
@@ -41,25 +42,30 @@ const StyledPaper = styled(Paper, {
 const Header = styled(Typography)({
   fontWeight: 500,
   fontSize: '0.9rem',
-  color: '#8E8E93', // Softer color for secondary text
+  color: '#8E8E93',
   marginBottom: '12px',
 });
 
 const Amount = styled(Typography)({
   fontWeight: 700,
-  fontSize: '2.2rem',
+  // The key change is here! This makes the font size responsive.
+  fontSize: 'clamp(1.6rem, 8vw, 2.2rem)',
   lineHeight: 1.2,
   color: '#FFFFFF',
+  // These properties prevent the number from breaking in the middle if it still somehow overflows
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
 });
 
 const Status = styled(Typography)({
   fontWeight: 500,
   fontSize: '0.85rem',
-  color: '#34C759', // Apple's green for success
+  color: '#34C759',
   marginTop: '12px',
 });
 
-// --- Widget Component ---
+// --- Widget Component (No changes in logic) ---
 
 interface ManPayWidgetProps {
   amount: number;
@@ -74,11 +80,13 @@ const ManPayWidget: React.FC<ManPayWidgetProps> = ({
   receiverName,
   isSender,
 }) => {
-  // This hook triggers the animation only when the widget is in the viewport
   const { ref, inView } = useInView({
-    triggerOnce: true, // Only animate once
-    threshold: 0.1, // Trigger when 10% of the element is visible
+    triggerOnce: true,
+    threshold: 0.1,
   });
+  
+  // Formatting the number with non-breaking spaces for better readability
+  const formattedAmount = new Intl.NumberFormat('ru-RU').format(amount);
 
   return (
     <StyledPaper ref={ref} elevation={0} isInView={inView}>
@@ -86,7 +94,7 @@ const ManPayWidget: React.FC<ManPayWidgetProps> = ({
         {isSender ? `Вы отправили ${receiverName}` : `${senderName} отправил(а) вам`}
       </Header>
       <Amount>
-        {amount} ₽
+        {formattedAmount} ₽
       </Amount>
       <Status>
         Доставлено
@@ -95,5 +103,4 @@ const ManPayWidget: React.FC<ManPayWidgetProps> = ({
   );
 };
 
-// Wrap the component with React.memo for performance optimization
 export default React.memo(ManPayWidget);
