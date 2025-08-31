@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Box, Typography, Avatar, IconButton, TextField, CircularProgress, Button, Tooltip } from '@mui/material';
+import React, { useState, useMemo } from 'react';
+import { Box, Typography, Avatar, IconButton, TextField, CircularProgress, Button, Tooltip, Chip } from '@mui/material';
 import AddReactionIcon from '@mui/icons-material/AddReaction';
 import ReactionPill from './ReactionPill';
 import EmojiPicker from './EmojiPicker';
@@ -14,6 +14,10 @@ import {
   VideoLibrary as VideoIcon,
   CardGiftcard as GiftIcon,
   Money as MoneyIcon,
+  PushPin as PinIcon,
+  Search as SearchIcon,
+  CheckCircle as ReadIcon,
+  Schedule as PendingIcon,
 } from '@mui/icons-material';
 import { ChatMessage } from '../types';
 import ManPayWidget from './ManPayWidget';
@@ -40,9 +44,15 @@ interface MessageProps {
   onToggleReaction: (emoji: string) => void;
   onStartDm: (userId: string) => void;
   participants: { user_id: string; user_name: string }[];
+  searchQuery?: string;
+  isPinned?: boolean;
+  onPinMessage?: (messageId: string) => void;
+  onUnpinMessage?: (messageId: string) => void;
+  showReadReceipts?: boolean;
+  readBy?: string[];
 }
 
-const Message: React.FC<MessageProps> = ({
+const Message: React.FC<MessageProps> = React.memo(({
   message,
   isMobile,
   user,
@@ -64,8 +74,46 @@ const Message: React.FC<MessageProps> = ({
   onToggleReaction,
   onStartDm,
   participants,
+  searchQuery = '',
+  isPinned = false,
+  onPinMessage,
+  onUnpinMessage,
+  showReadReceipts = false,
+  readBy = [],
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+
+  // Memoize expensive computations
+  const reactionsGrouped = useMemo(() => {
+    return (message.reactions || []).reduce<{[key: string]: typeof message.reactions}>((acc, reaction) => {
+      const key = reaction.emoji;
+      const existing = acc[key] || [];
+      acc[key] = [...existing, reaction];
+      return acc;
+    }, {});
+  }, [message.reactions]);
+
+  // Highlight search terms
+  const highlightedMessage = useMemo(() => {
+    if (!searchQuery || !message.message) return message.message;
+    
+    const regex = new RegExp(`(${searchQuery})`, 'gi');
+    const parts = message.message.split(regex);
+    
+    return parts.map((part, index) => 
+      regex.test(part) ? (
+        <Box key={index} component="span" sx={{ 
+          backgroundColor: 'warning.light', 
+          color: 'warning.contrastText',
+          borderRadius: 0.5,
+          px: 0.5,
+          fontWeight: 'bold'
+        }}>
+          {part}
+        </Box>
+      ) : part
+    );
+  }, [message.message, searchQuery]);
 
   const handleUserClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -83,12 +131,18 @@ const Message: React.FC<MessageProps> = ({
     setAnchorEl(null);
   };
 
-  const reactionsGrouped = (message.reactions || []).reduce<{[key: string]: typeof message.reactions}>((acc, reaction) => {
-    const key = reaction.emoji;
-    const existing = acc[key] || [];
-    acc[key] = [...existing, reaction];
-    return acc;
-  }, {});
+  const handlePinMessage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isPinned && onUnpinMessage) {
+      onUnpinMessage(message.id);
+    } else if (!isPinned && onPinMessage) {
+      onPinMessage(message.id);
+    }
+  };
+
+  const isOwnMessage = user?.id === message.user_id;
+  const isRead = readBy.includes(user?.id || '');
+  const isPending = message.message_type === 'text' && !isRead && isOwnMessage;
 
   return (
     <Box
@@ -97,16 +151,27 @@ const Message: React.FC<MessageProps> = ({
         display: 'flex',
         gap: isMobile ? 0.5 : 1,
         alignItems: 'flex-start',
-        cursor: user?.id === message.user_id ? 'pointer' : 'default',
-        '&:hover': user?.id === message.user_id ? {
+        cursor: isOwnMessage ? 'pointer' : 'default',
+        position: 'relative',
+        '&:hover': isOwnMessage ? {
           backgroundColor: 'action.hover',
           borderRadius: 1,
           p: 0.5,
           m: -0.5,
-        } : {}
+        } : {},
+        borderLeft: isPinned ? 3 : 0,
+        borderColor: 'warning.main',
+        pl: isPinned ? 1 : 0,
       }}
-      onClick={user?.id === message.user_id ? (e) => handleMessageMenuOpen(e, message) : undefined}
+      onClick={isOwnMessage ? (e) => handleMessageMenuOpen(e, message) : undefined}
     >
+      {/* Pin indicator */}
+      {isPinned && (
+        <Box sx={{ position: 'absolute', top: 0, left: -8, zIndex: 1 }}>
+          <PinIcon fontSize="small" color="warning" />
+        </Box>
+      )}
+
       <Avatar
         onClick={handleUserClick}
         sx={{
@@ -151,6 +216,24 @@ const Message: React.FC<MessageProps> = ({
             <Typography variant="caption" color="text.secondary">
               (ред.)
             </Typography>
+          )}
+          {isPinned && (
+            <Chip 
+              size="small" 
+              icon={<PinIcon />} 
+              label="Закреплено" 
+              color="warning" 
+              variant="outlined"
+            />
+          )}
+          {showReadReceipts && isOwnMessage && (
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              {isRead ? (
+                <ReadIcon fontSize="small" color="success" />
+              ) : (
+                <PendingIcon fontSize="small" color="action" />
+              )}
+            </Box>
           )}
         </Box>
 
@@ -219,14 +302,14 @@ const Message: React.FC<MessageProps> = ({
           </Box>
         ) : message.message_type === 'image' ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {message.message && <Typography variant="body1">{message.message}</Typography>}
+            {message.message && <Typography variant="body1">{highlightedMessage}</Typography>}
             <Box sx={{ display: 'flex', justifyContent: 'flex-start', maxWidth: '100%' }}>
               <Box component="img" src={message.media_url} alt={message.message} sx={{ maxWidth: '100%', maxHeight: 300, width: 'auto', height: 'auto', objectFit: 'contain', borderRadius: 1, cursor: 'pointer', display: 'block', '&:hover': { opacity: 0.8 } }} onClick={(e) => { e.stopPropagation(); window.open(message.media_url, '_blank'); }} />
             </Box>
           </Box>
         ) : message.message_type === 'video' ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {message.message && <Typography variant="body1">{message.message}</Typography>}
+            {message.message && <Typography variant="body1">{highlightedMessage}</Typography>}
             <Box sx={{ display: 'flex', justifyContent: 'flex-start', maxWidth: '100%' }}>
               <Box component="video" src={message.media_url} controls sx={{ maxWidth: '100%', maxHeight: 300, width: 'auto', height: 'auto', objectFit: 'contain', borderRadius: 1, display: 'block' }} onClick={(e) => e.stopPropagation()} />
             </Box>
@@ -261,7 +344,7 @@ const Message: React.FC<MessageProps> = ({
             isSender={user?.id === message.manpay_sender_id}
           />
         ) : (
-          <Typography variant="body1">{message.message}</Typography>
+          <Typography variant="body1">{highlightedMessage}</Typography>
         )}
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
@@ -285,6 +368,13 @@ const Message: React.FC<MessageProps> = ({
           <IconButton size="small" onClick={handleReactionClick}>
             <AddReactionIcon fontSize="small" />
           </IconButton>
+          {onPinMessage && (
+            <Tooltip title={isPinned ? "Открепить сообщение" : "Закрепить сообщение"}>
+              <IconButton size="small" onClick={handlePinMessage}>
+                <PinIcon fontSize="small" color={isPinned ? "warning" : "action"} />
+              </IconButton>
+            </Tooltip>
+          )}
         </Box>
       </Box>
       <EmojiPicker
@@ -294,6 +384,8 @@ const Message: React.FC<MessageProps> = ({
       />
     </Box>
   );
-};
+});
+
+Message.displayName = 'Message';
 
 export default Message;

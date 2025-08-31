@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -31,9 +31,10 @@ import {
   FormControl,
   InputLabel,
   Select,
+  LinearProgress,
+  Fab,
 } from '@mui/material';
-import { keyframes } from '@emotion/react';
-import { styled } from '@mui/material/styles';
+import { styled, keyframes } from '@mui/material/styles';
 import {
   Send as SendIcon,
   Chat as ChatIcon,
@@ -80,6 +81,9 @@ import {
   Code as DevIcon,
   Lightbulb as LightbulbIcon,
   Warning as WarningIcon,
+  Search as SearchIcon,
+  KeyboardArrowDown as ScrollDownIcon,
+  SmartToy as BotIcon,
 } from '@mui/icons-material';
 import { supabase } from '../../config/supabase';
 import { useAuthContext } from '../../contexts/AuthContext';
@@ -90,6 +94,10 @@ import { useVoiceRecording } from './hooks/useVoiceRecording';
 import { NewDmDialog } from './molecules/NewDmDialog';
 import { ManPayDialog } from './molecules/ManPayDialog';
 import Message from './molecules/Message';
+import VirtualizedMessageList from './molecules/VirtualizedMessageList';
+import MessageSearch from './molecules/MessageSearch';
+import TypingIndicator from './molecules/TypingIndicator';
+import { ManGPT } from './molecules/ManGPT';
 
 const iconMapping: { [key: string]: React.ComponentType } = {
   Chat: ChatIcon,
@@ -208,6 +216,18 @@ export const GlobalChat: React.FC = () => {
   const [newDmDialogOpen, setNewDmDialogOpen] = useState(false);
   const [manPayDialogOpen, setManPayDialogOpen] = useState(false);
 
+  // New features state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchDialogOpen, setSearchDialogOpen] = useState(false);
+  const [pinnedMessages, setPinnedMessages] = useState<Set<string>>(new Set());
+  const [typingUsers, setTypingUsers] = useState<Array<{user_id: string; user_name: string; timestamp: number}>>([]);
+  const [showReadReceipts, setShowReadReceipts] = useState(false);
+  const [readBy, setReadBy] = useState<{[messageId: string]: string[]}>({});
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const messagesPerPage = 50; // Load 50 messages at a time
+
   // Hook for DMs
   const {
     conversations: dmConversations,
@@ -240,27 +260,194 @@ export const GlobalChat: React.FC = () => {
     setSnackbar({ open: true, message, severity });
   };
 
-  // Admin checking function
+  // Check if user is admin
   const isUserAdmin = useCallback(async () => {
     if (!user) return false;
-    
-    // Check if user has admin flag in metadata
-    return !!user.user_metadata?.isAdmin;
+    try {
+      const { data, error } = await supabase
+        .from('user_chat_settings')
+        .select('is_admin')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (error) return false;
+      return data?.is_admin || false;
+    } catch {
+      return false;
+    }
   }, [user]);
 
-  // Check admin status when user changes
-  useEffect(() => {
-    const checkAdminStatus = async () => {
-      if (user) {
-        const adminStatus = await isUserAdmin();
-        setIsAdmin(adminStatus);
-      } else {
-        setIsAdmin(false);
+  // Messages state
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+
+  // Memoize messages to prevent unnecessary re-renders
+  const memoizedMessages = useMemo(() => messages, [messages]);
+
+  // Load more messages function
+  const loadMoreMessages = useCallback(async () => {
+    if (!selectedChat || loadingMore || !hasMoreMessages || selectedChat.id === 'mangpt') return;
+
+    setLoadingMore(true);
+    try {
+      if (isChannel(selectedChat)) {
+        // Calculate offset for pagination
+        const offset = (currentPage - 1) * messagesPerPage;
+        
+        const { data: messagesData, error: messagesError } = await supabase
+          .from('chat_messages')
+          .select('*')
+          .eq('channel_id', selectedChat.id)
+          .order('created_at', { ascending: true })
+          .range(offset, offset + messagesPerPage - 1);
+
+        if (messagesError) throw messagesError;
+        if (!messagesData || messagesData.length === 0) {
+          setHasMoreMessages(false);
+          return;
+        }
+
+        // Process new messages (similar to existing logic)
+        const messageIds = messagesData.map(msg => msg.id);
+        const { data: reactionsData, error: reactionsError } = await supabase
+          .from('message_reactions')
+          .select('*')
+          .in('message_id', messageIds);
+
+        if (reactionsError) throw reactionsError;
+
+        const userIdsFromMessages = messagesData.map(msg => msg.user_id);
+        const userIdsFromReactions = reactionsData?.map(r => r.user_id) || [];
+        const allUserIds = Array.from(new Set([...userIdsFromMessages, ...userIdsFromReactions]));
+
+        const { data: userSettingsData } = await supabase
+          .from('user_chat_settings')
+          .select('user_id, chat_name, pfp_color, pfp_icon')
+          .in('user_id', allUserIds);
+
+        const settingsMap = new Map(userSettingsData?.map(s => [s.user_id, s]));
+
+        const reactionsByMessageId = new Map();
+        reactionsData?.forEach(reaction => {
+          const userSetting = settingsMap.get(reaction.user_id);
+          const reactionWithUser = {
+            ...reaction,
+            user_name: userSetting?.chat_name || `User ${reaction.user_id.slice(0, 8)}...`,
+          };
+          const existing = reactionsByMessageId.get(reaction.message_id) || [];
+          reactionsByMessageId.set(reaction.message_id, [...existing, reactionWithUser]);
+        });
+
+        const newMessages = await Promise.all(
+          messagesData.map(async (msg) => {
+            const userSetting = settingsMap.get(msg.user_id);
+            let replyToMessage = null;
+            if (msg.reply_to) {
+              const { data: replyData } = await supabase
+                .from('chat_messages')
+                .select('id, message, user_id')
+                .eq('id', msg.reply_to)
+                .single();
+
+              if (replyData) {
+                const replyUserSetting = settingsMap.get(replyData.user_id);
+                replyToMessage = {
+                  ...replyData,
+                  user_name: replyUserSetting?.chat_name || `User ${replyData.user_id.slice(0, 8)}...`,
+                };
+              }
+            }
+            return {
+              ...msg,
+              user_name: userSetting?.chat_name || `User ${msg.user_id.slice(0, 8)}...`,
+              pfp_color: userSetting?.pfp_color || '#1976d2',
+              pfp_icon: userSetting?.pfp_icon || 'Person',
+              reply_to_message: replyToMessage,
+              reactions: reactionsByMessageId.get(msg.id) || [],
+            };
+          })
+        );
+
+        // Prepend new messages to existing ones
+        setMessages(prevMessages => [...newMessages, ...prevMessages]);
+        setCurrentPage(prev => prev + 1);
+        
+        // Check if we've loaded all messages
+        if (messagesData.length < messagesPerPage) {
+          setHasMoreMessages(false);
+        }
       }
-    };
+    } catch (error) {
+      console.error("Error loading more messages:", error);
+      showSnackbar('Ошибка при загрузке сообщений', 'error');
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [selectedChat, loadingMore, hasMoreMessages, currentPage, messagesPerPage, isChannel, showSnackbar]);
+
+  // Pin/unpin message functions
+  const handlePinMessage = async (messageId: string) => {
+    if (!user || !selectedChat || !isChannel(selectedChat)) return;
     
-    checkAdminStatus();
-  }, [user, isUserAdmin]);
+    try {
+      setPinnedMessages(prev => new Set(prev).add(messageId));
+      showSnackbar('Сообщение закреплено', 'success');
+    } catch (error) {
+      console.error('Error pinning message:', error);
+      showSnackbar('Ошибка при закреплении сообщения', 'error');
+    }
+  };
+
+  const handleUnpinMessage = async (messageId: string) => {
+    if (!user || !selectedChat || !isChannel(selectedChat)) return;
+    
+    try {
+      setPinnedMessages(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(messageId);
+        return newSet;
+      });
+      showSnackbar('Сообщение откреплено', 'success');
+    } catch (error) {
+      console.error('Error unpinning message:', error);
+      showSnackbar('Ошибка при откреплении сообщения', 'error');
+    }
+  };
+
+  // Message selection function
+  const handleMessageSelect = (messageId: string) => {
+    const messageElement = document.getElementById(`message-${messageId}`);
+    if (messageElement) {
+      messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      messageElement.style.backgroundColor = 'rgba(255, 193, 7, 0.2)';
+      setTimeout(() => {
+        messageElement.style.backgroundColor = '';
+      }, 2000);
+    }
+  };
+
+  // Typing indicators disabled for better performance
+  // useEffect(() => {
+  //   if (!selectedChat || !isChannel(selectedChat)) {
+  //     return;
+  //   }
+  //   // ... typing indicator logic disabled
+  // }, [selectedChat, user]);
+
+
+
+  // Admin checking function
+  // useEffect(() => {
+  //   const checkAdminStatus = async () => {
+  //     if (user) {
+  //       const adminStatus = await isUserAdmin();
+  //       setIsAdmin(adminStatus);
+  //     } else {
+  //       setIsAdmin(false);
+  //     }
+  //   };
+    
+  //   checkAdminStatus();
+  // }, [user, isUserAdmin]);
 
   // Initialize user chat settings
   useEffect(() => {
@@ -337,17 +524,61 @@ export const GlobalChat: React.FC = () => {
     fetchInitialData();
   }, []); // Runs once on mount
 
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // Mark messages as read
+  useEffect(() => {
+    if (!user || !selectedChat || !isChannel(selectedChat)) {
+      return;
+    }
+
+    const markAsRead = async () => {
+      try {
+        const messageIds = messages.map(m => m.id);
+        if (messageIds.length > 0) {
+          setReadBy(prev => {
+            const newReadBy = { ...prev };
+            messageIds.forEach(id => {
+              if (!newReadBy[id]) {
+                newReadBy[id] = [];
+              }
+              if (!newReadBy[id].includes(user.id)) {
+                newReadBy[id] = [...newReadBy[id], user.id];
+              }
+            });
+            return newReadBy;
+          });
+        }
+      } catch (error) {
+        console.error('Error marking messages as read:', error);
+      }
+    };
+
+    markAsRead();
+  }, [messages, user, selectedChat]);
+
+  // Typing indicators cleanup disabled for better performance
+  // useEffect(() => {
+  //   const interval = setInterval(() => {
+  //     setTypingUsers(prev => prev.filter(user => Date.now() - user.timestamp < 5000));
+  //   }, 5000);
+  //   return () => clearInterval(interval);
+  // }, []);
 
   // This is the new central useEffect for fetching and subscriptions
   useEffect(() => {
-    setMessages([]); // Clear messages when chat changes
-    setLoading(true);
-
     if (!selectedChat) {
       setLoading(false);
       return;
     }
+
+    // Don't fetch messages for ManGPT - it has its own message system
+    if (selectedChat?.id === 'mangpt') {
+      // Don't set messages or loading state for ManGPT - let it manage itself
+      return;
+    }
+
+    // Only clear messages for regular chats, not ManGPT
+    setMessages([]); // Clear messages when chat changes
+    setLoading(true);
 
     let subscription: any = null;
 
@@ -424,6 +655,10 @@ export const GlobalChat: React.FC = () => {
           })
         );
         setMessages(finalMessages);
+        // Scroll to bottom after messages are loaded
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
       } else {
         // Fetch DM messages
         const { data: dms, error: dmsError } = await supabase
@@ -505,6 +740,10 @@ export const GlobalChat: React.FC = () => {
           })
         );
         setMessages(finalMessages);
+        // Scroll to bottom after messages are loaded
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
       }
       } catch (error) {
         console.error("Error fetching messages:", error);
@@ -513,6 +752,12 @@ export const GlobalChat: React.FC = () => {
         setLoading(false);
       }
     };
+
+    // Don't fetch messages for ManGPT - it has its own message system
+    if (selectedChat?.id === 'mangpt') {
+      setMessages([]);
+      return;
+    }
 
     fetchAndSetMessages();
 
@@ -523,24 +768,50 @@ export const GlobalChat: React.FC = () => {
         .channel(`public:chat_messages:channel_id=eq.${selectedChat.id}`)
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `channel_id=eq.${selectedChat.id}` },
           async (payload) => {
-            const newMessage = payload.new as ChatMessage;
-
-            // Fetch user settings for the new message sender
+            const newMessageData = payload.new;
+            
+            // Check if this is a message from the current user that we already have optimistically
+            if (newMessageData.user_id === user?.id) {
+              // Replace optimistic message with real one, preserving user profile info
+              setMessages(currentMessages => 
+                currentMessages.map(msg => 
+                  msg.is_optimistic && msg.message === newMessageData.message 
+                    ? {
+                        ...newMessageData,
+                        user_name: userSettings?.chat_name || user?.email || 'You',
+                        pfp_color: userSettings?.pfp_color || '#1976d2',
+                        pfp_icon: userSettings?.pfp_icon || 'Person',
+                        is_optimistic: false
+                      } as ChatMessage
+                    : msg
+                )
+              );
+            } else {
+              // Add new message from other users
             const { data: userSettingsData } = await supabase
               .from('user_chat_settings')
               .select('user_id, chat_name, pfp_color, pfp_icon')
-              .eq('user_id', newMessage.user_id)
+                .eq('user_id', newMessageData.user_id)
               .single();
 
-            const finalMessage = {
-              ...newMessage,
-              user_name: userSettingsData?.chat_name || `User ${newMessage.user_id.slice(0, 8)}...`,
+              const finalMessage: ChatMessage = {
+                id: newMessageData.id,
+                channel_id: newMessageData.channel_id,
+                user_id: newMessageData.user_id,
+                message: newMessageData.message,
+                message_type: newMessageData.message_type,
+                is_edited: newMessageData.is_edited || false,
+                edited_at: newMessageData.edited_at || null,
+                created_at: newMessageData.created_at,
+                user_name: userSettingsData?.chat_name || `User ${newMessageData.user_id.slice(0, 8)}...`,
               pfp_color: userSettingsData?.pfp_color || '#1976d2',
               pfp_icon: userSettingsData?.pfp_icon || 'Person',
               reactions: [], // New messages won't have reactions yet
+                reply_to: newMessageData.reply_to || undefined,
             };
 
             setMessages(currentMessages => [...currentMessages, finalMessage]);
+            }
           }
         )
         .subscribe();
@@ -556,8 +827,8 @@ export const GlobalChat: React.FC = () => {
                 id: newReactionData.id,
                 message_id: newReactionData.message_id,
                 user_id: newReactionData.user_id,
-                channel_id: newReactionData.channel_id,
                 emoji: newReactionData.emoji,
+                channel_id: selectedChat.id,
                 user_name: '...', // Placeholder for now
               };
               setMessages(currentMessages =>
@@ -590,7 +861,7 @@ export const GlobalChat: React.FC = () => {
         .subscribe();
       subscriptions.push(reactionsSubscription);
 
-    } else { // DM subscription
+    } else if (selectedChat?.id !== 'mangpt') { // DM subscription (but not for ManGPT)
       const dmSubscription = supabase
         .channel(`public:direct_messages:conversation_id=eq.${selectedChat.id}`)
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'direct_messages', filter: `conversation_id=eq.${selectedChat.id}` },
@@ -608,7 +879,7 @@ export const GlobalChat: React.FC = () => {
   }, [selectedChat, isChannel]);
 
   const forceScrollToBottom = useCallback(() => {
-    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 100);
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, []);
 
   useEffect(() => {
@@ -879,6 +1150,10 @@ export const GlobalChat: React.FC = () => {
     handleCancelMedia,
     sendMediaMessage,
     setNewMessage,
+    isTyping,
+    uploadProgress,
+    handleDragOver,
+    handleDrop,
   } = useChatInput(user, isChannel(selectedChat) ? selectedChat : null, isUserAdmin, showSnackbar, replyingTo, setReplyingTo, forceScrollToBottom, handleCommand);
 
   const handleRecordingComplete = (blob: Blob, duration: number) => {
@@ -906,13 +1181,34 @@ export const GlobalChat: React.FC = () => {
   } = useVoiceRecording(handleRecordingComplete, showSnackbar);
 
   const handleSend = useCallback(() => {
-    if (!selectedChat || !user) return;
+    if (!selectedChat || !user || selectedChat.id === 'mangpt') return;
 
     const text = newMessage.trim();
     const file = selectedFile;
     const replyId = replyingTo?.id;
 
     if (!text && !file) return;
+
+    // Create optimistic message for immediate UI update
+    const optimisticMessage: ChatMessage = {
+      id: `temp-${Date.now()}`,
+      channel_id: isChannel(selectedChat) ? selectedChat.id : selectedChat.id,
+      user_id: user.id,
+      message: text,
+      message_type: 'text',
+      is_edited: false,
+      edited_at: null,
+      created_at: new Date().toISOString(),
+      user_name: userSettings?.chat_name || user.email || 'You',
+      pfp_color: userSettings?.pfp_color || '#1976d2',
+      pfp_icon: userSettings?.pfp_icon || 'Person',
+      reactions: [],
+      reply_to: replyId || undefined,
+      is_optimistic: true, // Mark as optimistic for later replacement
+    };
+
+    // Add optimistic message immediately
+    setMessages(currentMessages => [...currentMessages, optimisticMessage]);
 
     if (isChannel(selectedChat)) {
       if (file) {
@@ -935,7 +1231,7 @@ export const GlobalChat: React.FC = () => {
       handleCancelMedia();
     }
 
-  }, [selectedChat, user, selectedFile, newMessage, replyingTo, isChannel, sendMediaMessage, sendMessage, sendDm, handleCancelMedia, setNewMessage, setReplyingTo]);
+  }, [selectedChat, user, selectedFile, newMessage, replyingTo, isChannel, sendMediaMessage, sendMessage, sendDm, handleCancelMedia, setNewMessage, setReplyingTo, userSettings]);
 
   const handleKeyPress = useCallback((event: React.KeyboardEvent) => {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -1061,6 +1357,38 @@ export const GlobalChat: React.FC = () => {
           </ListItemButton>
         </ListItem>
       ))}
+      
+      {/* ManGPT AI Assistant */}
+      <Divider sx={{ my: 2 }} />
+      <Typography variant="overline" sx={{ px: 2 }}>AI Assistant</Typography>
+      <ListItem disablePadding>
+        <ListItemButton
+          selected={selectedChat?.id === 'mangpt'}
+          onClick={() => {
+            setSelectedChat({ 
+              id: 'mangpt', 
+              name: 'ManGPT', 
+              type: 'mangpt',
+              participants: [],
+              is_active: false,
+              description: 'AI Assistant (Powered by humans)'
+            } as any);
+            if (isMobile) setMobileDrawerOpen(false);
+          }}
+        >
+          <ListItemIcon>
+            <Avatar sx={{ width: 24, height: 24, bgcolor: theme.palette.secondary.main }}>
+              <BotIcon sx={{ fontSize: '1rem' }} />
+            </Avatar>
+          </ListItemIcon>
+          <ListItemText
+            primary="ManGPT"
+            secondary="AI Assistant (Powered by humans)"
+            secondaryTypographyProps={{ noWrap: true, textOverflow: 'ellipsis' }}
+          />
+        </ListItemButton>
+      </ListItem>
+      
       <Divider sx={{ my: 2 }} />
       <Typography variant="overline" sx={{ px: 2 }}>Direct Messages</Typography>
       {dmConversations.map((convo) => {
@@ -1138,6 +1466,8 @@ export const GlobalChat: React.FC = () => {
     }
   };
 
+
+
   return (
     <>
     <Box sx={{ display: 'flex', flex: 1, width: '100%', minHeight: 0 }}>
@@ -1170,23 +1500,46 @@ export const GlobalChat: React.FC = () => {
       {/* Main Chat Area */}
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         {/* Header */}
-        <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', flexShrink: 0, display: { xs: 'none', sm: 'block' } }}>
+        <Box sx={{ p: 1, borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {isMobile && (
               <IconButton onClick={() => setMobileDrawerOpen(true)}><MenuIcon /></IconButton>
             )}
-            <Typography variant="h6">{selectedChat ? (isChannel(selectedChat) ? selectedChat.name : selectedChat.participants.find(p=>p.user_id !== user?.id)?.user_name || 'DM') : 'Глобальный чат'}</Typography>
+              <Typography variant="h6">
+                {selectedChat ? (
+                  selectedChat.id === 'mangpt' ? 'ManGPT' : 
+                  isChannel(selectedChat) ? selectedChat.name : 
+                  selectedChat.participants?.find(p => p.user_id !== user?.id)?.user_name || 'DM'
+                ) : 'Глобальный чат'}
+              </Typography>
+            </Box>
+            {isChannel(selectedChat) && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Tooltip title="Расширенный поиск">
+                  <IconButton onClick={() => setSearchDialogOpen(true)}>
+                    <SearchIcon />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            )}
           </Box>
         </Box>
 
         {selectedChat ? (
           <>
+            {/* ManGPT Chat */}
+            {selectedChat.id === 'mangpt' ? (
+              <Box sx={{ flex: 1, overflowY: 'hidden', position: 'relative' }}>
+                <ManGPT />
+              </Box>
+            ) : (
+          <>
             {/* Messages */}
-            <Box ref={chatContainerRef} sx={{ flex: 1, overflowY: 'auto', p: 2 }}>
-              {messages.map((message) => (
-                <Message
-                  key={message.id}
-                  message={message}
+                <Box ref={chatContainerRef} sx={{ flex: 1, overflowY: 'hidden', position: 'relative' }}>
+                  {messages.length > 0 ? (
+                    <VirtualizedMessageList
+                      messages={memoizedMessages}
                   isMobile={isMobile}
                   user={user}
                   editingMessage={editingMessage}
@@ -1204,16 +1557,36 @@ export const GlobalChat: React.FC = () => {
                   formatAudioTime={formatAudioTime}
                   openCardSelectionDialog={openCardSelectionDialog}
                   claimingGift={claimingGift}
-                  onToggleReaction={(emoji) => handleToggleReaction(message.id, emoji)}
+                      onToggleReaction={handleToggleReaction}
                   onStartDm={startDmWithUser}
-                  participants={isChannel(selectedChat) ? [] : selectedChat.participants}
-                />
-              ))}
-              <div ref={messagesEndRef} />
+                      participants={isChannel(selectedChat) ? [] : (selectedChat.participants || [])}
+                      searchQuery={searchQuery}
+                      pinnedMessages={pinnedMessages}
+                      onPinMessage={handlePinMessage}
+                      onUnpinMessage={handleUnpinMessage}
+                      showReadReceipts={showReadReceipts}
+                      readBy={readBy}
+                      loading={loadingMore}
+                      onLoadMore={loadMoreMessages}
+                      hasMore={hasMoreMessages}
+                    />
+                  ) : (
+                    <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+                      <Typography variant="body1" color="text.secondary">
+                        Нет сообщений
+                      </Typography>
+                    </Box>
+                  )}
+                  
+                  {/* Typing indicators disabled for better performance */}
             </Box>
 
             {/* Message Input */}
-            <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider', bgcolor: 'background.paper', flexShrink: 0 }}>
+                <Box 
+                  sx={{ p: 2, borderTop: 1, borderColor: 'divider', bgcolor: 'background.paper', flexShrink: 0 }}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
+                >
               {isRecording ? (
                 <Box display="flex" alignItems="center" gap={2}>
                   <Typography variant="body2" color="text.secondary">{formatRecordingTime(recordingTime)}</Typography>
@@ -1223,17 +1596,25 @@ export const GlobalChat: React.FC = () => {
               ) : (
                 <>
                   {replyingTo && (
-                    <Box sx={{ p: 1, mb: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
+                        <Box sx={{ p: 1, mb: 1, bgcolor: 'action.hover', borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <Typography variant="body2">Replying to {replyingTo.user_name}</Typography>
                       <IconButton size="small" onClick={handleCancelReply}><CloseIcon fontSize="small" /></IconButton>
                     </Box>
                   )}
                   {mediaPreview && (
-                     <Box sx={{ p: 1, mb: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
+                         <Box sx={{ p: 1, mb: 1, bgcolor: 'action.hover', borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <Typography variant="body2">Attachment: {selectedFile?.name}</Typography>
                       <IconButton size="small" onClick={handleCancelMedia}><CloseIcon fontSize="small" /></IconButton>
                     </Box>
                   )}
+                      {uploadingMedia && uploadProgress > 0 && (
+                        <Box sx={{ mb: 1 }}>
+                          <LinearProgress variant="determinate" value={uploadProgress} />
+                          <Typography variant="caption" color="text.secondary">
+                            Загрузка: {uploadProgress}%
+                          </Typography>
+                        </Box>
+                      )}
                   <Box display="flex" gap={1}>
                     <TextField
                       fullWidth
@@ -1242,24 +1623,18 @@ export const GlobalChat: React.FC = () => {
                       onChange={handleInputChange}
                       onKeyPress={handleKeyPress}
                       multiline
-                      maxRows={2}
-                      disabled={!selectedChat || (isChannel(selectedChat) && selectedChat.admin_only && !isAdmin)}
-                      InputProps={{
-                        endAdornment: (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <IconButton component="label" htmlFor="media-upload" disabled={!selectedChat}>
-                              <AddPhotoIcon />
-                            </IconButton>
-                            {!isChannel(selectedChat) && (
-                              <IconButton onClick={() => setManPayDialogOpen(true)} disabled={!selectedChat}>
-                                <MoneyIcon />
-                              </IconButton>
-                            )}
-                          </Box>
-                        ),
-                      }}
-                    />
-                    <input type="file" accept="image/*,video/*" onChange={handleFileSelect} style={{ display: 'none' }} id="media-upload" />
+                          maxRows={1}
+                          sx={{
+                            '& .MuiInputBase-root': {
+                              fontSize: '0.95rem',
+                              py: 0.5,
+                              minHeight: 36,
+                            },
+                            '& textarea': {
+                              fontSize: '0.95rem',
+                            },
+                          }}
+                        />
                     <IconButton onClick={startRecording} disabled={!selectedChat}><MicIcon /></IconButton>
                     <Button variant="contained" onClick={handleSend} disabled={(!selectedFile && !newMessage.trim()) || sending || uploadingMedia}>
                       {sending || uploadingMedia ? <CircularProgress size={24} /> : <SendIcon />}
@@ -1268,6 +1643,8 @@ export const GlobalChat: React.FC = () => {
                 </>
               )}
             </Box>
+              </>
+            )}
           </>
         ) : (
           <Box display="flex" flex={1} justifyContent="center" alignItems="center">
@@ -1302,34 +1679,7 @@ export const GlobalChat: React.FC = () => {
         </MenuItem>
       </Menu>
 
-      {/* Mobile Floating Channel Button */}
-      {isMobile && selectedChat && (
-        <Box
-          sx={{
-            position: 'fixed',
-            bottom: 80,
-            right: 16,
-            zIndex: 1000,
-          }}
-        >
-          <Button
-            variant="contained"
-            onClick={() => setMobileDrawerOpen(true)}
-            sx={{
-              minWidth: 'auto',
-              width: 56,
-              height: 56,
-              borderRadius: '50%',
-              boxShadow: 3,
-              '&:hover': {
-                boxShadow: 6,
-              },
-            }}
-          >
-            <MenuIcon />
-          </Button>
-        </Box>
-      )}
+
 
       {/* Snackbar */}
       <Snackbar
@@ -1406,13 +1756,32 @@ export const GlobalChat: React.FC = () => {
       searchResults={searchResults}
       searching={searching}
     />
-    {selectedChat && !isChannel(selectedChat) && (
+    {selectedChat && !isChannel(selectedChat) && selectedChat.id !== 'mangpt' && (
       <ManPayDialog
         open={manPayDialogOpen}
         onClose={() => setManPayDialogOpen(false)}
         onSend={handleSendManPay}
         receiverName={selectedChat.participants.find(p => p.user_id !== user?.id)?.user_name || 'user'}
       />
+    )}
+    
+    {/* Message Search Dialog */}
+    {selectedChat && isChannel(selectedChat) && (
+      <Dialog
+        open={searchDialogOpen}
+        onClose={() => setSearchDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: { height: '80vh' }
+        }}
+      >
+        <MessageSearch
+          channelId={selectedChat.id}
+          onMessageSelect={handleMessageSelect}
+          onClose={() => setSearchDialogOpen(false)}
+        />
+      </Dialog>
     )}
     </>
   );

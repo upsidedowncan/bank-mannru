@@ -46,6 +46,7 @@ export interface ChatMessage {
   manpay_sender_id?: string;
   manpay_receiver_id?: string;
   manpay_status?: string;
+  is_optimistic?: boolean; // For optimistic updates
 }
 
 export interface UserChatSettings {

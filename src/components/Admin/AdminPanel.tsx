@@ -7,6 +7,7 @@ import { GiveawayManagement } from './GiveawayManagement';
 import { ChatManagement } from './ChatManagement';
 import { EventsManagement } from './EventsManagement';
 import { CheatSettings } from './CheatSettings';
+import { ManGPTManagement } from './ManGPTManagement';
 
 interface UserRow {
   id: string;
@@ -340,6 +341,7 @@ export const AdminPanel: React.FC = () => {
           <Tab label="Чат" />
           <Tab label="События" />
           <Tab label="Читы" />
+          <Tab label="ManGPT" />
         </Tabs>
         {tab === 0 && (
           <Box>
@@ -743,6 +745,9 @@ export const AdminPanel: React.FC = () => {
         )}
         {tab === 7 && (
           <CheatSettings />
+        )}
+        {tab === 8 && (
+          <ManGPTManagement />
         )}
       </Box>
     </AppLayout>
