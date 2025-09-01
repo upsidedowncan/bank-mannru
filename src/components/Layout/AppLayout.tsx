@@ -298,7 +298,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   )
 
   return (
-    <Box sx={{ display: 'flex', height: '100vh' }}>
+    <Box sx={{ display: 'flex', height: '100%' }}>
       <CssBaseline />
       <AppBar
         position="fixed"

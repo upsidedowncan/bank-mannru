@@ -1,7 +1,24 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { supabase } from '../../../config/supabase';
 import { ChatMessage, ChatChannel } from '../types';
 import { User } from '@supabase/supabase-js';
+
+// Debounce utility
+const useDebounce = (value: string, delay: number) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+};
 
 export const useChatInput = (
   user: User | null,
@@ -10,27 +27,35 @@ export const useChatInput = (
   showSnackbar: (message: string, severity: 'success' | 'error') => void,
   replyingTo: ChatMessage | null,
   setReplyingTo: (message: ChatMessage | null) => void,
-  onMessageSent: () => void
+  onMessageSent: () => void,
+  handleCommand: (command: string) => void
 ) => {
   const [newMessage, setNewMessage] = useState('');
-  const newMessageRef = useRef('');
   const [sending, setSending] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Media upload state
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  // Typing indicators disabled for better performance
+  // const debouncedMessage = useDebounce(newMessage, 300);
+  // const debouncedMessage = newMessage; // Direct assignment for immediate response
 
   const sendMessage = useCallback(async () => {
-    const messageText = newMessageRef.current.trim();
+    const messageText = newMessage.trim();
     if (!user || !selectedChannel || !messageText) return;
 
-    if (sending) return;
-
     if (messageText.startsWith('/')) {
-      // Admin commands are handled in the main component for now
+      handleCommand(messageText);
+      setNewMessage('');
       return;
     }
+
+    if (sending) return;
 
     if (selectedChannel.admin_only) {
       const isAdmin = await isUserAdmin();
@@ -56,15 +81,24 @@ export const useChatInput = (
 
       onMessageSent();
       setNewMessage('');
-      newMessageRef.current = '';
       setReplyingTo(null);
+      
+      // Clear typing indicator immediately after sending
+      setIsTyping(false);
+      if (selectedChannel) {
+        supabase.channel(`typing:${selectedChannel.id}`).send({
+          type: 'broadcast',
+          event: 'stop-typing',
+          payload: { user_id: user?.id }
+        });
+      }
     } catch (error) {
       console.error('Error sending message:', error);
       showSnackbar('Ошибка при отправке сообщения', 'error');
     } finally {
       setSending(false);
     }
-  }, [user, selectedChannel, showSnackbar, sending, isUserAdmin, replyingTo, setReplyingTo, onMessageSent]);
+  }, [user, selectedChannel, newMessage, showSnackbar, sending, isUserAdmin, replyingTo, setReplyingTo, onMessageSent, handleCommand]);
 
   const sendMediaMessage = useCallback(async () => {
     if (!selectedFile || !user || !selectedChannel) return;
@@ -78,15 +112,28 @@ export const useChatInput = (
     }
 
     setUploadingMedia(true);
+    setUploadProgress(0);
+    
     try {
       const timestamp = Date.now();
       const fileExtension = selectedFile.name.split('.').pop();
       const fileName = `media_${user.id}_${timestamp}.${fileExtension}`;
       const filePath = `chat-media/${selectedChannel.id}/${fileName}`;
 
+      // Simulate upload progress
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => Math.min(prev + 10, 90));
+      }, 100);
+
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('chat-media')
-        .upload(filePath, selectedFile, { cacheControl: '3600' });
+        .upload(filePath, selectedFile, { 
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      clearInterval(progressInterval);
+      setUploadProgress(100);
 
       if (uploadError) throw uploadError;
 
@@ -115,29 +162,49 @@ export const useChatInput = (
       setSelectedFile(null);
       setMediaPreview(null);
       setReplyingTo(null);
+      setUploadProgress(0);
     } catch (error) {
       console.error('Error sending media:', error);
       showSnackbar('Ошибка при отправке медиа', 'error');
     } finally {
       setUploadingMedia(false);
+      setUploadProgress(0);
     }
   }, [selectedFile, user, selectedChannel, isUserAdmin, showSnackbar, onMessageSent, replyingTo, setReplyingTo, setSelectedFile, setMediaPreview]);
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setNewMessage(value);
-    newMessageRef.current = value;
-  }, []);
+    
+    // Clear existing typing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    
+    // Set new typing timeout
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false);
+      if (selectedChannel) {
+        supabase.channel(`typing:${selectedChannel.id}`).send({
+          type: 'broadcast',
+          event: 'stop-typing',
+          payload: { user_id: user?.id }
+        });
+      }
+    }, 3000);
+  }, [setNewMessage, selectedChannel, user]);
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // Validate file size (50MB limit)
     if (file.size > 50 * 1024 * 1024) {
       showSnackbar('Файл слишком большой. Максимальный размер: 50MB', 'error');
       return;
     }
 
+    // Validate file type
     const isImage = file.type.startsWith('image/');
     const isVideo = file.type.startsWith('video/');
 
@@ -148,17 +215,66 @@ export const useChatInput = (
 
     setSelectedFile(file);
 
+    // Create preview
     const reader = new FileReader();
     reader.onload = (e) => {
       setMediaPreview(e.target?.result as string);
     };
     reader.readAsDataURL(file);
-  };
+  }, [showSnackbar]);
 
-  const handleCancelMedia = () => {
+  const handleCancelMedia = useCallback(() => {
     setSelectedFile(null);
     setMediaPreview(null);
-  };
+    setUploadProgress(0);
+  }, []);
+
+  // Handle drag and drop
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      const file = files[0];
+      
+      // Validate file
+      if (file.size > 50 * 1024 * 1024) {
+        showSnackbar('Файл слишком большой. Максимальный размер: 50MB', 'error');
+        return;
+      }
+
+      const isImage = file.type.startsWith('image/');
+      const isVideo = file.type.startsWith('video/');
+
+      if (!isImage && !isVideo) {
+        showSnackbar('Поддерживаются только изображения и видео', 'error');
+        return;
+      }
+
+      setSelectedFile(file);
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setMediaPreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  }, [showSnackbar]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return {
     newMessage,
@@ -172,6 +288,9 @@ export const useChatInput = (
     handleCancelMedia,
     sendMediaMessage,
     setNewMessage,
-    newMessageRef,
+    isTyping,
+    uploadProgress,
+    handleDragOver,
+    handleDrop,
   };
 };

@@ -12,6 +12,7 @@ import {
   Chip,
   Divider,
   MenuItem,
+  Fab,
 } from '@mui/material';
 import {
   Search,
@@ -105,9 +106,8 @@ export const Marketplace: React.FC = () => {
     <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 4 } }}>
       <Box 
         display="flex" 
-        flexDirection={{ xs: 'column', sm: 'row' }}
         justifyContent="space-between" 
-        alignItems={{ xs: 'flex-start', sm: 'center' }} 
+        alignItems="center"
         gap={2}
         mb={2}
       >
@@ -116,12 +116,25 @@ export const Marketplace: React.FC = () => {
           variant="contained" 
           startIcon={<AddIcon />} 
           onClick={handleCreateDialogOpen}
-          sx={{ alignSelf: { xs: 'flex-end', sm: 'auto' } }}
+          sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
         >
           Добавить товар
         </Button>
       </Box>
       <Divider sx={{ mb: 2 }} />
+      <Fab
+        color="primary"
+        aria-label="add"
+        onClick={handleCreateDialogOpen}
+        sx={{
+          position: 'fixed',
+          bottom: 16,
+          right: 16,
+          display: { xs: 'flex', sm: 'none' },
+        }}
+      >
+        <AddIcon />
+      </Fab>
       <Box 
         display="flex" 
         flexDirection={{ xs: 'column', sm: 'row' }} 

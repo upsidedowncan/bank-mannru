@@ -24,7 +24,7 @@ export interface ChatMessage {
   channel_id: string;
   user_id: string;
   message: string;
-  message_type: 'text' | 'system' | 'announcement' | 'voice' | 'image' | 'video' | 'html' | 'money_gift';
+  message_type: 'text' | 'system' | 'announcement' | 'voice' | 'image' | 'video' | 'html' | 'money_gift' | 'manpay';
   is_edited: boolean;
   edited_at: string | null;
   created_at: string;
@@ -33,6 +33,7 @@ export interface ChatMessage {
   pfp_color?: string;
   pfp_icon?: string;
   audio_url?: string;
+  audio_duration?: number;
   media_url?: string;
   media_type?: string;
   gift_amount?: number;
@@ -41,6 +42,11 @@ export interface ChatMessage {
   reply_to?: string;
   reply_to_message?: ChatMessage;
   reactions?: MessageReaction[];
+  manpay_amount?: number;
+  manpay_sender_id?: string;
+  manpay_receiver_id?: string;
+  manpay_status?: string;
+  is_optimistic?: boolean; // For optimistic updates
 }
 
 export interface UserChatSettings {
