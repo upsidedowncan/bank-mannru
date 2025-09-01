@@ -1,18 +1,27 @@
 import { useState, useCallback, useRef } from 'react';
 
 const getBlobDuration = (blob: Blob): Promise<number> => {
-  const tempAudio = document.createElement('audio');
-  const tempUrl = URL.createObjectURL(blob);
   return new Promise((resolve, reject) => {
+    const tempAudio = document.createElement('audio');
+    const tempUrl = URL.createObjectURL(blob);
+    
     tempAudio.addEventListener('loadedmetadata', () => {
       URL.revokeObjectURL(tempUrl);
-      resolve(tempAudio.duration);
+      if (tempAudio.duration && isFinite(tempAudio.duration) && tempAudio.duration > 0) {
+        resolve(tempAudio.duration);
+      } else {
+        reject(new Error('Invalid audio duration'));
+      }
     });
-    tempAudio.addEventListener('error', (e) => {
+    
+    tempAudio.addEventListener('error', () => {
       URL.revokeObjectURL(tempUrl);
-      reject(new Error('Failed to load audio metadata.'));
+      reject(new Error('Failed to load audio metadata'));
     });
+    
+    tempAudio.preload = 'metadata';
     tempAudio.src = tempUrl;
+    tempAudio.load();
   });
 };
 
@@ -21,47 +30,75 @@ export const useVoiceRecording = (
   showSnackbar: (message: string, severity: 'success' | 'error') => void
 ) => {
   const [isRecording, setIsRecording] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [recordingInterval, setRecordingInterval] = useState<NodeJS.Timeout | null>(null);
 
   const startRecording = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          sampleRate: 44100,
+          channelCount: 1
+        } 
+      });
+      
+      // Try different MIME types for better compatibility
+      let mimeType = 'audio/webm;codecs=opus';
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'audio/webm';
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+          mimeType = 'audio/mp4';
+          if (!MediaRecorder.isTypeSupported(mimeType)) {
+            mimeType = 'audio/ogg;codecs=opus';
+          }
+        }
+      }
+      
+      const recorder = new MediaRecorder(stream, { 
+        mimeType,
+        audioBitsPerSecond: 128000
+      });
       const chunks: Blob[] = [];
+      let recordingStartTime = Date.now();
 
       recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) chunks.push(event.data);
+        if (event.data.size > 0) {
+          chunks.push(event.data);
+        }
       };
 
       recorder.onstop = async () => {
+        const actualRecordingTime = Math.round((Date.now() - recordingStartTime) / 1000);
+        
         if (chunks.length === 0) {
           showSnackbar('Ошибка: нет аудиоданных', 'error');
           return;
         }
-        const blob = new Blob(chunks, { type: 'audio/webm' });
+        const blob = new Blob(chunks, { type: mimeType });
+        
         try {
           const duration = await getBlobDuration(blob);
           onRecordingComplete(blob, duration);
         } catch (error) {
-          console.error(error);
-          showSnackbar('Не удалось получить длительность аудио', 'error');
-          // Still send the message, just without the duration
-          onRecordingComplete(blob, 0);
+          console.error('Error getting audio duration:', error);
+          // Use actual recording time as fallback
+          onRecordingComplete(blob, actualRecordingTime);
         } finally {
           stream.getTracks().forEach(track => track.stop());
         }
       };
 
-      recorder.start();
+      recorder.start(1000);
       setMediaRecorder(recorder);
       setIsRecording(true);
-      setIsPaused(false);
       setRecordingTime(0);
 
-      const interval = setInterval(() => setRecordingTime(prev => prev + 1), 1000);
+      const interval = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
       setRecordingInterval(interval);
     } catch (error) {
       console.error('Error starting recording:', error);
@@ -69,31 +106,10 @@ export const useVoiceRecording = (
     }
   }, [onRecordingComplete, showSnackbar]);
 
-  const pauseRecording = useCallback(() => {
-    if (mediaRecorder && isRecording && !isPaused) {
-      mediaRecorder.pause();
-      setIsPaused(true);
-      if (recordingInterval) {
-        clearInterval(recordingInterval);
-        setRecordingInterval(null);
-      }
-    }
-  }, [mediaRecorder, isRecording, isPaused, recordingInterval]);
-
-  const resumeRecording = useCallback(() => {
-    if (mediaRecorder && isRecording && isPaused) {
-      mediaRecorder.resume();
-      setIsPaused(false);
-      const interval = setInterval(() => setRecordingTime(prev => prev + 1), 1000);
-      setRecordingInterval(interval);
-    }
-  }, [mediaRecorder, isRecording, isPaused]);
-
   const stopRecording = useCallback(() => {
     if (mediaRecorder && isRecording) {
       mediaRecorder.stop();
       setIsRecording(false);
-      setIsPaused(false);
       if (recordingInterval) {
         clearInterval(recordingInterval);
         setRecordingInterval(null);
@@ -108,11 +124,8 @@ export const useVoiceRecording = (
 
   return {
     isRecording,
-    isPaused,
     recordingTime,
     startRecording,
-    pauseRecording,
-    resumeRecording,
     stopRecording,
     cleanup,
   };

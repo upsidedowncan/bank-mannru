@@ -50,8 +50,6 @@ import {
   PushPin as PinIcon,
   Mic as MicIcon,
   Stop as StopIcon,
-  PlayArrow as PlayIcon,
-  Pause as PauseIcon,
   Person,
   Face,
   AccountCircle,
@@ -67,6 +65,7 @@ import {
   Image as ImageIcon,
   VideoLibrary as VideoIcon,
   AddPhotoAlternate as AddPhotoIcon,
+  AttachFile as AttachFileIcon,
   Add as AddIcon,
   CardGiftcard as GiftIcon,
   Money as MoneyIcon,
@@ -98,6 +97,7 @@ import VirtualizedMessageList from './molecules/VirtualizedMessageList';
 import MessageSearch from './molecules/MessageSearch';
 import TypingIndicator from './molecules/TypingIndicator';
 import { ManGPT } from './molecules/ManGPT';
+import { ItemDetailsDialog } from '../Marketplace/ItemDetailsDialog';
 
 const iconMapping: { [key: string]: React.ComponentType } = {
   Chat: ChatIcon,
@@ -163,6 +163,24 @@ const AnimatedDevIcon = styled(DevIcon)`
   font-size: 1.2rem;
 `;
 
+type MarketplaceItem = {
+  id: string;
+  title: string;
+  description: string;
+  price: number;
+  currency: string;
+  category: string;
+  condition: 'new' | 'used' | 'refurbished';
+  images: string[];
+  seller_id: string;
+  seller_name: string;
+  created_at: string;
+  is_active: boolean;
+  location: string;
+  tags: string[];
+  purchase_limit?: number;
+};
+
 export const GlobalChat: React.FC = () => {
   const { user } = useAuthContext();
   const theme = useTheme();
@@ -180,6 +198,7 @@ export const GlobalChat: React.FC = () => {
   const [editText, setEditText] = useState('');
   const [messageMenuAnchor, setMessageMenuAnchor] = useState<null | HTMLElement>(null);
   const [selectedMessageForMenu, setSelectedMessageForMenu] = useState<ChatMessage | null>(null);
+  const [attachmentMenuAnchor, setAttachmentMenuAnchor] = useState<null | HTMLElement>(null);
 
   // Reply state
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
@@ -215,6 +234,8 @@ export const GlobalChat: React.FC = () => {
 
   const [newDmDialogOpen, setNewDmDialogOpen] = useState(false);
   const [manPayDialogOpen, setManPayDialogOpen] = useState(false);
+  const [marketItemDialogOpen, setMarketItemDialogOpen] = useState(false);
+  const [selectedMarketItemForDetails, setSelectedMarketItemForDetails] = useState<MarketplaceItem | null>(null);
 
   // New features state
   const [searchQuery, setSearchQuery] = useState('');
@@ -223,10 +244,43 @@ export const GlobalChat: React.FC = () => {
   const [typingUsers, setTypingUsers] = useState<Array<{user_id: string; user_name: string; timestamp: number}>>([]);
   const [showReadReceipts, setShowReadReceipts] = useState(false);
   const [readBy, setReadBy] = useState<{[messageId: string]: string[]}>({});
-  const [hasMoreMessages, setHasMoreMessages] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const messagesPerPage = 50; // Load 50 messages at a time
+
+  // Performance optimization: Limit rendered messages to prevent lag
+  const [renderedMessageCount, setRenderedMessageCount] = useState(50); // Start with 50 messages
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  
+  // Performance optimization: Debounced message updates to prevent lag
+  const [pendingMessages, setPendingMessages] = useState<ChatMessage[]>([]);
+  const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const debouncedUpdateMessages = useCallback((newMessages: ChatMessage[]) => {
+    // Clear existing timeout
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
+    }
+
+    // Set new timeout to batch updates
+    updateTimeoutRef.current = setTimeout(() => {
+      setMessages(prev => {
+        // Merge messages and remove duplicates
+        const allMessages = [...prev, ...newMessages];
+        const uniqueMessages = allMessages.filter((msg, index, self) => 
+          index === self.findIndex(m => m.id === msg.id)
+        );
+        return uniqueMessages;
+      });
+      setPendingMessages([]);
+    }, 100); // 100ms debounce
+  }, []);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Hook for DMs
   const {
@@ -279,26 +333,57 @@ export const GlobalChat: React.FC = () => {
 
   // Messages state
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const messagesPerPage = 20; // Reduced batch size for better performance
+  
   // Memoize messages to prevent unnecessary re-renders
-  const memoizedMessages = useMemo(() => messages, [messages]);
+  const visibleMessages = useMemo(() => {
+    if (!messages || messages.length === 0) return [];
+    
+    // Only show the most recent messages to prevent lag
+    const startIndex = Math.max(0, messages.length - renderedMessageCount);
+    return messages.slice(startIndex);
+  }, [messages, renderedMessageCount]);
 
-  // Load more messages function
+  // Performance optimization: Increase rendered message count when scrolling
+  const handleScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLDivElement;
+    const scrollTop = target.scrollTop;
+    const scrollHeight = target.scrollHeight;
+    const clientHeight = target.clientHeight;
+    
+    // If user is near the top, increase rendered message count
+    if (scrollTop < 100 && renderedMessageCount < messages.length) {
+      setRenderedMessageCount(prev => Math.min(prev + 20, messages.length));
+    }
+    
+    // If user is near the bottom, decrease rendered message count for performance
+    if (scrollTop > scrollHeight - clientHeight - 100 && renderedMessageCount > 50) {
+      setRenderedMessageCount(prev => Math.max(prev - 10, 50));
+    }
+  }, [renderedMessageCount, messages.length]);
+
+  // Load more messages function with smaller batches
   const loadMoreMessages = useCallback(async () => {
-    if (!selectedChat || loadingMore || !hasMoreMessages || selectedChat.id === 'mangpt') return;
+    if (!selectedChat || isLoadingMore || !hasMoreMessages || selectedChat.id === 'mangpt') return;
 
-    setLoadingMore(true);
+    setIsLoadingMore(true);
     try {
       if (isChannel(selectedChat)) {
-        // Calculate offset for pagination
-        const offset = (currentPage - 1) * messagesPerPage;
+        // Use smaller batch size for better performance
+        const batchSize = 20; // Reduced from previous value
+        const offset = (currentPage - 1) * batchSize;
         
         const { data: messagesData, error: messagesError } = await supabase
           .from('chat_messages')
           .select('*')
           .eq('channel_id', selectedChat.id)
           .order('created_at', { ascending: true })
-          .range(offset, offset + messagesPerPage - 1);
+          .range(offset, offset + batchSize - 1);
 
         if (messagesError) throw messagesError;
         if (!messagesData || messagesData.length === 0) {
@@ -372,17 +457,17 @@ export const GlobalChat: React.FC = () => {
         setCurrentPage(prev => prev + 1);
         
         // Check if we've loaded all messages
-        if (messagesData.length < messagesPerPage) {
+        if (messagesData.length < batchSize) {
           setHasMoreMessages(false);
         }
       }
     } catch (error) {
-      console.error("Error loading more messages:", error);
+      console.error('Error loading more messages:', error);
       showSnackbar('Ошибка при загрузке сообщений', 'error');
     } finally {
-      setLoadingMore(false);
+      setIsLoadingMore(false);
     }
-  }, [selectedChat, loadingMore, hasMoreMessages, currentPage, messagesPerPage, isChannel, showSnackbar]);
+  }, [selectedChat, currentPage, hasMoreMessages, isLoadingMore, showSnackbar]);
 
   // Pin/unpin message functions
   const handlePinMessage = async (messageId: string) => {
@@ -774,17 +859,43 @@ export const GlobalChat: React.FC = () => {
             if (newMessageData.user_id === user?.id) {
               // Replace optimistic message with real one, preserving user profile info
               setMessages(currentMessages => 
-                currentMessages.map(msg => 
-                  msg.is_optimistic && msg.message === newMessageData.message 
-                    ? {
-                        ...newMessageData,
-                        user_name: userSettings?.chat_name || user?.email || 'You',
-                        pfp_color: userSettings?.pfp_color || '#1976d2',
-                        pfp_icon: userSettings?.pfp_icon || 'Person',
-                        is_optimistic: false
-                      } as ChatMessage
-                    : msg
-                )
+                currentMessages.map(msg => {
+                  // Check if this is an optimistic message that should be replaced
+                  const shouldReplace = msg.is_optimistic && (
+                    // For text messages, check message content
+                    (msg.message_type === 'text' && msg.message === newMessageData.message) ||
+                    // For voice messages, check message type and content
+                    (msg.message_type === 'voice' && newMessageData.message_type === 'voice' && msg.message === newMessageData.message) ||
+                    // For media messages, check message type
+                    (msg.message_type === 'image' && newMessageData.message_type === 'image') ||
+                    (msg.message_type === 'video' && newMessageData.message_type === 'video') ||
+                    // For gift messages, check message type
+                    (msg.message_type === 'money_gift' && newMessageData.message_type === 'money_gift')
+                  );
+                  
+                  if (shouldReplace) {
+                    return {
+                      ...newMessageData,
+                      user_name: userSettings?.chat_name || user?.email || 'You',
+                      pfp_color: userSettings?.pfp_color || '#1976d2',
+                      pfp_icon: userSettings?.pfp_icon || 'Person',
+                      is_optimistic: false,
+                      // Ensure all message fields are preserved
+                      audio_url: newMessageData.audio_url || undefined,
+                      audio_duration: newMessageData.audio_duration || undefined,
+                      media_url: newMessageData.media_url || undefined,
+                      media_type: newMessageData.media_type || undefined,
+                      gift_amount: newMessageData.gift_amount || undefined,
+                      gift_claimed_by: newMessageData.gift_claimed_by || undefined,
+                      gift_claimed_at: newMessageData.gift_claimed_at || undefined,
+                      manpay_amount: newMessageData.manpay_amount || undefined,
+                      manpay_sender_id: newMessageData.manpay_sender_id || undefined,
+                      manpay_receiver_id: newMessageData.manpay_receiver_id || undefined,
+                      manpay_status: newMessageData.manpay_status || undefined,
+                    } as ChatMessage;
+                  }
+                  return msg;
+                })
               );
             } else {
               // Add new message from other users
@@ -808,6 +919,21 @@ export const GlobalChat: React.FC = () => {
               pfp_icon: userSettingsData?.pfp_icon || 'Person',
               reactions: [], // New messages won't have reactions yet
                 reply_to: newMessageData.reply_to || undefined,
+                // Add missing fields for voice messages
+                audio_url: newMessageData.audio_url || undefined,
+                audio_duration: newMessageData.audio_duration || undefined,
+                // Add missing fields for media messages
+                media_url: newMessageData.media_url || undefined,
+                media_type: newMessageData.media_type || undefined,
+                // Add missing fields for gift messages
+                gift_amount: newMessageData.gift_amount || undefined,
+                gift_claimed_by: newMessageData.gift_claimed_by || undefined,
+                gift_claimed_at: newMessageData.gift_claimed_at || undefined,
+                // Add missing fields for manpay messages
+                manpay_amount: newMessageData.manpay_amount || undefined,
+                manpay_sender_id: newMessageData.manpay_sender_id || undefined,
+                manpay_receiver_id: newMessageData.manpay_receiver_id || undefined,
+                manpay_status: newMessageData.manpay_status || undefined,
             };
 
             setMessages(currentMessages => [...currentMessages, finalMessage]);
@@ -992,6 +1118,27 @@ export const GlobalChat: React.FC = () => {
     }
 
     try {
+      // Create optimistic message for immediate UI update
+      const optimisticMessage: ChatMessage = {
+        id: `temp-gift-${Date.now()}`,
+        channel_id: selectedChat.id,
+        user_id: user.id,
+        message: `Отправил подарок в размере ${amount} монет!`,
+        message_type: 'money_gift',
+        is_edited: false,
+        edited_at: null,
+        created_at: new Date().toISOString(),
+        user_name: userSettings?.chat_name || user.email || 'You',
+        pfp_color: userSettings?.pfp_color || '#1976d2',
+        pfp_icon: userSettings?.pfp_icon || 'Person',
+        reactions: [],
+        gift_amount: amount,
+        is_optimistic: true, // Mark as optimistic for later replacement
+      };
+
+      // Add optimistic message immediately
+      setMessages(currentMessages => [...currentMessages, optimisticMessage]);
+
       const { error } = await supabase.from('chat_messages').insert({
         channel_id: selectedChat.id,
         user_id: user.id,
@@ -1006,6 +1153,11 @@ export const GlobalChat: React.FC = () => {
     } catch (error) {
       console.error('Error sending money gift:', error);
       showSnackbar('Не удалось отправить подарок.', 'error');
+      
+      // Remove optimistic message on error
+      setMessages(currentMessages => 
+        currentMessages.filter(msg => !msg.is_optimistic || msg.message_type !== 'money_gift')
+      );
     }
   };
 
@@ -1108,6 +1260,26 @@ export const GlobalChat: React.FC = () => {
     }
 
     try {
+      // Create optimistic message for immediate UI update
+      const optimisticMessage: ChatMessage = {
+        id: `temp-voice-${Date.now()}`,
+        channel_id: selectedChat.id,
+        user_id: user.id,
+        message: '[Голосовое сообщение]',
+        message_type: 'voice',
+        is_edited: false,
+        edited_at: null,
+        created_at: new Date().toISOString(),
+        user_name: userSettings?.chat_name || user.email || 'You',
+        pfp_color: userSettings?.pfp_color || '#1976d2',
+        pfp_icon: userSettings?.pfp_icon || 'Person',
+        reactions: [],
+        is_optimistic: true, // Mark as optimistic for later replacement
+      };
+
+      // Add optimistic message immediately
+      setMessages(currentMessages => [...currentMessages, optimisticMessage]);
+
       const timestamp = Date.now();
       const filename = `voice_${user.id}_${timestamp}.webm`;
       const filePath = `voice-messages/${selectedChat.id}/${filename}`;
@@ -1135,6 +1307,11 @@ export const GlobalChat: React.FC = () => {
     } catch (error) {
       console.error('Error sending voice message:', error);
       showSnackbar('Ошибка при отправке голосового сообщения', 'error');
+      
+      // Remove optimistic message on error
+      setMessages(currentMessages => 
+        currentMessages.filter(msg => !msg.is_optimistic || msg.message_type !== 'voice')
+      );
     }
   };
 
@@ -1171,11 +1348,8 @@ export const GlobalChat: React.FC = () => {
 
   const {
     isRecording,
-    isPaused,
     recordingTime,
     startRecording,
-    pauseRecording,
-    resumeRecording,
     stopRecording,
     cleanup: cleanupVoiceRecording,
   } = useVoiceRecording(handleRecordingComplete, showSnackbar);
@@ -1188,6 +1362,17 @@ export const GlobalChat: React.FC = () => {
     const replyId = replyingTo?.id;
 
     if (!text && !file) return;
+
+    // Check if this is a command (starts with /)
+    if (text.startsWith('/')) {
+      handleCommand(text);
+      setNewMessage('');
+      setReplyingTo(null);
+      if(file) {
+        handleCancelMedia();
+      }
+      return;
+    }
 
     // Create optimistic message for immediate UI update
     const optimisticMessage: ChatMessage = {
@@ -1231,7 +1416,7 @@ export const GlobalChat: React.FC = () => {
       handleCancelMedia();
     }
 
-  }, [selectedChat, user, selectedFile, newMessage, replyingTo, isChannel, sendMediaMessage, sendMessage, sendDm, handleCancelMedia, setNewMessage, setReplyingTo, userSettings]);
+  }, [selectedChat, user, selectedFile, newMessage, replyingTo, isChannel, sendMediaMessage, sendMessage, sendDm, handleCancelMedia, setNewMessage, setReplyingTo, userSettings, handleCommand]);
 
   const handleKeyPress = useCallback((event: React.KeyboardEvent) => {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -1275,6 +1460,34 @@ export const GlobalChat: React.FC = () => {
   const handleCancelReply = () => {
     setReplyingTo(null);
   };
+
+  const handleMarketItemClick = useCallback((marketItemData: {
+    id: string;
+    title: string;
+    description: string;
+    price: number;
+    currency: string;
+    images: string[];
+  }) => {
+    // Convert the market item data to the format expected by ItemDetailsDialog
+    const marketplaceItem: MarketplaceItem = {
+      id: marketItemData.id,
+      title: marketItemData.title,
+      description: marketItemData.description,
+      price: marketItemData.price,
+      currency: marketItemData.currency,
+      category: '',
+      condition: 'new' as const,
+      images: marketItemData.images,
+      seller_id: '',
+      seller_name: '',
+      created_at: new Date().toISOString(),
+      is_active: true,
+      location: '',
+      tags: []
+    };
+    setSelectedMarketItemForDetails(marketplaceItem);
+  }, []);
 
   const handleToggleReaction = async (messageId: string, emoji: string) => {
     if (!user || !isChannel(selectedChat)) return;
@@ -1333,12 +1546,33 @@ export const GlobalChat: React.FC = () => {
     };
   }, [cleanupVoiceRecording, currentAudio]);
 
+  const [marketItems, setMarketItems] = useState<MarketplaceItem[]>([]);
+  const [marketItemsLoading, setMarketItemsLoading] = useState(false);
+  const [selectedMarketItem, setSelectedMarketItem] = useState<MarketplaceItem | null>(null);
+
+  useEffect(() => {
+    if (marketItemDialogOpen) {
+      setMarketItemsLoading(true);
+      supabase
+        .from('marketplace_items')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .then(({ data, error }) => {
+          if (!error && data) setMarketItems(data);
+          setMarketItemsLoading(false);
+        });
+    } else {
+      setSelectedMarketItem(null);
+    }
+  }, [marketItemDialogOpen]);
+
   if (loading) {
     return <Box display="flex" justifyContent="center" alignItems="center" height="100vh"><CircularProgress /></Box>;
   }
 
   const renderChannels = () => (
-    <List sx={{ flex: 1, overflowY: 'auto' }}>
+    <List sx={{ flex: 1, overflowY: 'auto', py: isMobile ? 1 : 0 }}>
       {channels.map((channel) => (
         <ListItem key={channel.id} disablePadding>
           <ListItemButton
@@ -1347,9 +1581,37 @@ export const GlobalChat: React.FC = () => {
               setSelectedChat(channel);
               if (isMobile) setMobileDrawerOpen(false);
             }}
+            sx={{
+              py: isMobile ? 1.5 : 1,
+              px: isMobile ? 2 : 1,
+              borderRadius: isMobile ? 1 : 0,
+              mx: isMobile ? 1 : 0,
+              mb: isMobile ? 0.5 : 0,
+              '&.Mui-selected': {
+                bgcolor: 'primary.main',
+                color: 'white',
+                '&:hover': {
+                  bgcolor: 'primary.dark',
+                }
+              }
+            }}
           >
-            <ListItemIcon>{getChannelIcon(channel.icon)}</ListItemIcon>
-            <ListItemText primary={channel.name} secondary={channel.description} />
+            <ListItemIcon sx={{ minWidth: isMobile ? 48 : 40 }}>
+              {getChannelIcon(channel.icon)}
+            </ListItemIcon>
+            <ListItemText 
+              primary={channel.name} 
+              secondary={channel.description}
+              primaryTypographyProps={{
+                fontSize: isMobile ? '0.95rem' : '0.875rem',
+                fontWeight: selectedChat?.id === channel.id ? 600 : 400
+              }}
+              secondaryTypographyProps={{
+                fontSize: isMobile ? '0.8rem' : '0.75rem',
+                noWrap: true,
+                textOverflow: 'ellipsis'
+              }}
+            />
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               {channel.is_pinned && <PinIcon fontSize="small" />}
               {channel.admin_only && <AdminIcon fontSize="small" color="error" />}
@@ -1359,8 +1621,18 @@ export const GlobalChat: React.FC = () => {
       ))}
       
       {/* ManGPT AI Assistant */}
-      <Divider sx={{ my: 2 }} />
-      <Typography variant="overline" sx={{ px: 2 }}>AI Assistant</Typography>
+      <Divider sx={{ my: isMobile ? 1.5 : 2 }} />
+      <Typography 
+        variant="overline" 
+        sx={{ 
+          px: isMobile ? 2.5 : 2,
+          fontSize: isMobile ? '0.7rem' : '0.75rem',
+          fontWeight: 600,
+          color: 'text.secondary'
+        }}
+      >
+        AI Assistant
+      </Typography>
       <ListItem disablePadding>
         <ListItemButton
           selected={selectedChat?.id === 'mangpt'}
@@ -1375,22 +1647,58 @@ export const GlobalChat: React.FC = () => {
             } as any);
             if (isMobile) setMobileDrawerOpen(false);
           }}
+          sx={{
+            py: isMobile ? 1.5 : 1,
+            px: isMobile ? 2 : 1,
+            borderRadius: isMobile ? 1 : 0,
+            mx: isMobile ? 1 : 0,
+            mb: isMobile ? 0.5 : 0,
+            '&.Mui-selected': {
+              bgcolor: 'secondary.main',
+              color: 'white',
+              '&:hover': {
+                bgcolor: 'secondary.dark',
+              }
+            }
+          }}
         >
-          <ListItemIcon>
-            <Avatar sx={{ width: 24, height: 24, bgcolor: theme.palette.secondary.main }}>
-              <BotIcon sx={{ fontSize: '1rem' }} />
+          <ListItemIcon sx={{ minWidth: isMobile ? 48 : 40 }}>
+            <Avatar sx={{ 
+              width: isMobile ? 32 : 24, 
+              height: isMobile ? 32 : 24, 
+              bgcolor: theme.palette.secondary.main 
+            }}>
+              <BotIcon sx={{ fontSize: isMobile ? '1.2rem' : '1rem' }} />
             </Avatar>
           </ListItemIcon>
           <ListItemText
             primary="ManGPT"
             secondary="AI Assistant (Powered by humans)"
-            secondaryTypographyProps={{ noWrap: true, textOverflow: 'ellipsis' }}
+            primaryTypographyProps={{
+              fontSize: isMobile ? '0.95rem' : '0.875rem',
+              fontWeight: selectedChat?.id === 'mangpt' ? 600 : 400
+            }}
+            secondaryTypographyProps={{ 
+              noWrap: true, 
+              textOverflow: 'ellipsis',
+              fontSize: isMobile ? '0.8rem' : '0.75rem'
+            }}
           />
         </ListItemButton>
       </ListItem>
       
-      <Divider sx={{ my: 2 }} />
-      <Typography variant="overline" sx={{ px: 2 }}>Direct Messages</Typography>
+      <Divider sx={{ my: isMobile ? 1.5 : 2 }} />
+      <Typography 
+        variant="overline" 
+        sx={{ 
+          px: isMobile ? 2.5 : 2,
+          fontSize: isMobile ? '0.7rem' : '0.75rem',
+          fontWeight: 600,
+          color: 'text.secondary'
+        }}
+      >
+        Direct Messages
+      </Typography>
       {dmConversations.map((convo) => {
         const otherParticipant = convo.participants.find(p => p.user_id !== user?.id);
         const IconComponent = getProfileIconComponent(otherParticipant?.pfp_icon || 'Person');
@@ -1402,16 +1710,43 @@ export const GlobalChat: React.FC = () => {
                 setSelectedChat(convo);
                 if (isMobile) setMobileDrawerOpen(false);
               }}
+              sx={{
+                py: isMobile ? 1.5 : 1,
+                px: isMobile ? 2 : 1,
+                borderRadius: isMobile ? 1 : 0,
+                mx: isMobile ? 1 : 0,
+                mb: isMobile ? 0.5 : 0,
+                '&.Mui-selected': {
+                  bgcolor: 'primary.main',
+                  color: 'white',
+                  '&:hover': {
+                    bgcolor: 'primary.dark',
+                  }
+                }
+              }}
             >
-              <ListItemIcon>
-                <Avatar sx={{ width: 24, height: 24, bgcolor: otherParticipant?.pfp_color, fontSize: '0.8rem' }}>
-                  <IconComponent sx={{ fontSize: '1rem' }} />
+              <ListItemIcon sx={{ minWidth: isMobile ? 48 : 40 }}>
+                <Avatar sx={{ 
+                  width: isMobile ? 32 : 24, 
+                  height: isMobile ? 32 : 24, 
+                  bgcolor: otherParticipant?.pfp_color, 
+                  fontSize: isMobile ? '0.9rem' : '0.8rem' 
+                }}>
+                  <IconComponent sx={{ fontSize: isMobile ? '1.2rem' : '1rem' }} />
                 </Avatar>
               </ListItemIcon>
               <ListItemText
                 primary={otherParticipant?.user_name || 'User'}
                 secondary={convo.last_message_content}
-                secondaryTypographyProps={{ noWrap: true, textOverflow: 'ellipsis' }}
+                primaryTypographyProps={{
+                  fontSize: isMobile ? '0.95rem' : '0.875rem',
+                  fontWeight: selectedChat?.id === convo.id ? 600 : 400
+                }}
+                secondaryTypographyProps={{ 
+                  noWrap: true, 
+                  textOverflow: 'ellipsis',
+                  fontSize: isMobile ? '0.8rem' : '0.75rem'
+                }}
               />
             </ListItemButton>
           </ListItem>
@@ -1477,13 +1812,78 @@ export const GlobalChat: React.FC = () => {
           variant="temporary"
           open={mobileDrawerOpen}
           onClose={() => setMobileDrawerOpen(false)}
-          sx={{ '& .MuiDrawer-paper': { width: '80%', boxSizing: 'border-box' } }}
+          sx={{ 
+            '& .MuiDrawer-paper': { 
+              width: '85%', 
+              maxWidth: 320,
+              boxSizing: 'border-box',
+              bgcolor: 'background.paper'
+            } 
+          }}
+          ModalProps={{
+            keepMounted: true // Better mobile performance
+          }}
         >
-          <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6">Чаты</Typography>
-            <IconButton onClick={() => setMobileDrawerOpen(false)}><CloseIcon /></IconButton>
+          <Box sx={{ 
+            p: isMobile ? 2.5 : 2, 
+                        display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            bgcolor: 'background.paper',
+            position: 'sticky',
+            top: 0,
+            zIndex: 1,
+            backdropFilter: 'blur(8px)',
+            borderBottom: '2px solid',
+            borderColor: 'primary.main',
+            opacity: 0.95
+          }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <ChatIcon color="primary" sx={{ fontSize: isMobile ? 28 : 24 }} />
+              <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                Чаты
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <IconButton 
+                onClick={() => setNewDmDialogOpen(true)}
+                size="small"
+                sx={{ 
+                  bgcolor: 'primary.main',
+                  color: 'white',
+                  width: isMobile ? 40 : 32,
+                  height: isMobile ? 40 : 32,
+                  '&:hover': { 
+                    bgcolor: 'primary.dark',
+                    transform: 'scale(1.05)'
+                  },
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <AddIcon />
+              </IconButton>
+              <IconButton 
+                onClick={() => setMobileDrawerOpen(false)}
+                size="small"
+                sx={{
+                  width: isMobile ? 40 : 32,
+                  height: isMobile ? 40 : 32,
+                  bgcolor: 'error.main',
+                  color: 'white',
+                  '&:hover': { 
+                    bgcolor: 'error.dark',
+                    transform: 'scale(1.05)'
+                  },
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <CloseIcon />
+              </IconButton>
+            </Box>
           </Box>
-          {renderChannels()}
+          <Box sx={{ overflowY: 'auto', height: 'calc(100vh - 80px)' }}>
+            {renderChannels()}
+          </Box>
         </Drawer>
       ) : (
         <Box sx={{ width: 280, flexShrink: 0, borderRight: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
@@ -1500,24 +1900,71 @@ export const GlobalChat: React.FC = () => {
       {/* Main Chat Area */}
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         {/* Header */}
-        <Box sx={{ p: 1, borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>
+        <Box sx={{ 
+          p: isMobile ? 1.5 : 1, 
+          borderBottom: 1, 
+          borderColor: 'divider', 
+          flexShrink: 0,
+          bgcolor: 'background.paper',
+          position: 'sticky',
+          top: 0,
+          zIndex: 10
+        }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {isMobile && (
-              <IconButton onClick={() => setMobileDrawerOpen(true)}><MenuIcon /></IconButton>
-            )}
-              <Typography variant="h6">
-                {selectedChat ? (
-                  selectedChat.id === 'mangpt' ? 'ManGPT' : 
-                  isChannel(selectedChat) ? selectedChat.name : 
-                  selectedChat.participants?.find(p => p.user_id !== user?.id)?.user_name || 'DM'
-                ) : 'Глобальный чат'}
-              </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: isMobile ? 1.5 : 1, flex: 1, minWidth: 0 }}>
+              {isMobile && (
+                <IconButton 
+                  onClick={() => setMobileDrawerOpen(true)}
+                  sx={{ 
+                    bgcolor: 'action.hover',
+                    '&:hover': { bgcolor: 'action.selected' }
+                  }}
+                >
+                  <MenuIcon />
+                </IconButton>
+              )}
+              <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Typography 
+                  variant={isMobile ? "h6" : "h6"} 
+                  sx={{ 
+                    fontWeight: 600,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {selectedChat ? (
+                    selectedChat.id === 'mangpt' ? 'ManGPT' : 
+                    isChannel(selectedChat) ? selectedChat.name : 
+                    selectedChat.participants?.find(p => p.user_id !== user?.id)?.user_name || 'DM'
+                  ) : 'Глобальный чат'}
+                </Typography>
+                {isMobile && selectedChat && (
+                  <Typography 
+                    variant="caption" 
+                    color="text.secondary"
+                    sx={{ 
+                      display: 'block',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {isChannel(selectedChat) ? 'Канал' : 'Личное сообщение'}
+                  </Typography>
+                )}
+              </Box>
             </Box>
             {isChannel(selectedChat) && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Tooltip title="Расширенный поиск">
-                  <IconButton onClick={() => setSearchDialogOpen(true)}>
+                  <IconButton 
+                    onClick={() => setSearchDialogOpen(true)}
+                    sx={{ 
+                      bgcolor: 'action.hover',
+                      '&:hover': { bgcolor: 'action.selected' }
+                    }}
+                  >
                     <SearchIcon />
                   </IconButton>
                 </Tooltip>
@@ -1536,10 +1983,19 @@ export const GlobalChat: React.FC = () => {
             ) : (
           <>
             {/* Messages */}
-                <Box ref={chatContainerRef} sx={{ flex: 1, overflowY: 'hidden', position: 'relative' }}>
+                <Box 
+                  ref={chatContainerRef} 
+                  sx={{ 
+                    flex: 1, 
+                    overflowY: 'hidden', 
+                    position: 'relative',
+                    bgcolor: 'background.default'
+                  }} 
+                  onScroll={handleScroll}
+                >
                   {messages.length > 0 ? (
                     <VirtualizedMessageList
-                      messages={memoizedMessages}
+                      messages={visibleMessages}
                   isMobile={isMobile}
                   user={user}
                   editingMessage={editingMessage}
@@ -1569,6 +2025,7 @@ export const GlobalChat: React.FC = () => {
                       loading={loadingMore}
                       onLoadMore={loadMoreMessages}
                       hasMore={hasMoreMessages}
+                      onMarketItemClick={handleMarketItemClick}
                     />
                   ) : (
                     <Box display="flex" justifyContent="center" alignItems="center" height="100%">
@@ -1583,28 +2040,192 @@ export const GlobalChat: React.FC = () => {
 
             {/* Message Input */}
                 <Box 
-                  sx={{ p: 2, borderTop: 1, borderColor: 'divider', bgcolor: 'background.paper', flexShrink: 0 }}
+                  sx={{ 
+                    p: isMobile ? 1.5 : 2, 
+                    borderTop: 1, 
+                    borderColor: 'divider', 
+                    bgcolor: 'background.paper', 
+                    flexShrink: 0,
+                    transition: 'all 0.2s ease-in-out',
+                    position: 'sticky',
+                    bottom: 0,
+                    zIndex: 10
+                  }}
                   onDragOver={handleDragOver}
                   onDrop={handleDrop}
                 >
               {isRecording ? (
-                <Box display="flex" alignItems="center" gap={2}>
-                  <Typography variant="body2" color="text.secondary">{formatRecordingTime(recordingTime)}</Typography>
-                  <Button onClick={isPaused ? resumeRecording : pauseRecording}>{isPaused ? "Resume" : "Pause"}</Button>
-                  <Button onClick={stopRecording}>Stop</Button>
+                <Box 
+                  sx={{ 
+                    p: 1.5, 
+                    bgcolor: 'background.paper',
+                    borderRadius: 1,
+                    border: '1px solid',
+                    borderColor: 'error.main',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    '&::before': {
+                      content: '""',
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      background: 'linear-gradient(45deg, transparent 30%, rgba(244, 67, 54, 0.05) 50%, transparent 70%)',
+                      animation: 'recordingShine 3s ease-in-out infinite',
+                    },
+                    '@keyframes recordingShine': {
+                      '0%': { transform: 'translateX(-100%)' },
+                      '100%': { transform: 'translateX(100%)' }
+                    }
+                  }}
+                >
+                  {/* Inline Recording Controls */}
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box
+                        sx={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: '50%',
+                          bgcolor: 'error.main',
+                          animation: 'recordingPulse 2s ease-in-out infinite',
+                          '@keyframes recordingPulse': {
+                            '0%, 100%': { 
+                              transform: 'scale(1)',
+                              opacity: 1
+                            },
+                            '50%': { 
+                              transform: 'scale(1.3)',
+                              opacity: 0.7
+                            }
+                          }
+                        }}
+                      />
+                      <Typography variant="body2" color="error.main" sx={{ fontWeight: 500, fontSize: '0.875rem' }}>
+                        Запись
+                      </Typography>
+                    </Box>
+
+                    <Typography 
+                      variant="body2" 
+                      color="error.main" 
+                      sx={{ 
+                        fontWeight: 600,
+                        fontFamily: 'monospace',
+                        fontSize: '0.875rem'
+                      }}
+                    >
+                      {formatRecordingTime(recordingTime)}
+                    </Typography>
+
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <IconButton
+                        onClick={stopRecording}
+                        size="small"
+                        sx={{
+                          bgcolor: 'error.main',
+                          color: 'white',
+                          width: 32,
+                          height: 32,
+                          transition: 'all 0.2s ease',
+                          '&:hover': {
+                            bgcolor: 'error.dark',
+                            transform: 'scale(1.05)'
+                          }
+                        }}
+                      >
+                        <StopIcon sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    </Box>
+                  </Box>
                 </Box>
               ) : (
                 <>
                   {replyingTo && (
-                        <Box sx={{ p: 1, mb: 1, bgcolor: 'action.hover', borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Typography variant="body2">Replying to {replyingTo.user_name}</Typography>
-                      <IconButton size="small" onClick={handleCancelReply}><CloseIcon fontSize="small" /></IconButton>
+                    <Box sx={{ 
+                      p: isMobile ? 1.5 : 1, 
+                      mb: 1, 
+                      bgcolor: 'action.hover', 
+                      borderRadius: isMobile ? 2 : 1, 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'space-between',
+                      border: '1px solid',
+                      borderColor: 'primary.main',
+                      opacity: 0.9
+                    }}>
+                      <Box sx={{ minWidth: 0, flex: 1 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 500, color: 'primary.main' }}>
+                          Ответ на {replyingTo.user_name}
+                        </Typography>
+                        <Typography 
+                          variant="caption" 
+                          color="text.secondary"
+                          sx={{ 
+                            display: 'block',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {replyingTo.message}
+                        </Typography>
+                      </Box>
+                      <IconButton 
+                        size="small" 
+                        onClick={handleCancelReply}
+                        sx={{ 
+                          bgcolor: 'error.main',
+                          color: 'white',
+                          '&:hover': { bgcolor: 'error.dark' }
+                        }}
+                      >
+                        <CloseIcon fontSize="small" />
+                      </IconButton>
                     </Box>
                   )}
                   {mediaPreview && (
-                         <Box sx={{ p: 1, mb: 1, bgcolor: 'action.hover', borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Typography variant="body2">Attachment: {selectedFile?.name}</Typography>
-                      <IconButton size="small" onClick={handleCancelMedia}><CloseIcon fontSize="small" /></IconButton>
+                    <Box sx={{ 
+                      p: isMobile ? 1.5 : 1, 
+                      mb: 1, 
+                      bgcolor: 'action.hover', 
+                      borderRadius: isMobile ? 2 : 1, 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'space-between',
+                      border: '1px solid',
+                      borderColor: 'primary.main',
+                      opacity: 0.9
+                    }}>
+                      <Box sx={{ minWidth: 0, flex: 1 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 500, color: 'primary.main' }}>
+                          Вложение
+                        </Typography>
+                        <Typography 
+                          variant="caption" 
+                          color="text.secondary"
+                          sx={{ 
+                            display: 'block',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {selectedFile?.name}
+                        </Typography>
+                      </Box>
+                      <IconButton 
+                        size="small" 
+                        onClick={handleCancelMedia}
+                        sx={{ 
+                          bgcolor: 'error.main',
+                          color: 'white',
+                          '&:hover': { bgcolor: 'error.dark' }
+                        }}
+                      >
+                        <CloseIcon fontSize="small" />
+                      </IconButton>
                     </Box>
                   )}
                       {uploadingMedia && uploadProgress > 0 && (
@@ -1613,32 +2234,141 @@ export const GlobalChat: React.FC = () => {
                           <Typography variant="caption" color="text.secondary">
                             Загрузка: {uploadProgress}%
                           </Typography>
-                        </Box>
-                      )}
-                  <Box display="flex" gap={1}>
+                    </Box>
+                  )}
+                  <Box 
+                    display="flex" 
+                    gap={isMobile ? 0.5 : 1} 
+                    alignItems="flex-end"
+                    sx={{
+                      // Mobile-specific improvements
+                      ...(isMobile && {
+                        '& .MuiTextField-root': {
+                          '& .MuiInputBase-root': {
+                            '&:focus-within': {
+                              boxShadow: '0 0 0 2px rgba(25, 118, 210, 0.2)',
+                            }
+                          }
+                        }
+                      })
+                    }}
+                  >
                     <TextField
                       fullWidth
-                      placeholder="Введите сообщение..."
+                      placeholder={isMobile ? "Сообщение..." : "Введите сообщение..."}
                       value={newMessage}
                       onChange={handleInputChange}
                       onKeyPress={handleKeyPress}
                       multiline
-                          maxRows={1}
-                          sx={{
-                            '& .MuiInputBase-root': {
-                              fontSize: '0.95rem',
-                              py: 0.5,
-                              minHeight: 36,
-                            },
-                            '& textarea': {
-                              fontSize: '0.95rem',
-                            },
-                          }}
-                        />
-                    <IconButton onClick={startRecording} disabled={!selectedChat}><MicIcon /></IconButton>
-                    <Button variant="contained" onClick={handleSend} disabled={(!selectedFile && !newMessage.trim()) || sending || uploadingMedia}>
-                      {sending || uploadingMedia ? <CircularProgress size={24} /> : <SendIcon />}
-                    </Button>
+                      maxRows={isMobile ? 3 : 1}
+                      sx={{
+                        '& .MuiInputBase-root': {
+                          fontSize: isMobile ? '0.9rem' : '0.95rem',
+                          py: isMobile ? 0.75 : 0.5,
+                          minHeight: isMobile ? 40 : 36,
+                          borderRadius: isMobile ? 2 : 1,
+                        },
+                        '& textarea': {
+                          fontSize: isMobile ? '0.9rem' : '0.95rem',
+                          lineHeight: isMobile ? 1.4 : 1.2,
+                        },
+                        '& .MuiOutlinedInput-notchedOutline': {
+                          borderColor: 'divider',
+                        },
+                        '&:hover .MuiOutlinedInput-notchedOutline': {
+                          borderColor: 'primary.main',
+                        },
+                      }}
+                    />
+                    <input
+                      accept="image/*,video/*,audio/*"
+                      style={{ display: 'none' }}
+                      id="upload-media-input"
+                      type="file"
+                      onChange={handleFileSelect}
+                    />
+                    <IconButton 
+                      onClick={(event) => setAttachmentMenuAnchor(event.currentTarget)}
+                      disabled={!selectedChat || uploadingMedia}
+                      sx={{
+                        bgcolor: 'primary.main',
+                        color: 'white',
+                        width: isMobile ? 44 : 40,
+                        height: isMobile ? 44 : 40,
+                        transition: 'all 0.3s ease',
+                        borderRadius: isMobile ? 2 : 1,
+                        '&:hover': {
+                          bgcolor: 'primary.dark',
+                          transform: isMobile ? 'scale(1.05)' : 'scale(1.1)',
+                          boxShadow: '0 4px 15px rgba(25, 118, 210, 0.3)'
+                        },
+                        '&:active': {
+                          transform: 'scale(0.95)'
+                        },
+                        '&.Mui-disabled': {
+                          bgcolor: 'action.disabledBackground',
+                          color: 'action.disabled'
+                        }
+                      }}
+                    >
+                      <AttachFileIcon sx={{ fontSize: isMobile ? 20 : 18 }} />
+                    </IconButton>
+                    <IconButton 
+                      onClick={startRecording} 
+                      disabled={!selectedChat}
+                      sx={{
+                        bgcolor: 'primary.main',
+                        color: 'white',
+                        width: isMobile ? 44 : 40,
+                        height: isMobile ? 44 : 40,
+                        transition: 'all 0.3s ease',
+                        borderRadius: isMobile ? 2 : 1,
+                        '&:hover': {
+                          bgcolor: 'primary.dark',
+                          transform: 'scale(1.1)',
+                          boxShadow: '0 4px 15px rgba(25, 118, 210, 0.3)'
+                        },
+                        '&:active': {
+                          transform: 'scale(0.95)'
+                        },
+                        '&.Mui-disabled': {
+                          bgcolor: 'action.disabledBackground',
+                          color: 'action.disabled'
+                        }
+                      }}
+                    >
+                      <MicIcon />
+                    </IconButton>
+                    <IconButton 
+                      onClick={handleSend} 
+                      disabled={(!selectedFile && !newMessage.trim()) || sending || uploadingMedia}
+                      sx={{
+                        bgcolor: 'primary.main',
+                        color: 'white',
+                        width: isMobile ? 44 : 40,
+                        height: isMobile ? 44 : 40,
+                        transition: 'all 0.3s ease',
+                        borderRadius: isMobile ? 2 : 1,
+                        '&:hover': {
+                          bgcolor: 'primary.dark',
+                          transform: isMobile ? 'scale(1.05)' : 'scale(1.1)',
+                          boxShadow: '0 4px 15px rgba(25, 118, 210, 0.3)'
+                        },
+                        '&:active': {
+                          transform: 'scale(0.95)'
+                        },
+                        '&.Mui-disabled': {
+                          bgcolor: 'action.disabledBackground',
+                          color: 'action.disabled'
+                        }
+                      }}
+                    >
+                      {sending || uploadingMedia ? (
+                        <CircularProgress size={isMobile ? 20 : 18} color="inherit" />
+                      ) : (
+                        <SendIcon sx={{ fontSize: isMobile ? 20 : 18 }} />
+                      )}
+                    </IconButton>
                   </Box>
                 </>
               )}
@@ -1679,7 +2409,31 @@ export const GlobalChat: React.FC = () => {
         </MenuItem>
       </Menu>
 
-
+      {/* Attachment Menu */}
+      <Menu
+        anchorEl={attachmentMenuAnchor}
+        open={Boolean(attachmentMenuAnchor)}
+        onClose={() => setAttachmentMenuAnchor(null)}
+      >
+        <MenuItem onClick={() => {
+          document.getElementById('upload-media-input')?.click();
+          setAttachmentMenuAnchor(null);
+        }}>
+          <ListItemIcon>
+            <AddPhotoIcon fontSize="small" />
+          </ListItemIcon>
+          Медиа файл
+        </MenuItem>
+        <MenuItem onClick={() => {
+          setMarketItemDialogOpen(true);
+          setAttachmentMenuAnchor(null);
+        }}>
+          <ListItemIcon>
+            <StoreIcon fontSize="small" />
+          </ListItemIcon>
+          Товар с рынка
+        </MenuItem>
+      </Menu>
 
       {/* Snackbar */}
       <Snackbar
@@ -1783,6 +2537,155 @@ export const GlobalChat: React.FC = () => {
         />
       </Dialog>
     )}
-    </>
-  );
-}; 
+    
+    {/* Market Item Selection Dialog */}
+    <Dialog
+      open={marketItemDialogOpen}
+      onClose={() => setMarketItemDialogOpen(false)}
+      maxWidth="md"
+      fullWidth
+      PaperProps={{
+        sx: { height: '70vh' }
+      }}
+    >
+      <DialogTitle>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <StoreIcon color="primary" />
+          <Typography variant="h6">
+            Выберите товар для отправки
+          </Typography>
+        </Box>
+      </DialogTitle>
+      <DialogContent>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Выберите товар с рынка, который хотите поделиться в чате:
+        </Typography>
+        
+        {/* Market Items List */}
+        <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
+          {marketItemsLoading ? (
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+              Загрузка товаров с рынка...
+            </Typography>
+          ) : marketItems.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+              Нет доступных товаров
+            </Typography>
+          ) : (
+            marketItems.map(item => (
+              <MenuItem
+                key={item.id}
+                selected={selectedMarketItem?.id === item.id}
+                onClick={() => setSelectedMarketItem(item)}
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 2,
+                  py: 1.5,
+                  borderRadius: 1,
+                  mb: 1,
+                  bgcolor: selectedMarketItem?.id === item.id ? 'action.selected' : 'inherit',
+                }}
+              >
+                <Box sx={{ width: 48, height: 48, flexShrink: 0, borderRadius: 1, overflow: 'hidden', bgcolor: 'grey.100', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {item.images && item.images.length > 0 ? (
+                    <img src={item.images[0]} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <StoreIcon color="disabled" />
+                  )}
+                </Box>
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="subtitle1" fontWeight={500}>{item.title}</Typography>
+                  <Typography variant="body2" color="text.secondary" noWrap>{item.description}</Typography>
+                </Box>
+                <Typography variant="subtitle2" color="primary.main" fontWeight={600}>
+                  {item.price} {item.currency || 'MR'}
+                </Typography>
+              </MenuItem>
+            ))
+          )}
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => setMarketItemDialogOpen(false)}>Отмена</Button>
+        <Button
+          onClick={async () => {
+            if (!selectedMarketItem || !user || !selectedChat) return;
+            
+            try {
+              const { error } = await supabase
+                .from('chat_messages')
+                .insert({
+                  channel_id: selectedChat.id,
+                  user_id: user.id,
+                  message: `Поделился товаром: ${selectedMarketItem.title}`,
+                  message_type: 'market_item',
+                  market_item_id: selectedMarketItem.id,
+                  market_item_title: selectedMarketItem.title,
+                  market_item_price: selectedMarketItem.price,
+                  market_item_currency: selectedMarketItem.currency,
+                  market_item_image: selectedMarketItem.images && selectedMarketItem.images.length > 0 ? selectedMarketItem.images[0] : null,
+                });
+
+              if (error) throw error;
+
+              setMarketItemDialogOpen(false);
+              setSelectedMarketItem(null);
+            } catch (error) {
+              console.error('Error sending market item:', error);
+              // You might want to show a snackbar here
+            }
+          }}
+          variant="contained"
+          disabled={!selectedMarketItem}
+        >
+          Отправить
+        </Button>
+      </DialogActions>
+    </Dialog>
+
+          {/* Market Item Details Dialog */}
+      {selectedMarketItemForDetails && (
+        <ItemDetailsDialog
+          item={selectedMarketItemForDetails}
+          open={!!selectedMarketItemForDetails}
+          onClose={() => setSelectedMarketItemForDetails(null)}
+          onPurchased={() => {
+            // Refresh market items if needed
+            setSelectedMarketItemForDetails(null);
+          }}
+        />
+      )}
+
+      {/* Mobile Quick Actions FAB */}
+      {isMobile && selectedChat && (
+        <Fab
+          color="primary"
+          size="large"
+          onClick={() => setMarketItemDialogOpen(true)}
+          sx={{
+            position: 'fixed',
+            bottom: 100,
+            right: 20,
+            zIndex: 1000,
+            bgcolor: 'primary.main',
+            color: 'white',
+            boxShadow: 4,
+            '&:hover': {
+              bgcolor: 'primary.dark',
+              transform: 'scale(1.1)',
+              boxShadow: 6,
+            },
+            '&:active': {
+              transform: 'scale(0.95)',
+            },
+            transition: 'all 0.2s ease',
+          }}
+        >
+          <StoreIcon />
+        </Fab>
+      )}
+      </>
+    );
+  }; 

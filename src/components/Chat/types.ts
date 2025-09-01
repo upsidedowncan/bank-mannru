@@ -24,7 +24,7 @@ export interface ChatMessage {
   channel_id: string;
   user_id: string;
   message: string;
-  message_type: 'text' | 'system' | 'announcement' | 'voice' | 'image' | 'video' | 'html' | 'money_gift' | 'manpay';
+  message_type: 'text' | 'system' | 'announcement' | 'voice' | 'image' | 'video' | 'html' | 'money_gift' | 'manpay' | 'market_item';
   is_edited: boolean;
   edited_at: string | null;
   created_at: string;
@@ -47,6 +47,12 @@ export interface ChatMessage {
   manpay_receiver_id?: string;
   manpay_status?: string;
   is_optimistic?: boolean; // For optimistic updates
+  // Market item fields
+  market_item_id?: string;
+  market_item_title?: string;
+  market_item_price?: number;
+  market_item_currency?: string;
+  market_item_image?: string;
 }
 
 export interface UserChatSettings {
