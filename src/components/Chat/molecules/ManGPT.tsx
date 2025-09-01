@@ -50,6 +50,8 @@ export const ManGPT: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isMountedRef = useRef(true);
   const isLoadingRef = useRef(false);
+  const [isManGPTEnabled, setIsManGPTEnabled] = useState(true);
+  const [checkingActivation, setCheckingActivation] = useState(true);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -264,6 +266,31 @@ export const ManGPT: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
+  // Check ManGPT activation status on mount
+  useEffect(() => {
+    let isMounted = true;
+    const checkActivation = async () => {
+      setCheckingActivation(true);
+      const { data, error } = await supabase
+        .from('mangpt_settings')
+        .select('is_enabled')
+        .order('id', { ascending: true })
+        .limit(1)
+        .single();
+      if (isMounted) {
+        if (error) {
+          console.error('Ошибка проверки статуса ManGPT:', error);
+          setIsManGPTEnabled(true); // fallback: enabled
+        } else {
+          setIsManGPTEnabled(data?.is_enabled ?? true);
+        }
+        setCheckingActivation(false);
+      }
+    };
+    checkActivation();
+    return () => { isMounted = false; };
+  }, []);
+
   const loadConversation = async () => {
     if (!user || isLoadingRef.current) return;
     
@@ -406,6 +433,29 @@ export const ManGPT: React.FC = () => {
     console.log('Manually refreshing ManGPT conversation');
     loadConversation();
   };
+
+  if (checkingActivation) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+        <CircularProgress />
+        <Typography sx={{ ml: 2 }}>Проверка статуса ManGPT...</Typography>
+      </Box>
+    );
+  }
+
+  if (!isManGPTEnabled) {
+    return (
+      <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" height="100%" textAlign="center" gap={2}>
+        <BotIcon sx={{ fontSize: 64, color: theme.palette.primary.main, opacity: 0.5 }} />
+        <Typography variant="h6" color="text.secondary">
+          ManGPT временно недоступен
+        </Typography>
+        <Typography variant="body2" color="text.secondary" maxWidth={400}>
+          Попробуйте позже. Сервис отключён администратором.
+        </Typography>
+      </Box>
+    );
+  }
 
   if (loading) {
     console.log('ManGPT is in loading state');
