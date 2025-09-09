@@ -33,6 +33,8 @@ import {
   Select,
   LinearProgress,
   Fab,
+  Fade,
+  Skeleton,
 } from '@mui/material';
 import { styled, keyframes } from '@mui/material/styles';
 import {
@@ -83,6 +85,7 @@ import {
   Search as SearchIcon,
   KeyboardArrowDown as ScrollDownIcon,
   SmartToy as BotIcon,
+  AccountBalanceWallet as AccountBalanceWalletIcon,
 } from '@mui/icons-material';
 import { supabase } from '../../config/supabase';
 import { useAuthContext } from '../../contexts/AuthContext';
@@ -190,6 +193,7 @@ export const GlobalChat: React.FC = () => {
   const [channels, setChannels] = useState<ChatChannel[]>([]);
   const [selectedChat, setSelectedChat] = useState<ChatChannel | Conversation | null>(null);
   const [loading, setLoading] = useState(true);
+  const [conversationLoading, setConversationLoading] = useState(false);
   const [userSettings, setUserSettings] = useState<UserChatSettings | null>(null);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
@@ -406,7 +410,7 @@ export const GlobalChat: React.FC = () => {
 
         const { data: userSettingsData } = await supabase
           .from('user_chat_settings')
-          .select('user_id, chat_name, pfp_color, pfp_icon')
+          .select('user_id, chat_name, pfp_color, pfp_icon, pfp_type, pfp_image_url, pfp_gradient')
           .in('user_id', allUserIds);
 
         const settingsMap = new Map(userSettingsData?.map(s => [s.user_id, s]));
@@ -429,16 +433,29 @@ export const GlobalChat: React.FC = () => {
             if (msg.reply_to) {
               const { data: replyData } = await supabase
                 .from('chat_messages')
-                .select('id, message, user_id')
+                .select('id, message, user_id, created_at')
                 .eq('id', msg.reply_to)
                 .single();
 
               if (replyData) {
                 const replyUserSetting = settingsMap.get(replyData.user_id);
                 replyToMessage = {
-                  ...replyData,
+                  id: replyData.id,
+                  channel_id: msg.channel_id,
+                  user_id: replyData.user_id,
+                  message: replyData.message,
+                  message_type: 'text' as const,
+                  is_edited: false,
+                  edited_at: null,
+                  created_at: replyData.created_at || new Date().toISOString(),
                   user_name: replyUserSetting?.chat_name || `User ${replyData.user_id.slice(0, 8)}...`,
-                };
+                  pfp_color: replyUserSetting?.pfp_color || '#1976d2',
+                  pfp_icon: replyUserSetting?.pfp_icon || 'Person',
+                  pfp_type: replyUserSetting?.pfp_type || 'icon',
+                  pfp_image_url: replyUserSetting?.pfp_image_url || '',
+                  pfp_gradient: replyUserSetting?.pfp_gradient || 'linear-gradient(45deg, #1976d2, #42a5f5)',
+                  reactions: [],
+                } as ChatMessage;
               }
             }
             return {
@@ -446,6 +463,9 @@ export const GlobalChat: React.FC = () => {
               user_name: userSetting?.chat_name || `User ${msg.user_id.slice(0, 8)}...`,
               pfp_color: userSetting?.pfp_color || '#1976d2',
               pfp_icon: userSetting?.pfp_icon || 'Person',
+              pfp_type: userSetting?.pfp_type || 'icon',
+              pfp_image_url: userSetting?.pfp_image_url || '',
+              pfp_gradient: userSetting?.pfp_gradient || 'linear-gradient(45deg, #1976d2, #42a5f5)',
               reply_to_message: replyToMessage,
               reactions: reactionsByMessageId.get(msg.id) || [],
             };
@@ -500,13 +520,35 @@ export const GlobalChat: React.FC = () => {
 
   // Message selection function
   const handleMessageSelect = (messageId: string) => {
+    console.log('Attempting to scroll to message:', messageId);
     const messageElement = document.getElementById(`message-${messageId}`);
     if (messageElement) {
       messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
       messageElement.style.backgroundColor = 'rgba(255, 193, 7, 0.2)';
+      messageElement.style.borderRadius = '8px';
+      messageElement.style.padding = '8px';
+      messageElement.style.margin = '4px';
+      messageElement.style.transition = 'all 0.3s ease';
+      
+      // Enhanced highlighting effect
+      setTimeout(() => {
+        messageElement.style.backgroundColor = 'rgba(255, 193, 7, 0.1)';
+        messageElement.style.transform = 'scale(1.02)';
+      }, 500);
+      
       setTimeout(() => {
         messageElement.style.backgroundColor = '';
-      }, 2000);
+        messageElement.style.transform = 'scale(1)';
+        messageElement.style.borderRadius = '';
+        messageElement.style.padding = '';
+        messageElement.style.margin = '';
+      }, 3000);
+      
+      console.log('Successfully scrolled to message');
+    } else {
+      console.log('Message element not found, message might not be loaded:', messageId);
+      // Show a snackbar to inform the user
+      showSnackbar('Сообщение не найдено в текущем чате', 'error');
     }
   };
 
@@ -663,7 +705,7 @@ export const GlobalChat: React.FC = () => {
 
     // Only clear messages for regular chats, not ManGPT
     setMessages([]); // Clear messages when chat changes
-    setLoading(true);
+    setConversationLoading(true);
 
     let subscription: any = null;
 
@@ -694,7 +736,7 @@ export const GlobalChat: React.FC = () => {
 
         const { data: userSettingsData } = await supabase
           .from('user_chat_settings')
-          .select('user_id, chat_name, pfp_color, pfp_icon')
+          .select('user_id, chat_name, pfp_color, pfp_icon, pfp_type, pfp_image_url, pfp_gradient')
           .in('user_id', allUserIds);
 
         const settingsMap = new Map(userSettingsData?.map(s => [s.user_id, s]));
@@ -717,16 +759,29 @@ export const GlobalChat: React.FC = () => {
             if (msg.reply_to) {
               const { data: replyData } = await supabase
                 .from('chat_messages')
-                .select('id, message, user_id')
+                .select('id, message, user_id, created_at')
                 .eq('id', msg.reply_to)
                 .single();
 
               if (replyData) {
                 const replyUserSetting = settingsMap.get(replyData.user_id);
                 replyToMessage = {
-                  ...replyData,
+                  id: replyData.id,
+                  channel_id: msg.channel_id,
+                  user_id: replyData.user_id,
+                  message: replyData.message,
+                  message_type: 'text' as const,
+                  is_edited: false,
+                  edited_at: null,
+                  created_at: replyData.created_at || new Date().toISOString(),
                   user_name: replyUserSetting?.chat_name || `User ${replyData.user_id.slice(0, 8)}...`,
-                };
+                  pfp_color: replyUserSetting?.pfp_color || '#1976d2',
+                  pfp_icon: replyUserSetting?.pfp_icon || 'Person',
+                  pfp_type: replyUserSetting?.pfp_type || 'icon',
+                  pfp_image_url: replyUserSetting?.pfp_image_url || '',
+                  pfp_gradient: replyUserSetting?.pfp_gradient || 'linear-gradient(45deg, #1976d2, #42a5f5)',
+                  reactions: [],
+                } as ChatMessage;
               }
             }
             return {
@@ -734,6 +789,9 @@ export const GlobalChat: React.FC = () => {
               user_name: userSetting?.chat_name || `User ${msg.user_id.slice(0, 8)}...`,
               pfp_color: userSetting?.pfp_color || '#1976d2',
               pfp_icon: userSetting?.pfp_icon || 'Person',
+              pfp_type: userSetting?.pfp_type || 'icon',
+              pfp_image_url: userSetting?.pfp_image_url || '',
+              pfp_gradient: userSetting?.pfp_gradient || 'linear-gradient(45deg, #1976d2, #42a5f5)',
               reply_to_message: replyToMessage,
               reactions: reactionsByMessageId.get(msg.id) || [],
             };
@@ -758,7 +816,7 @@ export const GlobalChat: React.FC = () => {
         const senderIds = Array.from(new Set(dms.map(dm => dm.sender_id)));
         const { data: userSettingsData } = await supabase
           .from('user_chat_settings')
-          .select('user_id, chat_name, pfp_color, pfp_icon')
+          .select('user_id, chat_name, pfp_color, pfp_icon, pfp_type, pfp_image_url, pfp_gradient')
           .in('user_id', senderIds);
 
         const settingsMap = new Map(userSettingsData?.map(s => [s.user_id, s]));
@@ -784,6 +842,9 @@ export const GlobalChat: React.FC = () => {
                   user_name: replyUserSetting?.chat_name || `User ${replyData.sender_id.slice(0, 8)}...`,
                   pfp_color: replyUserSetting?.pfp_color,
                   pfp_icon: replyUserSetting?.pfp_icon,
+                  pfp_type: replyUserSetting?.pfp_type || 'icon',
+                  pfp_image_url: replyUserSetting?.pfp_image_url || '',
+                  pfp_gradient: replyUserSetting?.pfp_gradient || 'linear-gradient(45deg, #1976d2, #42a5f5)',
                   created_at: replyData.created_at,
                   message_type: replyData.message_type,
                   media_url: replyData.media_url,
@@ -804,6 +865,9 @@ export const GlobalChat: React.FC = () => {
               user_name: settings?.chat_name || 'User',
               pfp_color: settings?.pfp_color || '#1976d2',
               pfp_icon: settings?.pfp_icon || 'Person',
+              pfp_type: settings?.pfp_type || 'icon',
+              pfp_image_url: settings?.pfp_image_url || '',
+              pfp_gradient: settings?.pfp_gradient || 'linear-gradient(45deg, #1976d2, #42a5f5)',
               channel_id: '', // Not applicable for DMs
               message_type: dm.message_type,
               reactions: [], // DMs don't have reactions in this implementation
@@ -834,7 +898,7 @@ export const GlobalChat: React.FC = () => {
         console.error("Error fetching messages:", error);
         showSnackbar('Ошибка при загрузке сообщений', 'error');
       } finally {
-        setLoading(false);
+        setConversationLoading(false);
       }
     };
 
@@ -879,7 +943,11 @@ export const GlobalChat: React.FC = () => {
                       user_name: userSettings?.chat_name || user?.email || 'You',
                       pfp_color: userSettings?.pfp_color || '#1976d2',
                       pfp_icon: userSettings?.pfp_icon || 'Person',
+                      pfp_type: userSettings?.pfp_type || 'icon',
+                      pfp_image_url: userSettings?.pfp_image_url || '',
+                      pfp_gradient: userSettings?.pfp_gradient || 'linear-gradient(45deg, #1976d2, #42a5f5)',
                       is_optimistic: false,
+                      // Note: reply_to_message will be populated when the message is fetched
                       // Ensure all message fields are preserved
                       audio_url: newMessageData.audio_url || undefined,
                       audio_duration: newMessageData.audio_duration || undefined,
@@ -901,9 +969,40 @@ export const GlobalChat: React.FC = () => {
               // Add new message from other users
             const { data: userSettingsData } = await supabase
               .from('user_chat_settings')
-              .select('user_id, chat_name, pfp_color, pfp_icon')
+              .select('user_id, chat_name, pfp_color, pfp_icon, pfp_type, pfp_image_url, pfp_gradient')
                 .eq('user_id', newMessageData.user_id)
               .single();
+
+              // Fetch reply message data if this is a reply
+              let replyToMessage: ChatMessage | undefined = undefined;
+              if (newMessageData.reply_to) {
+                const { data: replyData } = await supabase
+                  .from('chat_messages')
+                  .select('id, message, user_id, created_at')
+                  .eq('id', newMessageData.reply_to)
+                  .single();
+
+                if (replyData) {
+                  const replyUserSetting = userSettingsData; // Use the same settings map or fetch separately
+                  replyToMessage = {
+                    id: replyData.id,
+                    channel_id: newMessageData.channel_id, // Use the current message's channel_id
+                    user_id: replyData.user_id,
+                    message: replyData.message,
+                    message_type: 'text' as const, // Default to text type
+                    is_edited: false,
+                    edited_at: null,
+                    created_at: replyData.created_at || new Date().toISOString(),
+                    user_name: replyUserSetting?.chat_name || `User ${replyData.user_id.slice(0, 8)}...`,
+                    pfp_color: replyUserSetting?.pfp_color || '#1976d2',
+                    pfp_icon: replyUserSetting?.pfp_icon || 'Person',
+                    pfp_type: replyUserSetting?.pfp_type || 'icon',
+                    pfp_image_url: replyUserSetting?.pfp_image_url || '',
+                    pfp_gradient: replyUserSetting?.pfp_gradient || 'linear-gradient(45deg, #1976d2, #42a5f5)',
+                    reactions: [],
+                  } as ChatMessage;
+                }
+              }
 
               const finalMessage: ChatMessage = {
                 id: newMessageData.id,
@@ -917,8 +1016,12 @@ export const GlobalChat: React.FC = () => {
                 user_name: userSettingsData?.chat_name || `User ${newMessageData.user_id.slice(0, 8)}...`,
               pfp_color: userSettingsData?.pfp_color || '#1976d2',
               pfp_icon: userSettingsData?.pfp_icon || 'Person',
+              pfp_type: userSettingsData?.pfp_type || 'icon',
+              pfp_image_url: userSettingsData?.pfp_image_url || '',
+              pfp_gradient: userSettingsData?.pfp_gradient || 'linear-gradient(45deg, #1976d2, #42a5f5)',
               reactions: [], // New messages won't have reactions yet
                 reply_to: newMessageData.reply_to || undefined,
+                reply_to_message: replyToMessage,
                 // Add missing fields for voice messages
                 audio_url: newMessageData.audio_url || undefined,
                 audio_duration: newMessageData.audio_duration || undefined,
@@ -949,21 +1052,47 @@ export const GlobalChat: React.FC = () => {
           (payload) => {
             if (payload.eventType === 'INSERT') {
               const newReactionData = payload.new;
+              
+              // Check if this reaction already exists to prevent duplicates
+              setMessages(currentMessages =>
+                currentMessages.map(message => {
+                  if (message.id === newReactionData.message_id) {
+                    // Check if reaction already exists
+                    const reactionExists = message.reactions?.some(r => 
+                      r.id === newReactionData.id || 
+                      (r.emoji === newReactionData.emoji && r.user_id === newReactionData.user_id)
+                    );
+                    
+                    if (!reactionExists) {
+                      // Fetch user settings for the reaction
+                      const fetchUserSettings = async () => {
+                        const { data: userSettingsData } = await supabase
+                          .from('user_chat_settings')
+                          .select('user_id, chat_name')
+                          .eq('user_id', newReactionData.user_id)
+                          .single();
+                        
               const newReaction: MessageReaction = {
                 id: newReactionData.id,
                 message_id: newReactionData.message_id,
                 user_id: newReactionData.user_id,
                 emoji: newReactionData.emoji,
                 channel_id: selectedChat.id,
-                user_name: '...', // Placeholder for now
+                          user_name: userSettingsData?.chat_name || `User ${newReactionData.user_id.slice(0, 8)}...`,
               };
+                        
+                        // Update the message with the new reaction
               setMessages(currentMessages =>
-                currentMessages.map(message => {
-                  if (message.id === newReaction.message_id) {
-                    return {
-                      ...message,
-                      reactions: [...(message.reactions || []), newReaction],
-                    };
+                          currentMessages.map(m =>
+                            m.id === newReactionData.message_id
+                              ? { ...m, reactions: [...(m.reactions || []), newReaction] }
+                              : m
+                          )
+                        );
+                      };
+                      
+                      fetchUserSettings();
+                    }
                   }
                   return message;
                 })
@@ -1057,27 +1186,140 @@ export const GlobalChat: React.FC = () => {
   };
 
   const editMessage = async (messageId: string) => {
-    // ... (omitted for brevity, no changes needed here)
+    console.log('editMessage called with:', { messageId, editText, user: user?.id, selectedChat: selectedChat?.id });
+    
+    if (!user || !selectedChat || !editText.trim()) {
+      console.log('editMessage validation failed:', { user: !!user, selectedChat: !!selectedChat, editText: editText.trim() });
+      return;
+    }
+    
+    try {
+      if (isChannel(selectedChat)) {
+        console.log('Editing message in channel:', messageId);
+        // Update message in channel
+        const { error } = await supabase
+          .from('chat_messages')
+          .update({ 
+            message: editText.trim(),
+            is_edited: true,
+            edited_at: new Date().toISOString()
+          })
+          .eq('id', messageId)
+          .eq('user_id', user.id); // Ensure user can only edit their own messages
+
+        if (error) throw error;
+        
+        // Update local state
+        setMessages(prev => prev.map(msg => 
+          msg.id === messageId 
+            ? { ...msg, message: editText.trim(), is_edited: true, edited_at: new Date().toISOString() }
+            : msg
+        ));
+        
+        setEditingMessage(null);
+        setEditText('');
+        showSnackbar('Сообщение отредактировано', 'success');
+        console.log('Message edited successfully in channel');
+      } else {
+        console.log('Editing message in DM:', messageId);
+        // Update message in DM
+        const { error } = await supabase
+          .from('direct_messages')
+          .update({ 
+            message: editText.trim(),
+            is_edited: true,
+            edited_at: new Date().toISOString()
+          })
+          .eq('id', messageId)
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+        
+        // Update local state
+        setMessages(prev => prev.map(msg => 
+          msg.id === messageId 
+            ? { ...msg, message: editText.trim(), is_edited: true, edited_at: new Date().toISOString() }
+            : msg
+        ));
+        
+        setEditingMessage(null);
+        setEditText('');
+        showSnackbar('Сообщение отредактировано', 'success');
+        console.log('Message edited successfully in DM');
+      }
+    } catch (error) {
+      console.error('Error editing message:', error);
+      showSnackbar('Ошибка при редактировании сообщения', 'error');
+    }
   };
 
   const deleteMessage = async (messageId: string) => {
-    // ... (omitted for brevity, no changes needed here)
+    console.log('deleteMessage called with:', { messageId, user: user?.id, selectedChat: selectedChat?.id });
+    
+    if (!user || !selectedChat) {
+      console.log('deleteMessage validation failed:', { user: !!user, selectedChat: !!selectedChat });
+      return;
+    }
+    
+    try {
+      if (isChannel(selectedChat)) {
+        console.log('Deleting message from channel:', messageId);
+        // Delete message from channel
+        const { error } = await supabase
+          .from('chat_messages')
+          .delete()
+          .eq('id', messageId)
+          .eq('user_id', user.id); // Ensure user can only delete their own messages
+
+        if (error) throw error;
+        
+        // Update local state
+        setMessages(prev => prev.filter(msg => msg.id !== messageId));
+        showSnackbar('Сообщение удалено', 'success');
+        console.log('Message deleted successfully from channel');
+      } else {
+        console.log('Deleting message from DM:', messageId);
+        // Delete message from DM
+        const { error } = await supabase
+          .from('direct_messages')
+          .delete()
+          .eq('id', messageId)
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+        
+        // Update local state
+        setMessages(prev => prev.filter(msg => msg.id !== messageId));
+        showSnackbar('Сообщение удалено', 'success');
+        console.log('Message deleted successfully from DM');
+      }
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      showSnackbar('Ошибка при удалении сообщения', 'error');
+    }
   };
 
-  const playAudio = useCallback((audioUrl: string, messageId: string) => {
-    if (currentAudio) {
+  const playAudio = useCallback(async (audioUrl: string, messageId: string) => {
+    try {
+      // If clicking the same audio that's currently playing, pause it
+      if (isPlaying === messageId && currentAudio) {
       currentAudio.pause();
-      if (isPlaying === messageId) {
         setCurrentAudio(null);
         setIsPlaying(null);
         return;
       }
-    }
 
+      // If there's another audio playing, pause it first
+      if (currentAudio) {
+        currentAudio.pause();
+        setCurrentAudio(null);
+        setIsPlaying(null);
+      }
+
+      // Create new audio element
     const audio = new Audio(audioUrl);
-    setCurrentAudio(audio);
-    setIsPlaying(messageId);
 
+      // Set up event handlers before playing
     audio.ontimeupdate = () => {
       setAudioProgress(prev => ({ ...prev, [messageId]: audio.currentTime }));
     };
@@ -1087,7 +1329,29 @@ export const GlobalChat: React.FC = () => {
       setCurrentAudio(null);
     };
 
-    audio.play();
+      audio.onerror = (error) => {
+        console.error('Audio playback error:', error);
+        setIsPlaying(null);
+        setCurrentAudio(null);
+      };
+
+      // Set state before playing
+      setCurrentAudio(audio);
+      setIsPlaying(messageId);
+
+      // Play with proper error handling
+      try {
+        await audio.play();
+      } catch (playError) {
+        console.error('Failed to play audio:', playError);
+        setIsPlaying(null);
+        setCurrentAudio(null);
+      }
+    } catch (error) {
+      console.error('Audio setup error:', error);
+      setIsPlaying(null);
+      setCurrentAudio(null);
+    }
   }, [currentAudio, isPlaying]);
 
   const formatRecordingTime = (seconds: number) => {
@@ -1131,6 +1395,9 @@ export const GlobalChat: React.FC = () => {
         user_name: userSettings?.chat_name || user.email || 'You',
         pfp_color: userSettings?.pfp_color || '#1976d2',
         pfp_icon: userSettings?.pfp_icon || 'Person',
+        pfp_type: userSettings?.pfp_type || 'icon',
+        pfp_image_url: userSettings?.pfp_image_url || '',
+        pfp_gradient: userSettings?.pfp_gradient || 'linear-gradient(45deg, #1976d2, #42a5f5)',
         reactions: [],
         gift_amount: amount,
         is_optimistic: true, // Mark as optimistic for later replacement
@@ -1273,6 +1540,9 @@ export const GlobalChat: React.FC = () => {
         user_name: userSettings?.chat_name || user.email || 'You',
         pfp_color: userSettings?.pfp_color || '#1976d2',
         pfp_icon: userSettings?.pfp_icon || 'Person',
+        pfp_type: userSettings?.pfp_type || 'icon',
+        pfp_image_url: userSettings?.pfp_image_url || '',
+        pfp_gradient: userSettings?.pfp_gradient || 'linear-gradient(45deg, #1976d2, #42a5f5)',
         reactions: [],
         is_optimistic: true, // Mark as optimistic for later replacement
       };
@@ -1387,8 +1657,31 @@ export const GlobalChat: React.FC = () => {
       user_name: userSettings?.chat_name || user.email || 'You',
       pfp_color: userSettings?.pfp_color || '#1976d2',
       pfp_icon: userSettings?.pfp_icon || 'Person',
+      pfp_type: userSettings?.pfp_type || 'icon',
+      pfp_image_url: userSettings?.pfp_image_url || '',
+      pfp_gradient: userSettings?.pfp_gradient || 'linear-gradient(45deg, #1976d2, #42a5f5)',
       reactions: [],
       reply_to: replyId || undefined,
+      reply_to_message: replyingTo ? {
+        id: replyingTo.id,
+        message: replyingTo.message,
+        user_id: replyingTo.user_id,
+        user_name: replyingTo.user_name,
+        pfp_color: replyingTo.pfp_color,
+        pfp_icon: replyingTo.pfp_icon,
+        pfp_type: replyingTo.pfp_type || 'icon',
+        pfp_image_url: replyingTo.pfp_image_url || '',
+        pfp_gradient: replyingTo.pfp_gradient || 'linear-gradient(45deg, #1976d2, #42a5f5)',
+        created_at: replyingTo.created_at,
+        message_type: replyingTo.message_type,
+        media_url: replyingTo.media_url,
+        media_type: replyingTo.media_type,
+        audio_url: replyingTo.audio_url,
+        channel_id: replyingTo.channel_id || '',
+        is_edited: replyingTo.is_edited || false,
+        edited_at: replyingTo.edited_at || null,
+        reactions: [],
+      } : undefined,
       is_optimistic: true, // Mark as optimistic for later replacement
     };
 
@@ -1451,13 +1744,18 @@ export const GlobalChat: React.FC = () => {
   };
 
   const handleReplyFromMenu = () => {
+    console.log('handleReplyFromMenu called with:', selectedMessageForMenu);
     if (selectedMessageForMenu) {
+      console.log('Setting replyingTo to:', selectedMessageForMenu);
       setReplyingTo(selectedMessageForMenu);
+    } else {
+      console.log('No selectedMessageForMenu found');
     }
     handleMessageMenuClose();
   };
 
   const handleCancelReply = () => {
+    console.log('Cancelling reply, clearing replyingTo');
     setReplyingTo(null);
   };
 
@@ -1523,18 +1821,67 @@ export const GlobalChat: React.FC = () => {
       );
     }
 
+    try {
     // Perform the database operation
     if (existingReaction) {
       await supabase.from('message_reactions').delete().eq('id', existingReaction.id);
     } else {
-      await supabase.from('message_reactions').insert({
+        const { data, error } = await supabase.from('message_reactions').insert({
         message_id: messageId,
         user_id: user.id,
         emoji: emoji,
         channel_id: selectedChat.id,
-      });
+        }).select().single();
+
+        if (error) throw error;
+
+        // Update the optimistic reaction with the real ID from database
+        if (data) {
+          setMessages(currentMessages =>
+            currentMessages.map(m =>
+              m.id === messageId 
+                ? { 
+                    ...m, 
+                    reactions: m.reactions?.map(r => 
+                      r.id.startsWith('temp-') && r.emoji === emoji && r.user_id === user.id
+                        ? { ...r, id: data.id }
+                        : r
+                    ) || []
+                  }
+                : m
+            )
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling reaction:', error);
+      
+      // Revert optimistic update on error
+      if (existingReaction) {
+        // Re-add the removed reaction
+        setMessages(currentMessages =>
+          currentMessages.map(m =>
+            m.id === messageId 
+              ? { ...m, reactions: [...(m.reactions || []), existingReaction] }
+              : m
+          )
+        );
+      } else {
+        // Remove the added reaction
+        setMessages(currentMessages =>
+          currentMessages.map(m =>
+            m.id === messageId 
+              ? { 
+                  ...m, 
+                  reactions: m.reactions?.filter(r => 
+                    !(r.id.startsWith('temp-') && r.emoji === emoji && r.user_id === user.id)
+                  ) || []
+                }
+              : m
+          )
+        );
+      }
     }
-    // The real-time subscription will handle syncing the final state for all clients.
   };
 
   useEffect(() => {
@@ -1549,30 +1896,83 @@ export const GlobalChat: React.FC = () => {
   const [marketItems, setMarketItems] = useState<MarketplaceItem[]>([]);
   const [marketItemsLoading, setMarketItemsLoading] = useState(false);
   const [selectedMarketItem, setSelectedMarketItem] = useState<MarketplaceItem | null>(null);
+  const [marketItemsCache, setMarketItemsCache] = useState<MarketplaceItem[]>([]);
+  const [marketItemsPage, setMarketItemsPage] = useState(0);
+  const [hasMoreMarketItems, setHasMoreMarketItems] = useState(true);
+  const [marketItemsSearch, setMarketItemsSearch] = useState('');
+  const ITEMS_PER_PAGE = 20;
 
-  useEffect(() => {
-    if (marketItemDialogOpen) {
+  const fetchMarketItems = useCallback(async (page = 0, search = '') => {
       setMarketItemsLoading(true);
-      supabase
+    
+    try {
+      let query = supabase
         .from('marketplace_items')
         .select('*')
         .eq('is_active', true)
         .order('created_at', { ascending: false })
-        .then(({ data, error }) => {
-          if (!error && data) setMarketItems(data);
+        .range(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE - 1);
+
+      if (search.trim()) {
+        query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`);
+      }
+
+      const { data, error } = await query;
+      
+      if (error) throw error;
+      
+      if (page === 0) {
+        setMarketItems(data || []);
+        setMarketItemsCache(data || []);
+      } else {
+        setMarketItems(prev => [...prev, ...(data || [])]);
+        setMarketItemsCache(prev => [...prev, ...(data || [])]);
+      }
+      
+      setHasMoreMarketItems((data || []).length === ITEMS_PER_PAGE);
+    } catch (error) {
+      console.error('Error fetching market items:', error);
+    } finally {
           setMarketItemsLoading(false);
-        });
+    }
+  }, []);
+
+  const loadMoreMarketItems = useCallback(() => {
+    if (!marketItemsLoading && hasMoreMarketItems) {
+      const nextPage = marketItemsPage + 1;
+      setMarketItemsPage(nextPage);
+      fetchMarketItems(nextPage, marketItemsSearch);
+    }
+  }, [marketItemsLoading, hasMoreMarketItems, marketItemsPage, fetchMarketItems, marketItemsSearch]);
+
+  const handleMarketItemsSearch = useCallback((search: string) => {
+    setMarketItemsSearch(search);
+    setMarketItemsPage(0);
+    fetchMarketItems(0, search);
+  }, [fetchMarketItems]);
+
+  useEffect(() => {
+    if (marketItemDialogOpen) {
+      // Use cached data if available, otherwise fetch
+      if (marketItemsCache.length > 0) {
+        setMarketItems(marketItemsCache);
+        setMarketItemsLoading(false);
+      } else {
+        fetchMarketItems(0, '');
+      }
     } else {
       setSelectedMarketItem(null);
+      setMarketItemsPage(0);
+      setMarketItemsSearch('');
     }
-  }, [marketItemDialogOpen]);
+  }, [marketItemDialogOpen, marketItemsCache.length, fetchMarketItems]);
 
   if (loading) {
     return <Box display="flex" justifyContent="center" alignItems="center" height="100vh"><CircularProgress /></Box>;
   }
 
   const renderChannels = () => (
-    <List sx={{ flex: 1, overflowY: 'auto', py: isMobile ? 1 : 0 }}>
+    <List sx={{ flex: 1, overflowY: 'auto', py: 0 }}>
       {channels.map((channel) => (
         <ListItem key={channel.id} disablePadding>
           <ListItemButton
@@ -1621,11 +2021,12 @@ export const GlobalChat: React.FC = () => {
       ))}
       
       {/* ManGPT AI Assistant */}
-      <Divider sx={{ my: isMobile ? 1.5 : 2 }} />
+      <Divider sx={{ my: isMobile ? 0.5 : 1 }} />
       <Typography 
         variant="overline" 
         sx={{ 
           px: isMobile ? 2.5 : 2,
+          py: isMobile ? 0.5 : 0.25,
           fontSize: isMobile ? '0.7rem' : '0.75rem',
           fontWeight: 600,
           color: 'text.secondary'
@@ -1687,11 +2088,12 @@ export const GlobalChat: React.FC = () => {
         </ListItemButton>
       </ListItem>
       
-      <Divider sx={{ my: isMobile ? 1.5 : 2 }} />
+      <Divider sx={{ my: isMobile ? 0.5 : 1 }} />
       <Typography 
         variant="overline" 
         sx={{ 
           px: isMobile ? 2.5 : 2,
+          py: isMobile ? 0.5 : 0.25,
           fontSize: isMobile ? '0.7rem' : '0.75rem',
           fontWeight: 600,
           color: 'text.secondary'
@@ -1843,7 +2245,7 @@ export const GlobalChat: React.FC = () => {
               <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main' }}>
                 Чаты
               </Typography>
-            </Box>
+          </Box>
             <Box sx={{ display: 'flex', gap: 1 }}>
               <IconButton 
                 onClick={() => setNewDmDialogOpen(true)}
@@ -1881,8 +2283,8 @@ export const GlobalChat: React.FC = () => {
               </IconButton>
             </Box>
           </Box>
-          <Box sx={{ overflowY: 'auto', height: 'calc(100vh - 80px)' }}>
-            {renderChannels()}
+          <Box sx={{ overflowY: 'auto', height: 'calc(100vh - 80px)', pt: 0 }}>
+          {renderChannels()}
           </Box>
         </Drawer>
       ) : (
@@ -1912,7 +2314,7 @@ export const GlobalChat: React.FC = () => {
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: isMobile ? 1.5 : 1, flex: 1, minWidth: 0 }}>
-              {isMobile && (
+            {isMobile && (
                 <IconButton 
                   onClick={() => setMobileDrawerOpen(true)}
                   sx={{ 
@@ -1933,12 +2335,12 @@ export const GlobalChat: React.FC = () => {
                     whiteSpace: 'nowrap'
                   }}
                 >
-                  {selectedChat ? (
-                    selectedChat.id === 'mangpt' ? 'ManGPT' : 
-                    isChannel(selectedChat) ? selectedChat.name : 
-                    selectedChat.participants?.find(p => p.user_id !== user?.id)?.user_name || 'DM'
-                  ) : 'Глобальный чат'}
-                </Typography>
+                {selectedChat ? (
+                  selectedChat.id === 'mangpt' ? 'ManGPT' : 
+                  isChannel(selectedChat) ? selectedChat.name : 
+                  selectedChat.participants?.find(p => p.user_id !== user?.id)?.user_name || 'DM'
+                ) : 'Глобальный чат'}
+              </Typography>
                 {isMobile && selectedChat && (
                   <Typography 
                     variant="caption" 
@@ -1983,17 +2385,32 @@ export const GlobalChat: React.FC = () => {
             ) : (
           <>
             {/* Messages */}
-                <Box 
-                  ref={chatContainerRef} 
-                  sx={{ 
-                    flex: 1, 
-                    overflowY: 'hidden', 
-                    position: 'relative',
-                    bgcolor: 'background.default'
-                  }} 
-                  onScroll={handleScroll}
-                >
-                  {messages.length > 0 ? (
+            <Fade in={!conversationLoading} timeout={400}>
+              <Box 
+                ref={chatContainerRef} 
+                sx={{ 
+                  flex: 1, 
+                  overflowY: 'hidden', 
+                  position: 'relative',
+                  bgcolor: 'background.default'
+                }} 
+                onScroll={handleScroll}
+              >
+                {conversationLoading ? (
+                  // Skeleton loading for messages
+                  <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {[...Array(5)].map((_, index) => (
+                      <Box key={index} sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+                        <Skeleton variant="circular" width={40} height={40} />
+                        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                          <Skeleton variant="text" width="60%" height={20} />
+                          <Skeleton variant="text" width="80%" height={16} />
+                          <Skeleton variant="text" width="40%" height={16} />
+                        </Box>
+                      </Box>
+                    ))}
+                  </Box>
+                ) : messages.length > 0 ? (
                     <VirtualizedMessageList
                       messages={visibleMessages}
                   isMobile={isMobile}
@@ -2025,7 +2442,8 @@ export const GlobalChat: React.FC = () => {
                       loading={loadingMore}
                       onLoadMore={loadMoreMessages}
                       hasMore={hasMoreMessages}
-                      onMarketItemClick={handleMarketItemClick}
+                    onMarketItemClick={handleMarketItemClick}
+                    onReplyPreviewClick={handleMessageSelect}
                     />
                   ) : (
                     <Box display="flex" justifyContent="center" alignItems="center" height="100%">
@@ -2037,19 +2455,21 @@ export const GlobalChat: React.FC = () => {
                   
                   {/* Typing indicators disabled for better performance */}
             </Box>
+            </Fade>
 
             {/* Message Input */}
+            <Fade in={!conversationLoading} timeout={500}>
                 <Box 
                   sx={{ 
-                    p: isMobile ? 1.5 : 2, 
+                  p: isMobile ? 1.5 : 2, 
                     borderTop: 1, 
                     borderColor: 'divider', 
                     bgcolor: 'background.paper', 
                     flexShrink: 0,
-                    transition: 'all 0.2s ease-in-out',
-                    position: 'sticky',
-                    bottom: 0,
-                    zIndex: 10
+                  transition: 'all 0.2s ease-in-out',
+                  position: 'sticky',
+                  bottom: 0,
+                  zIndex: 10
                   }}
                   onDragOver={handleDragOver}
                   onDrop={handleDrop}
@@ -2261,25 +2681,28 @@ export const GlobalChat: React.FC = () => {
                       onKeyPress={handleKeyPress}
                       multiline
                       maxRows={isMobile ? 3 : 1}
-                      sx={{
-                        '& .MuiInputBase-root': {
+                          sx={{
+                            '& .MuiInputBase-root': {
                           fontSize: isMobile ? '0.9rem' : '0.95rem',
-                          py: isMobile ? 0.75 : 0.5,
-                          minHeight: isMobile ? 40 : 36,
+                          py: isMobile ? 0.5 : 0.25,
+                          minHeight: isMobile ? 44 : 40,
                           borderRadius: isMobile ? 2 : 1,
-                        },
-                        '& textarea': {
+                          alignItems: 'flex-end',
+                            },
+                            '& textarea': {
                           fontSize: isMobile ? '0.9rem' : '0.95rem',
                           lineHeight: isMobile ? 1.4 : 1.2,
+                          paddingTop: isMobile ? '8px' : '6px',
+                          paddingBottom: isMobile ? '8px' : '6px',
                         },
                         '& .MuiOutlinedInput-notchedOutline': {
                           borderColor: 'divider',
                         },
                         '&:hover .MuiOutlinedInput-notchedOutline': {
                           borderColor: 'primary.main',
-                        },
-                      }}
-                    />
+                            },
+                          }}
+                        />
                     <input
                       accept="image/*,video/*,audio/*"
                       style={{ display: 'none' }}
@@ -2339,6 +2762,34 @@ export const GlobalChat: React.FC = () => {
                     >
                       <MicIcon />
                     </IconButton>
+                    {selectedChat && !isChannel(selectedChat) && selectedChat.id !== 'mangpt' && (
+                      <IconButton 
+                        onClick={() => setManPayDialogOpen(true)}
+                        disabled={!selectedChat}
+                        sx={{
+                          bgcolor: 'success.main',
+                          color: 'white',
+                          width: isMobile ? 44 : 40,
+                          height: isMobile ? 44 : 40,
+                          transition: 'all 0.3s ease',
+                          borderRadius: isMobile ? 2 : 1,
+                          '&:hover': {
+                            bgcolor: 'success.dark',
+                            transform: isMobile ? 'scale(1.05)' : 'scale(1.1)',
+                            boxShadow: '0 4px 15px rgba(76, 175, 80, 0.3)'
+                          },
+                          '&:active': {
+                            transform: 'scale(0.95)'
+                          },
+                          '&.Mui-disabled': {
+                            bgcolor: 'action.disabledBackground',
+                            color: 'action.disabled'
+                          }
+                        }}
+                      >
+                        <AccountBalanceWalletIcon sx={{ fontSize: isMobile ? 20 : 18 }} />
+                      </IconButton>
+                    )}
                     <IconButton 
                       onClick={handleSend} 
                       disabled={(!selectedFile && !newMessage.trim()) || sending || uploadingMedia}
@@ -2373,6 +2824,7 @@ export const GlobalChat: React.FC = () => {
                 </>
               )}
             </Box>
+              </Fade>
               </>
             )}
           </>
@@ -2395,18 +2847,22 @@ export const GlobalChat: React.FC = () => {
           </ListItemIcon>
           Ответить
         </MenuItem>
-        <MenuItem onClick={handleEditFromMenu} disabled={!isChannel(selectedChat)}>
+        {selectedMessageForMenu && selectedMessageForMenu.user_id === user?.id && (
+          <>
+            <MenuItem onClick={handleEditFromMenu}>
           <ListItemIcon>
             <EditIcon fontSize="small" />
           </ListItemIcon>
           Редактировать
         </MenuItem>
-        <MenuItem onClick={handleDeleteFromMenu} disabled={!isChannel(selectedChat)}>
+            <MenuItem onClick={handleDeleteFromMenu}>
           <ListItemIcon>
             <DeleteIcon fontSize="small" />
           </ListItemIcon>
           Удалить
         </MenuItem>
+          </>
+        )}
       </Menu>
 
       {/* Attachment Menu */}
@@ -2561,18 +3017,31 @@ export const GlobalChat: React.FC = () => {
           Выберите товар с рынка, который хотите поделиться в чате:
         </Typography>
         
+        {/* Search Box */}
+        <TextField
+          fullWidth
+          placeholder="Поиск товаров..."
+          value={marketItemsSearch}
+          onChange={(e) => handleMarketItemsSearch(e.target.value)}
+          sx={{ mb: 2 }}
+          InputProps={{
+            startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
+          }}
+        />
+        
         {/* Market Items List */}
         <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
-          {marketItemsLoading ? (
+          {marketItemsLoading && marketItems.length === 0 ? (
             <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
               Загрузка товаров с рынка...
             </Typography>
           ) : marketItems.length === 0 ? (
             <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-              Нет доступных товаров
+              {marketItemsSearch ? 'Товары не найдены' : 'Нет доступных товаров'}
             </Typography>
           ) : (
-            marketItems.map(item => (
+            <>
+              {marketItems.map(item => (
               <MenuItem
                 key={item.id}
                 selected={selectedMarketItem?.id === item.id}
@@ -2603,7 +3072,20 @@ export const GlobalChat: React.FC = () => {
                   {item.price} {item.currency || 'MR'}
                 </Typography>
               </MenuItem>
-            ))
+              ))}
+              {hasMoreMarketItems && (
+                <Box sx={{ textAlign: 'center', py: 2 }}>
+                  <Button 
+                    onClick={loadMoreMarketItems}
+                    disabled={marketItemsLoading}
+                    variant="outlined"
+                    size="small"
+                  >
+                    {marketItemsLoading ? 'Загрузка...' : 'Загрузить еще'}
+                  </Button>
+                </Box>
+              )}
+            </>
           )}
         </Box>
       </DialogContent>
@@ -2630,7 +3112,7 @@ export const GlobalChat: React.FC = () => {
 
               if (error) throw error;
 
-              setMarketItemDialogOpen(false);
+            setMarketItemDialogOpen(false);
               setSelectedMarketItem(null);
             } catch (error) {
               console.error('Error sending market item:', error);
@@ -2658,34 +3140,7 @@ export const GlobalChat: React.FC = () => {
         />
       )}
 
-      {/* Mobile Quick Actions FAB */}
-      {isMobile && selectedChat && (
-        <Fab
-          color="primary"
-          size="large"
-          onClick={() => setMarketItemDialogOpen(true)}
-          sx={{
-            position: 'fixed',
-            bottom: 100,
-            right: 20,
-            zIndex: 1000,
-            bgcolor: 'primary.main',
-            color: 'white',
-            boxShadow: 4,
-            '&:hover': {
-              bgcolor: 'primary.dark',
-              transform: 'scale(1.1)',
-              boxShadow: 6,
-            },
-            '&:active': {
-              transform: 'scale(0.95)',
-            },
-            transition: 'all 0.2s ease',
-          }}
-        >
-          <StoreIcon />
-        </Fab>
-      )}
-      </>
-    );
-  }; 
+
+    </>
+  );
+}; 

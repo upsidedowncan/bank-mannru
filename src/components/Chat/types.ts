@@ -32,6 +32,9 @@ export interface ChatMessage {
   user_avatar?: string;
   pfp_color?: string;
   pfp_icon?: string;
+  pfp_type?: 'icon' | 'image' | 'gradient';
+  pfp_image_url?: string;
+  pfp_gradient?: string;
   audio_url?: string;
   audio_duration?: number;
   media_url?: string;
@@ -60,4 +63,7 @@ export interface UserChatSettings {
   chat_name: string;
   pfp_color: string;
   pfp_icon: string;
+  pfp_type?: 'icon' | 'image' | 'gradient';
+  pfp_image_url?: string;
+  pfp_gradient?: string;
 }

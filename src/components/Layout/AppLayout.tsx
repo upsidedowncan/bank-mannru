@@ -14,6 +14,7 @@ import {
   Typography,
   useTheme,
   Button,
+  Collapse,
 } from '@mui/material'
 import {
   Menu as MenuIcon,
@@ -96,9 +97,12 @@ import {
   DirectionsRailway,
   DirectionsTransitFilled,
   DirectionsCarFilled,
+  ExpandLess,
+  ExpandMore,
 } from '@mui/icons-material'
 import { Outlet, useNavigate } from 'react-router-dom'
 import { useAuthContext } from '../../contexts/AuthContext'
+import { useThemeContext } from '../../contexts/ThemeContext'
 import { supabase } from '../../config/supabase';
 
 // Icon mapping
@@ -195,6 +199,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const navigate = useNavigate()
   const { signOut, user } = useAuthContext()
   const [dynamicFeatures, setDynamicFeatures] = React.useState<{ title: string; route: string; icon: string }[]>([])
+  const [openMarketplace, setOpenMarketplace] = React.useState(true)
 
   React.useEffect(() => {
     const fetchUserFeatures = async () => {
@@ -273,12 +278,48 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       }}>
         <List>
           {menuItems.map((item) => (
-            <ListItem key={item.text} disablePadding>
-              <ListItemButton onClick={() => navigate(item.path)}>
-                <ListItemIcon>{item.icon}</ListItemIcon>
-                <ListItemText primary={item.text} />
-              </ListItemButton>
-            </ListItem>
+            item.path === '/marketplace' ? (
+              <Box key={item.text}>
+                <ListItem disablePadding>
+                  <ListItemButton onClick={() => setOpenMarketplace(v => !v)}>
+                    <ListItemIcon>{item.icon}</ListItemIcon>
+                    <ListItemText primary={item.text} />
+                    {openMarketplace ? <ExpandLess /> : <ExpandMore />}
+                  </ListItemButton>
+                </ListItem>
+                <Collapse in={openMarketplace} timeout="auto" unmountOnExit>
+                  <List component="div" disablePadding>
+                    <ListItem disablePadding>
+                      <ListItemButton sx={{ pl: 7 }} onClick={() => navigate('/marketplace')}>
+                        <ListItemText primary="Все товары" />
+                      </ListItemButton>
+                    </ListItem>
+                    <ListItem disablePadding>
+                      <ListItemButton sx={{ pl: 7 }} onClick={() => navigate('/marketplace/my-listings')}>
+                        <ListItemText primary="Мои товары" />
+                      </ListItemButton>
+                    </ListItem>
+                    <ListItem disablePadding>
+                      <ListItemButton sx={{ pl: 7 }} onClick={() => navigate('/marketplace/chat')}>
+                        <ListItemText primary="Сообщения" />
+                      </ListItemButton>
+                    </ListItem>
+                    <ListItem disablePadding>
+                      <ListItemButton sx={{ pl: 7 }} onClick={() => navigate('/marketplace/favorites')}>
+                        <ListItemText primary="Избранное" />
+                      </ListItemButton>
+                    </ListItem>
+                  </List>
+                </Collapse>
+              </Box>
+            ) : (
+              <ListItem key={item.text} disablePadding>
+                <ListItemButton onClick={() => navigate(item.path)}>
+                  <ListItemIcon>{item.icon}</ListItemIcon>
+                  <ListItemText primary={item.text} />
+                </ListItemButton>
+              </ListItem>
+            )
           ))}
         </List>
       </Box>
@@ -318,9 +359,21 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div">
+          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             Банк Маннру
           </Typography>
+          <IconButton
+            color="inherit"
+            aria-label="toggle theme"
+            onClick={() => {
+              const newMode = theme.palette.mode === 'light' ? 'dark' : 'light';
+              localStorage.setItem('theme', newMode);
+              window.location.reload();
+            }}
+            sx={{ display: { sm: 'none' } }}
+          >
+            {theme.palette.mode === 'light' ? '🌙' : '☀️'}
+          </IconButton>
         </Toolbar>
       </AppBar>
       <Box

@@ -43,6 +43,7 @@ interface VirtualizedMessageListProps {
     currency: string;
     images: string[];
   }) => void;
+  onReplyPreviewClick?: (messageId: string) => void;
 }
 
 const VirtualizedMessageList: React.FC<VirtualizedMessageListProps> = ({
@@ -77,6 +78,7 @@ const VirtualizedMessageList: React.FC<VirtualizedMessageListProps> = ({
   onLoadMore,
   hasMore = false,
   onMarketItemClick,
+  onReplyPreviewClick,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
@@ -316,6 +318,7 @@ const VirtualizedMessageList: React.FC<VirtualizedMessageListProps> = ({
               showReadReceipts={showReadReceipts}
               readBy={readBy[message.id] || []}
               onMarketItemClick={onMarketItemClick}
+              onReplyPreviewClick={onReplyPreviewClick}
             />
           </Box>
         ))}

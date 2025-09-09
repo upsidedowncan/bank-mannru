@@ -767,108 +767,247 @@ export const Dashboard: React.FC = () => {
       </Dialog>
 
       {/* Money Transfer Dialog */}
-      <Dialog open={transferDialogOpen} onClose={handleTransferCancel} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          {transferStep === 1 && 'Выберите карту для перевода'}
-          {transferStep === 2 && 'Выберите карту получателя'}
-          {transferStep === 3 && 'Введите сумму перевода'}
+      <Dialog 
+        open={transferDialogOpen} 
+        onClose={handleTransferCancel} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          pb: 1,
+          borderBottom: '1px solid',
+          borderColor: 'divider'
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <SwapHoriz color="primary" />
+            <Typography variant="h6">Перевод денег</Typography>
+          </Box>
+          
+          {/* Progress Steps */}
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2, gap: 1 }}>
+            {[1, 2, 3].map((step) => (
+              <Box
+                key={step}
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  background: step <= transferStep ? 'primary.main' : 'action.disabled',
+                  transition: 'all 0.2s ease',
+                  transform: step === transferStep ? 'scale(1.2)' : 'scale(1)',
+                }}
+              />
+            ))}
+          </Box>
         </DialogTitle>
-        <DialogContent>
+
+        <DialogContent sx={{ pt: 3, pb: 1 }}>
+          {/* Step 1: From Card Selection */}
           {transferStep === 1 && (
             <Box>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Выберите карту, с которой хотите перевести деньги:
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
+                Выберите карту для перевода:
               </Typography>
-              <TextField
-                select
-                fullWidth
-                label="Карта отправителя"
-                value={transferFromCard?.id || ''}
-                onChange={(e) => {
-                  const selectedCard = cards.find(card => card.id === e.target.value)
-                  if (selectedCard) {
-                    handleTransferFromCardSelect(selectedCard)
-                  }
-                }}
-                margin="normal"
-              >
+              
+              <Box sx={{ display: 'grid', gap: 1.5 }}>
                 {cards.filter(card => card.balance > 0).map((card) => (
-                  <MenuItem key={card.id} value={card.id}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                      <Box>
-                        <Typography variant="body1">{card.card_name}</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {card.card_number} • {getCardTypeLabel(card.card_type)}
+                  <Card
+                    key={card.id}
+                    variant="outlined"
+                    sx={{
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      border: transferFromCard?.id === card.id ? '2px solid' : '1px solid',
+                      borderColor: transferFromCard?.id === card.id ? 'primary.main' : 'divider',
+                      '&:hover': {
+                        borderColor: 'primary.main',
+                        boxShadow: 1,
+                      }
+                    }}
+                    onClick={() => handleTransferFromCardSelect(card)}
+                  >
+                    <CardContent sx={{ py: 2, px: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <Chip
+                            label={card.card_type === 'credit' ? 'CR' : 'DB'}
+                            size="small"
+                            color={card.card_type === 'credit' ? 'error' : 'primary'}
+                            variant="outlined"
+                          />
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                              {card.card_name}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {card.card_number} • {getCardTypeLabel(card.card_type)}
+                            </Typography>
+                          </Box>
+                        </Box>
+                        <Typography variant="h6" color="primary" sx={{ fontWeight: 600 }}>
+                          {formatCurrency(card.balance, card.currency)}
                         </Typography>
                       </Box>
-                      <Typography variant="body1" color="primary" sx={{ ml: 2 }}>
-                        {formatCurrency(card.balance, card.currency)}
-                      </Typography>
-                    </Box>
-                  </MenuItem>
+                    </CardContent>
+                  </Card>
                 ))}
-              </TextField>
+              </Box>
+
               {cards.filter(card => card.balance > 0).length === 0 && (
-                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-                  Нет карт с достаточным балансом для перевода
-                </Typography>
+                <Box sx={{ textAlign: 'center', py: 3 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Нет карт с достаточным балансом для перевода
+                  </Typography>
+                </Box>
               )}
             </Box>
           )}
 
+          {/* Step 2: To Card Selection */}
           {transferStep === 2 && (
             <Box>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Выберите карту, на которую хотите перевести деньги:
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
+                Выберите карту получателя:
               </Typography>
-              <TextField
-                select
-                fullWidth
-                label="Карта получателя"
-                value={transferToCard?.id || ''}
-                onChange={(e) => {
-                  const selectedCard = allCards.find(card => card.id === e.target.value)
-                  if (selectedCard) {
-                    handleTransferToCardSelect(selectedCard)
-                  }
-                }}
-                margin="normal"
-              >
+
+              {/* Selected From Card Preview */}
+              {transferFromCard && (
+                <Box sx={{ 
+                  mb: 2, 
+                  p: 2, 
+                  bgcolor: 'action.hover',
+                  borderRadius: 1,
+                  border: '1px solid',
+                  borderColor: 'divider'
+                }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                    Перевод с карты:
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Chip
+                      label={transferFromCard.card_type === 'credit' ? 'CR' : 'DB'}
+                      size="small"
+                      color={transferFromCard.card_type === 'credit' ? 'error' : 'primary'}
+                      variant="outlined"
+                    />
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      {transferFromCard.card_name} • {formatCurrency(transferFromCard.balance, transferFromCard.currency)}
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
+
+              <Box sx={{ display: 'grid', gap: 1.5 }}>
                 {allCards.filter(card => card.id !== transferFromCard?.id).map((card) => (
-                  <MenuItem key={card.id} value={card.id}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                      <Box>
-                        <Typography variant="body1">{card.card_name}</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {card.card_number} • {getCardTypeLabel(card.card_type)} • {card.user_name}
+                  <Card
+                    key={card.id}
+                    variant="outlined"
+                    sx={{
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      border: transferToCard?.id === card.id ? '2px solid' : '1px solid',
+                      borderColor: transferToCard?.id === card.id ? 'primary.main' : 'divider',
+                      '&:hover': {
+                        borderColor: 'primary.main',
+                        boxShadow: 1,
+                      }
+                    }}
+                    onClick={() => handleTransferToCardSelect(card)}
+                  >
+                    <CardContent sx={{ py: 2, px: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <Chip
+                            label={card.card_type === 'credit' ? 'CR' : 'DB'}
+                            size="small"
+                            color={card.card_type === 'credit' ? 'error' : 'primary'}
+                            variant="outlined"
+                          />
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                              {card.card_name}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {card.card_number} • {getCardTypeLabel(card.card_type)} • {card.user_name}
+                            </Typography>
+                          </Box>
+                        </Box>
+                        <Typography variant="h6" color="secondary" sx={{ fontWeight: 600 }}>
+                          {formatCurrency(card.balance, card.currency)}
                         </Typography>
                       </Box>
-                      <Typography variant="body1" color="primary" sx={{ ml: 2 }}>
-                        {formatCurrency(card.balance, card.currency)}
-                      </Typography>
-                    </Box>
-                  </MenuItem>
+                    </CardContent>
+                  </Card>
                 ))}
-              </TextField>
+              </Box>
             </Box>
           )}
 
+          {/* Step 3: Amount and Confirmation */}
           {transferStep === 3 && (
             <Box>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
                 Введите сумму для перевода:
               </Typography>
-              <Box sx={{ mb: 2, p: 2, backgroundColor: 'grey.50', borderRadius: 1 }}>
-                <Typography variant="body2" color="text.secondary">
-                  С карты: <strong>{transferFromCard?.card_name}</strong>
+
+              {/* Transfer Summary */}
+              <Box sx={{ 
+                mb: 3, 
+                p: 2, 
+                bgcolor: 'primary.50',
+                borderRadius: 1,
+                border: '1px solid',
+                borderColor: 'primary.200'
+              }}>
+                <Typography variant="body2" sx={{ mb: 1.5, fontWeight: 500 }}>
+                  Детали перевода:
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  На карту: <strong>{transferToCard?.card_name}</strong> ({transferToCard?.user_name})
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Доступно: <strong>{formatCurrency(transferFromCard?.balance || 0, 'MR')}</strong>
-                </Typography>
+                
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 2 }}>
+                  {/* From Card */}
+                  <Box sx={{ textAlign: 'center' }}>
+                    <Chip
+                      label={transferFromCard?.card_type === 'credit' ? 'CR' : 'DB'}
+                      size="small"
+                      color={transferFromCard?.card_type === 'credit' ? 'error' : 'primary'}
+                      sx={{ mb: 1 }}
+                    />
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                      Откуда
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.875rem' }}>
+                      {transferFromCard?.card_name}
+                    </Typography>
+                  </Box>
+
+                  {/* Arrow */}
+                  <Typography variant="body1" color="primary">→</Typography>
+
+                  {/* To Card */}
+                  <Box sx={{ textAlign: 'center' }}>
+                                         <Chip
+                       label={transferToCard?.card_type === 'credit' ? 'CR' : 'DB'}
+                       size="small"
+                       color={transferToCard?.card_type === 'credit' ? 'error' : 'primary'}
+                       sx={{ mb: 1 }}
+                     />
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                      Куда
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.875rem' }}>
+                      {transferToCard?.card_name}
+                    </Typography>
+                  </Box>
+                </Box>
               </Box>
+
+              {/* Amount Input */}
               <TextField
                 autoFocus
                 fullWidth
@@ -876,41 +1015,61 @@ export const Dashboard: React.FC = () => {
                 type="number"
                 value={transferAmount}
                 onChange={(e) => setTransferAmount(e.target.value)}
-                inputProps={{ min: 0, max: transferFromCard?.balance }}
+                inputProps={{ 
+                  min: 0, 
+                  max: transferFromCard?.balance
+                }}
                 helperText={`Максимум: ${formatCurrency(transferFromCard?.balance || 0, 'MR')}`}
+                size="small"
               />
             </Box>
           )}
         </DialogContent>
-        <DialogActions>
+
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
           {transferStep > 1 && (
-            <Button onClick={handleTransferBack}>
+            <Button
+              onClick={handleTransferBack}
+              variant="outlined"
+              size="small"
+            >
               Назад
             </Button>
           )}
-          <Button onClick={handleTransferCancel}>
+
+          <Button
+            onClick={handleTransferCancel}
+            variant="outlined"
+            size="small"
+          >
             Отмена
           </Button>
+
           {transferStep === 1 && transferFromCard && (
-            <Button 
+            <Button
               onClick={() => setTransferStep(2)}
               variant="contained"
+              size="small"
             >
               Далее
             </Button>
           )}
+
           {transferStep === 2 && transferToCard && (
-            <Button 
+            <Button
               onClick={() => setTransferStep(3)}
               variant="contained"
+              size="small"
             >
               Далее
             </Button>
           )}
+
           {transferStep === 3 && (
-            <Button 
-              onClick={handleTransferConfirm} 
+            <Button
+              onClick={handleTransferConfirm}
               variant="contained"
+              size="small"
               disabled={!transferAmount || parseFloat(transferAmount) <= 0 || parseFloat(transferAmount) > (transferFromCard?.balance || 0)}
             >
               Перевести

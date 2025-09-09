@@ -1,21 +1,37 @@
-import React, { createContext, useContext, ReactNode, useState } from 'react';
+import React, { createContext, useContext, ReactNode } from 'react';
+import { ThemeMode, ThemeVariant } from '../theme/theme';
 
 interface ThemeContextType {
-  themeMode: 'light' | 'dark';
-  setThemeMode: (mode: 'light' | 'dark') => void;
+  themeMode: ThemeMode;
+  setThemeMode: (mode: ThemeMode) => void;
+  themeVariant: ThemeVariant;
+  setThemeVariant: (variant: ThemeVariant) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 interface ThemeProviderProps {
   children: ReactNode;
-  themeMode: 'light' | 'dark';
-  setThemeMode: (mode: 'light' | 'dark') => void;
+  themeMode: ThemeMode;
+  setThemeMode: (mode: ThemeMode) => void;
+  themeVariant: ThemeVariant;
+  setThemeVariant: (variant: ThemeVariant) => void;
 }
 
-export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children, themeMode, setThemeMode }) => {
+export const ThemeProvider: React.FC<ThemeProviderProps> = ({ 
+  children, 
+  themeMode, 
+  setThemeMode,
+  themeVariant,
+  setThemeVariant
+}) => {
   return (
-    <ThemeContext.Provider value={{ themeMode, setThemeMode }}>
+    <ThemeContext.Provider value={{ 
+      themeMode, 
+      setThemeMode,
+      themeVariant,
+      setThemeVariant
+    }}>
       {children}
     </ThemeContext.Provider>
   );

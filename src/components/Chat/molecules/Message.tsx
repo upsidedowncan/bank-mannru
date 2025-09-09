@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Box, Typography, Avatar, IconButton, TextField, CircularProgress, Button, Tooltip, Chip, LinearProgress, Card, CardContent, CardMedia } from '@mui/material';
 import AddReactionIcon from '@mui/icons-material/AddReaction';
 import ReactionPill from './ReactionPill';
@@ -57,6 +57,7 @@ interface MessageProps {
     currency: string;
     images: string[];
   }) => void;
+  onReplyPreviewClick?: (messageId: string) => void;
 }
 
 const Message: React.FC<MessageProps> = React.memo(({
@@ -88,7 +89,24 @@ const Message: React.FC<MessageProps> = React.memo(({
   showReadReceipts = false,
   readBy = [],
   onMarketItemClick,
+  onReplyPreviewClick,
 }) => {
+  // State to track if image failed to load
+  const [imageLoadFailed, setImageLoadFailed] = useState(false);
+
+  // Check if image is loading and handle failures
+  useEffect(() => {
+    if (message.pfp_type === 'image' && message.pfp_image_url && !imageLoadFailed) {
+      const img = new Image();
+      img.onload = () => {
+        setImageLoadFailed(false);
+      };
+      img.onerror = () => {
+        setImageLoadFailed(true);
+      };
+      img.src = message.pfp_image_url;
+    }
+  }, [message.pfp_type, message.pfp_image_url, imageLoadFailed]);
   // Memoize the voice message widget to prevent unnecessary re-renders
   const voiceMessageWidget = useMemo(() => {
     if (message.message_type !== 'voice') return null;
@@ -218,6 +236,28 @@ const Message: React.FC<MessageProps> = React.memo(({
     formatAudioTime
   ]);
 
+  // Highlight search terms
+  const highlightedMessage = useMemo(() => {
+    if (!searchQuery || !message.message) return message.message;
+    
+    const regex = new RegExp(`(${searchQuery})`, 'gi');
+    const parts = message.message.split(regex);
+    
+    return parts.map((part, index) => 
+      regex.test(part) ? (
+        <Box key={index} component="span" sx={{ 
+          backgroundColor: 'warning.light', 
+          color: 'warning.contrastText',
+          borderRadius: 0.5,
+          px: 0.5,
+          fontWeight: 'bold'
+        }}>
+          {part}
+        </Box>
+      ) : part
+    );
+  }, [message.message, searchQuery]);
+
   // Memoize expensive computations
   const messageContent = useMemo(() => {
     if (editingMessage === message.id) {
@@ -286,11 +326,22 @@ const Message: React.FC<MessageProps> = React.memo(({
       
       case 'image':
         return (
-          <Box sx={{ maxWidth: '100%', borderRadius: 1, overflow: 'hidden' }}>
+          <Box sx={{ 
+            maxWidth: isMobile ? 320 : 450, 
+            borderRadius: 2, 
+            overflow: 'hidden',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            bgcolor: 'transparent'
+          }}>
             <img
               src={message.media_url}
               alt="Image"
-              style={{ maxWidth: '100%', height: 'auto' }}
+              style={{ 
+                width: '100%', 
+                maxHeight: isMobile ? 250 : 350,
+                objectFit: 'contain',
+                display: 'block'
+              }}
               loading="lazy" // Lazy load images for better performance
             />
           </Box>
@@ -298,10 +349,21 @@ const Message: React.FC<MessageProps> = React.memo(({
       
       case 'video':
         return (
-          <Box sx={{ maxWidth: '100%', borderRadius: 1, overflow: 'hidden' }}>
+          <Box sx={{ 
+            maxWidth: isMobile ? 320 : 450, 
+            borderRadius: 2, 
+            overflow: 'hidden',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            bgcolor: 'transparent'
+          }}>
             <video
               controls
-              style={{ maxWidth: '100%', height: 'auto' }}
+              style={{ 
+                width: '100%', 
+                maxHeight: isMobile ? 250 : 350,
+                objectFit: 'contain',
+                display: 'block'
+              }}
               preload="metadata" // Only load metadata for better performance
             >
               <source src={message.media_url} type={message.media_type} />
@@ -375,16 +437,96 @@ const Message: React.FC<MessageProps> = React.memo(({
           </Card>
         );
       
+      case 'manpay':
+        return (
+          <Box sx={{ 
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            p: 2,
+            bgcolor: 'background.paper',
+            borderRadius: 2,
+            border: '1px solid',
+            borderColor: 'divider',
+            maxWidth: 280,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            transition: 'all 0.2s ease',
+            '&:hover': {
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              transform: 'translateY(-1px)'
+            }
+          }}>
+            <Box sx={{ 
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 48,
+              height: 48,
+              borderRadius: '50%',
+              bgcolor: 'success.main',
+              color: 'white',
+              flexShrink: 0
+            }}>
+              <MoneyIcon sx={{ fontSize: 24 }} />
+            </Box>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
+                  ManPay
+                </Typography>
+                {message.manpay_status === 'complete' && (
+                  <Chip 
+                    label="✓" 
+                    size="small" 
+                    sx={{ 
+                      bgcolor: 'success.main', 
+                      color: 'white',
+                      fontSize: '0.7rem',
+                      height: 16,
+                      minWidth: 16
+                    }} 
+                  />
+                )}
+              </Box>
+              <Typography variant="h6" color="text.primary" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                {message.manpay_amount} МР
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {message.manpay_sender_id === user?.id ? 'Отправлено' : 'Получено'}
+              </Typography>
+            </Box>
+          </Box>
+        );
+      
       default:
         return (
           <Typography 
             variant="body1" 
             sx={{ 
               wordBreak: 'break-word',
-              whiteSpace: 'pre-wrap'
+              whiteSpace: 'pre-wrap',
+              fontSize: isMobile ? '0.95rem' : '1rem',
+              lineHeight: 1.5,
+              color: 'text.primary',
+              fontWeight: 400,
+              '& a': {
+                color: 'primary.main',
+                textDecoration: 'underline',
+                '&:hover': {
+                  color: 'primary.dark',
+                }
+              },
+              '& code': {
+                bgcolor: 'action.hover',
+                px: 0.5,
+                py: 0.25,
+                borderRadius: 0.5,
+                fontFamily: 'monospace',
+                fontSize: '0.9em',
+              }
             }}
           >
-            {message.message}
+            {highlightedMessage}
           </Typography>
         );
     }
@@ -404,6 +546,10 @@ const Message: React.FC<MessageProps> = React.memo(({
     message.market_item_price,
     message.market_item_currency,
     message.market_item_image,
+    message.manpay_amount,
+    message.manpay_sender_id,
+    message.manpay_status,
+    user?.id,
     editText,
     setEditText,
     editMessage,
@@ -460,28 +606,6 @@ const Message: React.FC<MessageProps> = React.memo(({
     }, {});
   }, [message.reactions]);
 
-  // Highlight search terms
-  const highlightedMessage = useMemo(() => {
-    if (!searchQuery || !message.message) return message.message;
-    
-    const regex = new RegExp(`(${searchQuery})`, 'gi');
-    const parts = message.message.split(regex);
-    
-    return parts.map((part, index) => 
-      regex.test(part) ? (
-        <Box key={index} component="span" sx={{ 
-          backgroundColor: 'warning.light', 
-          color: 'warning.contrastText',
-          borderRadius: 0.5,
-          px: 0.5,
-          fontWeight: 'bold'
-        }}>
-          {part}
-        </Box>
-      ) : part
-    );
-  }, [message.message, searchQuery]);
-
   const handleUserClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (user?.id !== message.user_id) {
@@ -516,25 +640,28 @@ const Message: React.FC<MessageProps> = React.memo(({
       key={message.id}
       sx={{
         display: 'flex',
-        gap: isMobile ? 0.75 : 1,
+        gap: isMobile ? 1 : 1.5,
         alignItems: 'flex-start',
         cursor: isOwnMessage ? 'pointer' : 'default',
         position: 'relative',
-        mb: isMobile ? 1.5 : 1,
-        p: isMobile ? 0.5 : 0,
-        borderRadius: isMobile ? 1 : 0,
+        mb: isMobile ? 2 : 1.5,
+        p: isMobile ? 1 : 0.5,
+        borderRadius: isMobile ? 2 : 1,
         '&:hover': isOwnMessage ? {
           backgroundColor: 'action.hover',
-          borderRadius: isMobile ? 2 : 1,
-          p: isMobile ? 1 : 0.5,
+          borderRadius: isMobile ? 3 : 2,
+          p: isMobile ? 1.5 : 1,
           m: isMobile ? -0.5 : -0.5,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          transform: 'translateY(-1px)',
         } : {},
-        borderLeft: isPinned ? 3 : 0,
+        borderLeft: isPinned ? 4 : 0,
         borderColor: 'warning.main',
-        pl: isPinned ? 1 : 0,
-        transition: 'all 0.2s ease',
+        pl: isPinned ? 1.5 : 0,
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        bgcolor: isPinned ? 'action.hover' : 'transparent',
       }}
-      onClick={isOwnMessage ? (e) => handleMessageMenuOpen(e, message) : undefined}
+      onClick={(e) => handleMessageMenuOpen(e, message)}
     >
       {/* Pin indicator */}
       {isPinned && (
@@ -546,39 +673,67 @@ const Message: React.FC<MessageProps> = React.memo(({
       <Avatar
         onClick={handleUserClick}
         sx={{
-          width: isMobile ? 36 : 32,
-          height: isMobile ? 36 : 32,
-          fontSize: isMobile ? '0.8rem' : '0.75rem',
-          bgcolor: message.pfp_icon === 'Dev' ? 'transparent' : message.pfp_color,
-          background: message.pfp_icon === 'Dev'
-            ? 'linear-gradient(45deg, #4CAF50, #2196F3)'
-            : message.pfp_color,
-          boxShadow: message.pfp_icon === 'Dev' ? '0 0 8px rgba(33, 150, 243, 0.6)' : 'none',
+            width: isMobile ? 48 : 44,
+            height: isMobile ? 48 : 44,
+            fontSize: isMobile ? '1rem' : '0.9rem',
+            bgcolor: (message.pfp_type === 'image' && message.pfp_image_url && !imageLoadFailed) ? 'transparent' : 
+                     message.pfp_type === 'gradient' ? 'transparent' : 
+                     message.pfp_icon === 'Dev' ? 'transparent' : (message.pfp_color || '#1976d2'),
+            background: (message.pfp_type === 'image' && message.pfp_image_url && !imageLoadFailed) ? 'none' :
+                       message.pfp_type === 'gradient' ? (message.pfp_gradient || message.pfp_color || '#1976d2') :
+                       message.pfp_icon === 'Dev'
+                         ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                         : (message.pfp_color || '#1976d2'),
+            backgroundImage: (message.pfp_type === 'image' && message.pfp_image_url && !imageLoadFailed) ? `url(${message.pfp_image_url})` : 'none',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            color: 'white',
+            boxShadow: message.pfp_icon === 'Dev' 
+              ? '0 4px 12px rgba(102, 126, 234, 0.4)' 
+              : '0 2px 8px rgba(0,0,0,0.1)',
           cursor: user?.id !== message.user_id ? 'pointer' : 'default',
-          flexShrink: 0,
-          border: isMobile ? '2px solid' : 'none',
-          borderColor: 'divider',
-        }}
-      >
-        {message.pfp_icon ? (() => {
+            flexShrink: 0,
+            border: isMobile ? '3px solid' : '2px solid',
+            borderColor: 'background.paper',
+            transition: 'all 0.3s ease',
+            '&:hover': {
+              transform: 'scale(1.05)',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+            }
+          }}
+          title={`Debug: pfp_type=${message.pfp_type || 'undefined'}, pfp_color=${message.pfp_color || 'undefined'}, pfp_icon=${message.pfp_icon || 'undefined'}, pfp_image_url=${message.pfp_image_url || 'undefined'}, pfp_gradient=${message.pfp_gradient || 'undefined'}, imageLoadFailed=${imageLoadFailed}`}
+        >
+          {(() => {
+            // If it's an image type with a valid URL and image loaded successfully, show nothing (just the image)
+            if (message.pfp_type === 'image' && message.pfp_image_url && !imageLoadFailed) {
+              return <></>;
+            }
+            
+            // If it's an icon type, show the icon
+            if (message.pfp_icon) {
           const IconComponent = getProfileIconComponent(message.pfp_icon);
-          return <IconComponent sx={{ fontSize: '1.2rem', color: 'white', opacity: 0.7 }} />;
-        })() : (
-          message.user_name?.charAt(0) || 'U'
-        )}
+              return <IconComponent sx={{ fontSize: '1.2rem', color: 'white', opacity: 0.9 }} />;
+            }
+            
+            // Fallback to user initial
+            return message.user_name?.charAt(0) || 'U';
+          })()}
       </Avatar>
 
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Box display="flex" alignItems="center" gap={isMobile ? 0.75 : 1} mb={isMobile ? 0.5 : 0.5} flexWrap="wrap">
+        <Box display="flex" alignItems="center" gap={isMobile ? 1 : 1.5} mb={isMobile ? 0.75 : 0.5} flexWrap="wrap">
           <Typography
             variant={isMobile ? "body2" : "subtitle2"}
             sx={{
-              fontWeight: 'bold',
+              fontWeight: 700,
               cursor: user?.id !== message.user_id ? 'pointer' : 'default',
               '&:hover': {
                 textDecoration: user?.id !== message.user_id ? 'underline' : 'none',
+                color: 'primary.main',
               },
-              fontSize: isMobile ? '0.9rem' : 'inherit',
+              fontSize: isMobile ? '0.95rem' : 'inherit',
+              color: isOwnMessage ? 'primary.main' : 'text.primary',
+              transition: 'color 0.2s ease',
             }}
             onClick={handleUserClick}
           >
@@ -588,7 +743,9 @@ const Message: React.FC<MessageProps> = React.memo(({
             variant="caption" 
             color="text.secondary"
             sx={{
-              fontSize: isMobile ? '0.75rem' : 'inherit',
+              fontSize: isMobile ? '0.8rem' : 'inherit',
+              fontWeight: 500,
+              opacity: 0.8,
             }}
           >
             {formatTime(message.created_at)}
@@ -604,7 +761,17 @@ const Message: React.FC<MessageProps> = React.memo(({
               icon={<PinIcon />} 
               label="Закреплено" 
               color="warning" 
-              variant="outlined"
+              variant="filled"
+              sx={{
+                fontSize: '0.7rem',
+                height: 20,
+                '& .MuiChip-label': {
+                  px: 0.5,
+                },
+                '& .MuiChip-icon': {
+                  fontSize: '0.8rem',
+                }
+              }}
             />
           )}
           {showReadReceipts && isOwnMessage && (
@@ -619,24 +786,92 @@ const Message: React.FC<MessageProps> = React.memo(({
         </Box>
 
         {message.reply_to_message && (
-          <Box sx={{ mb: 0.5, p: 0.5, bgcolor: 'action.hover', borderRadius: 0.5, borderLeft: 2, borderColor: 'primary.main', maxWidth: '100%' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.25 }}>
+          <Tooltip title="Нажмите для перехода к сообщению" placement="top">
+            <Box 
+              onClick={() => onReplyPreviewClick?.(message.reply_to_message!.id)}
+              sx={{ 
+                mb: 1, 
+                p: 1, 
+                bgcolor: 'action.hover', 
+                borderRadius: 1, 
+                borderLeft: 3, 
+                borderColor: 'primary.main', 
+                maxWidth: '100%',
+                opacity: 0.8,
+                transition: 'all 0.2s ease',
+                cursor: 'pointer',
+                '&:hover': {
+                  opacity: 1,
+                  bgcolor: 'action.selected',
+                  transform: 'translateY(-1px)',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                },
+                '&:active': {
+                  transform: 'translateY(0)',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
+                }
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <ReplyIcon fontSize="small" color="primary" />
-              <Typography variant="caption" color="primary" sx={{ fontWeight: 'bold' }}>
+                  <Typography variant="caption" color="primary" sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
                 {message.reply_to_message.user_name}
               </Typography>
             </Box>
-            <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Typography variant="caption" color="primary" sx={{ fontSize: '0.7rem', opacity: 0.7 }}>
+                    Нажмите для перехода
+                  </Typography>
+                  <Box sx={{ 
+                    width: 0, 
+                    height: 0, 
+                    borderLeft: '4px solid transparent',
+                    borderRight: '4px solid transparent',
+                    borderTop: '4px solid',
+                    borderTopColor: 'primary.main',
+                    opacity: 0.7,
+                    transform: 'rotate(45deg)',
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                      opacity: 1,
+                      transform: 'rotate(45deg) scale(1.2)',
+                    }
+                  }} />
+                </Box>
+              </Box>
+              <Typography 
+                variant="caption" 
+                color="text.secondary" 
+                sx={{ 
+                  fontStyle: 'italic',
+                  fontSize: '0.85rem',
+                  lineHeight: 1.3,
+                  opacity: 0.9
+                }}
+              >
               {message.reply_to_message.message.length > 100
                 ? message.reply_to_message.message.substring(0, 100) + '...'
                 : message.reply_to_message.message}
             </Typography>
           </Box>
+          </Tooltip>
         )}
 
         {messageContent}
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: 0.25, 
+          mt: 0.75, 
+          flexWrap: 'wrap',
+          opacity: 0.7,
+          transition: 'opacity 0.2s ease',
+          '&:hover': {
+            opacity: 1,
+          }
+        }}>
           {Object.entries(reactionsGrouped).map(([emoji, reactions]) => (
             <Tooltip
               key={emoji}
@@ -651,10 +886,21 @@ const Message: React.FC<MessageProps> = React.memo(({
                 count={reactions?.length || 0}
                 reacted={!!reactions?.find(r => r.user_id === user?.id)}
                 onClick={(e) => { e.stopPropagation(); onToggleReaction(emoji); }}
+                userNames={(reactions?.map(r => r.user_name).filter(Boolean) as string[]) || []}
               />
             </Tooltip>
           ))}
-          <IconButton size="small" onClick={handleReactionClick}>
+          <IconButton 
+            size="small" 
+            onClick={handleReactionClick}
+            sx={{
+              width: 24,
+              height: 24,
+              '& .MuiSvgIcon-root': {
+                fontSize: '1rem'
+              }
+            }}
+          >
             <AddReactionIcon fontSize="small" />
           </IconButton>
           {onPinMessage && (

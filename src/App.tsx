@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { ThemeProvider } from '@mui/material/styles'
 import { CssBaseline } from '@mui/material'
-import { theme, createAppTheme } from './theme/theme'
+import { theme, createAppTheme, ThemeMode, ThemeVariant, themeVariants } from './theme/theme'
 import { AppLayout } from './components/Layout/AppLayout'
 import { LoginForm } from './components/Forms/LoginForm'
 import { RegisterForm } from './components/Forms/RegisterForm'
@@ -15,6 +15,7 @@ import { Marketplace } from './components/Marketplace/Marketplace'
 import { MarketplaceChat } from './components/Marketplace/MarketplaceChat'
 import { MyListings } from './components/Marketplace/MyListings'
 import { FeaturesMarketplace } from './components/Marketplace/FeaturesMarketplace'
+import { FavoritesMarketplace } from './components/Marketplace/FavoritesMarketplace'
 import { Cheats } from './components/Cheats';
 import { TappingGame } from './components/Games/TappingGame';
 import { FlipGame } from './components/Games/FlipGame';
@@ -55,6 +56,57 @@ import {
   Fastfood,
   DirectionsBike,
   Security,
+  Games,
+  TheaterComedy,
+  DirectionsCar,
+  DirectionsBus,
+  DirectionsSubway,
+  DirectionsWalk,
+  DirectionsRun,
+  DirectionsBoat,
+  DirectionsTransit,
+  DirectionsRailway,
+  LocalTaxi,
+  Hotel,
+  Business,
+  LocalHospital,
+  LocalPharmacy,
+  LocalGasStation,
+  LocalCarWash,
+  LocalLaundryService,
+  LocalPrintshop,
+  LocalPostOffice,
+  LocalLibrary,
+  LocalMall,
+  LocalParking,
+  ShoppingCart,
+  LocalGroceryStore,
+  LocalConvenienceStore,
+  LocalOffer,
+  Loyalty,
+  Redeem,
+  CardGiftcard,
+  AccountBalance,
+  Payment,
+  CreditCard,
+  Receipt,
+  LocalShipping,
+  Notifications,
+  Phone,
+  LocationOn,
+  Schedule,
+  Celebration,
+  Event,
+  TrendingUp,
+  TrendingDown,
+  Speed,
+  Accessibility,
+  Elderly,
+  Spa,
+  LocalBar,
+  LocalCafe,
+  LocalPizza,
+  LocalDining,
 } from '@mui/icons-material';
 import { createClient } from '@supabase/supabase-js';
 import { ThemeProvider as ThemeContextProvider } from './contexts/ThemeContext';
@@ -108,13 +160,20 @@ const Profile = () => {
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({ open: false, message: '', severity: 'success' });
 
-  // Chat settings state
+  // Enhanced chat settings state
   const [chatSettings, setChatSettings] = useState({
     chat_name: user?.user_metadata?.first_name || 'User',
     pfp_color: '#1976d2',
     pfp_icon: 'Person',
+    pfp_type: 'icon' as 'icon' | 'image',
+    pfp_image_url: '',
+    pfp_gradient: '',
   });
   const [chatSettingsLoading, setChatSettingsLoading] = useState(false);
+  const [customColor, setCustomColor] = useState('#1976d2');
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>('');
 
   // Special feature - dev icon
   const isSpecialName = editData.first_name === 'Ахмед' && editData.last_name === 'Шайхилов';
@@ -127,7 +186,7 @@ const Profile = () => {
       try {
         const { data, error } = await supabase
           .from('user_chat_settings')
-          .select('chat_name, pfp_color, pfp_icon')
+          .select('chat_name, pfp_color, pfp_icon, pfp_type, pfp_image_url')
           .eq('user_id', user.id)
           .single();
         
@@ -141,7 +200,14 @@ const Profile = () => {
             chat_name: data.chat_name,
             pfp_color: data.pfp_color,
             pfp_icon: data.pfp_icon,
+            pfp_type: (data.pfp_type === 'image' ? 'image' : 'icon'),
+            pfp_image_url: data.pfp_image_url || '',
+            pfp_gradient: '',
           });
+          setCustomColor(data.pfp_color);
+          if (data.pfp_image_url) {
+            setImagePreview(data.pfp_image_url);
+          }
         }
       } catch (error) {
         console.error('Error loading chat settings:', error);
@@ -153,32 +219,110 @@ const Profile = () => {
 
   const pfpColors = [
     '#1976d2', '#d32f2f', '#388e3c', '#f57c00', '#7b1fa2', 
-    '#303f9f', '#c2185b', '#5d4037', '#455a64', '#ff6f00'
+    '#303f9f', '#c2185b', '#5d4037', '#455a64', '#ff6f00',
+    '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3',
+    '#00bcd4', '#009688', '#4caf50', '#8bc34a', '#cddc39',
+    '#ffeb3b', '#ffc107', '#ff9800', '#ff5722', '#795548'
   ];
 
+  // Enhanced profile picture icons with categories
   const pfpIcons = [
-    { value: 'Person', label: 'Пользователь', icon: Person },
-    { value: 'Face', label: 'Лицо', icon: Face },
-    { value: 'AccountCircle', label: 'Аккаунт', icon: AccountCircle },
-    { value: 'SportsEsports', label: 'Игры', icon: SportsEsports },
-    { value: 'School', label: 'Образование', icon: School },
-    { value: 'Work', label: 'Работа', icon: Work },
-    { value: 'Home', label: 'Дом', icon: Home },
-    { value: 'ChildCare', label: 'Дети', icon: ChildCare },
-    { value: 'Favorite', label: 'Избранное', icon: Favorite },
-    { value: 'Star', label: 'Звезда', icon: Star },
-    { value: 'Diamond', label: 'Алмаз', icon: Diamond },
-    { value: 'Pets', label: 'Питомцы', icon: Pets },
-    { value: 'MusicNote', label: 'Музыка', icon: MusicNote },
-    { value: 'Movie', label: 'Кино', icon: Movie },
-    { value: 'Restaurant', label: 'Ресторан', icon: Restaurant },
-    { value: 'FitnessCenter', label: 'Спорт', icon: FitnessCenter },
-    { value: 'Flight', label: 'Путешествия', icon: Flight },
-    { value: 'Cake', label: 'Торт', icon: Cake },
-    { value: 'Fastfood', label: 'Еда', icon: Fastfood },
-    { value: 'DirectionsBike', label: 'Велосипед', icon: DirectionsBike },
-    { value: 'Security', label: 'Безопасность', icon: Security },
-    { value: 'Dev', label: 'Разработчик (секретная)', icon: DevIcon },
+    // Basic
+    { value: 'Person', label: 'Пользователь', icon: Person, category: 'basic' },
+    { value: 'Face', label: 'Лицо', icon: Face, category: 'basic' },
+    { value: 'AccountCircle', label: 'Аккаунт', icon: AccountCircle, category: 'basic' },
+    
+    // Activities
+    { value: 'SportsEsports', label: 'Игры', icon: SportsEsports, category: 'activities' },
+    { value: 'School', label: 'Образование', icon: School, category: 'activities' },
+    { value: 'Work', label: 'Работа', icon: Work, category: 'activities' },
+    { value: 'Home', label: 'Дом', icon: Home, category: 'activities' },
+    { value: 'FitnessCenter', label: 'Спорт', icon: FitnessCenter, category: 'activities' },
+    { value: 'DirectionsBike', label: 'Велосипед', icon: DirectionsBike, category: 'activities' },
+    { value: 'DirectionsRun', label: 'Бег', icon: DirectionsRun, category: 'activities' },
+    { value: 'DirectionsWalk', label: 'Прогулка', icon: DirectionsWalk, category: 'activities' },
+    
+    // Lifestyle
+    { value: 'ChildCare', label: 'Дети', icon: ChildCare, category: 'lifestyle' },
+    { value: 'Pets', label: 'Питомцы', icon: Pets, category: 'lifestyle' },
+    { value: 'Cake', label: 'Торт', icon: Cake, category: 'lifestyle' },
+    { value: 'Fastfood', label: 'Еда', icon: Fastfood, category: 'lifestyle' },
+    { value: 'Restaurant', label: 'Ресторан', icon: Restaurant, category: 'lifestyle' },
+    { value: 'LocalBar', label: 'Бар', icon: LocalBar, category: 'lifestyle' },
+    { value: 'LocalCafe', label: 'Кафе', icon: LocalCafe, category: 'lifestyle' },
+    { value: 'LocalPizza', label: 'Пицца', icon: LocalPizza, category: 'lifestyle' },
+    { value: 'LocalDining', label: 'Ресторан', icon: LocalDining, category: 'lifestyle' },
+    
+    // Entertainment
+    { value: 'MusicNote', label: 'Музыка', icon: MusicNote, category: 'entertainment' },
+    { value: 'Movie', label: 'Кино', icon: Movie, category: 'entertainment' },
+    { value: 'Games', label: 'Игры', icon: Games, category: 'entertainment' },
+    { value: 'TheaterComedy', label: 'Театр', icon: TheaterComedy, category: 'entertainment' },
+    
+    // Travel & Transport
+    { value: 'Flight', label: 'Путешествия', icon: Flight, category: 'travel' },
+    { value: 'DirectionsCar', label: 'Автомобиль', icon: DirectionsCar, category: 'travel' },
+    { value: 'DirectionsBus', label: 'Автобус', icon: DirectionsBus, category: 'travel' },
+    { value: 'DirectionsSubway', label: 'Метро', icon: DirectionsSubway, category: 'travel' },
+    { value: 'DirectionsBoat', label: 'Лодка', icon: DirectionsBoat, category: 'travel' },
+    { value: 'DirectionsTransit', label: 'Транспорт', icon: DirectionsTransit, category: 'travel' },
+    { value: 'DirectionsRailway', label: 'Поезд', icon: DirectionsRailway, category: 'travel' },
+    { value: 'LocalTaxi', label: 'Такси', icon: LocalTaxi, category: 'travel' },
+    { value: 'Hotel', label: 'Отель', icon: Hotel, category: 'travel' },
+    
+    // Business & Services
+    { value: 'Business', label: 'Бизнес', icon: Business, category: 'business' },
+    { value: 'Security', label: 'Безопасность', icon: Security, category: 'business' },
+    { value: 'LocalHospital', label: 'Медицина', icon: LocalHospital, category: 'business' },
+    { value: 'LocalPharmacy', label: 'Аптека', icon: LocalPharmacy, category: 'business' },
+    { value: 'LocalGasStation', label: 'АЗС', icon: LocalGasStation, category: 'business' },
+    { value: 'LocalCarWash', label: 'Мойка', icon: LocalCarWash, category: 'business' },
+    { value: 'LocalLaundryService', label: 'Прачечная', icon: LocalLaundryService, category: 'business' },
+    { value: 'LocalPrintshop', label: 'Печать', icon: LocalPrintshop, category: 'business' },
+    { value: 'LocalPostOffice', label: 'Почта', icon: LocalPostOffice, category: 'business' },
+    { value: 'LocalLibrary', label: 'Библиотека', icon: LocalLibrary, category: 'business' },
+    { value: 'LocalMall', label: 'Торговый центр', icon: LocalMall, category: 'business' },
+    { value: 'LocalParking', label: 'Парковка', icon: LocalParking, category: 'business' },
+    
+    // Shopping & Commerce
+    { value: 'ShoppingCart', label: 'Корзина', icon: ShoppingCart, category: 'shopping' },
+    { value: 'LocalGroceryStore', label: 'Продукты', icon: LocalGroceryStore, category: 'shopping' },
+    { value: 'LocalConvenienceStore', label: 'Магазин', icon: LocalConvenienceStore, category: 'shopping' },
+    { value: 'LocalOffer', label: 'Скидка', icon: LocalOffer, category: 'shopping' },
+    { value: 'Loyalty', label: 'Лояльность', icon: Loyalty, category: 'shopping' },
+    { value: 'Redeem', label: 'Погашение', icon: Redeem, category: 'shopping' },
+    { value: 'CardGiftcard', label: 'Подарочная карта', icon: CardGiftcard, category: 'shopping' },
+    
+    // Finance & Payments
+    { value: 'AccountBalance', label: 'Баланс', icon: AccountBalance, category: 'finance' },
+    { value: 'Payment', label: 'Платеж', icon: Payment, category: 'finance' },
+    { value: 'CreditCard', label: 'Кредитная карта', icon: CreditCard, category: 'finance' },
+    { value: 'Receipt', label: 'Чек', icon: Receipt, category: 'finance' },
+    { value: 'LocalShipping', label: 'Доставка', icon: LocalShipping, category: 'finance' },
+    
+    // Communication
+    { value: 'Email', label: 'Email', icon: Email, category: 'communication' },
+    { value: 'Phone', label: 'Телефон', icon: Phone, category: 'communication' },
+    { value: 'Notifications', label: 'Уведомления', icon: Notifications, category: 'communication' },
+    { value: 'LocationOn', label: 'Местоположение', icon: LocationOn, category: 'communication' },
+    { value: 'Schedule', label: 'Расписание', icon: Schedule, category: 'communication' },
+    { value: 'CalendarToday', label: 'Календарь', icon: CalendarToday, category: 'communication' },
+    
+    // Special & Premium
+    { value: 'Favorite', label: 'Избранное', icon: Favorite, category: 'special' },
+    { value: 'Star', label: 'Звезда', icon: Star, category: 'special' },
+    { value: 'Diamond', label: 'Алмаз', icon: Diamond, category: 'special' },
+    { value: 'Celebration', label: 'Праздник', icon: Celebration, category: 'special' },
+    { value: 'Event', label: 'Событие', icon: Event, category: 'special' },
+    { value: 'TrendingUp', label: 'Тренд вверх', icon: TrendingUp, category: 'special' },
+    { value: 'TrendingDown', label: 'Тренд вниз', icon: TrendingDown, category: 'special' },
+    { value: 'Speed', label: 'Скорость', icon: Speed, category: 'special' },
+    { value: 'Accessibility', label: 'Доступность', icon: Accessibility, category: 'special' },
+    { value: 'Elderly', label: 'Пожилые', icon: Elderly, category: 'special' },
+    { value: 'Spa', label: 'Спа', icon: Spa, category: 'special' },
+    
+    // Secret/Developer
+    { value: 'Dev', label: 'Разработчик (секретная)', icon: DevIcon, category: 'secret' },
   ];
 
   const handleSave = async () => {
@@ -198,7 +342,9 @@ const Profile = () => {
         setChatSettings(prev => ({
           ...prev,
           pfp_icon: 'Dev',
-          pfp_color: 'linear-gradient(45deg, #4CAF50, #2196F3)'
+          pfp_color: '#FFD700',
+          pfp_type: 'icon',
+          pfp_gradient: '',
         }));
         
         // Also update in database
@@ -207,8 +353,10 @@ const Profile = () => {
           .upsert({
             user_id: user.id,
             chat_name: editData.first_name,
-            pfp_color: 'linear-gradient(45deg, #4CAF50, #2196F3)',
+            pfp_color: '#FFD700',
             pfp_icon: 'Dev',
+            pfp_type: 'icon',
+            pfp_image_url: null,
           }, {
             onConflict: 'user_id'
           });
@@ -235,6 +383,25 @@ const Profile = () => {
     if (!user) return;
     setChatSettingsLoading(true);
     try {
+      let imageUrl = chatSettings.pfp_image_url;
+      
+      // Handle image upload if there's a selected image
+      if (selectedImage) {
+        const fileExt = selectedImage.name.split('.').pop();
+        const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('profile-pictures')
+          .upload(fileName, selectedImage);
+        
+        if (uploadError) throw uploadError;
+        
+        const { data: urlData } = supabase.storage
+          .from('profile-pictures')
+          .getPublicUrl(fileName);
+        
+        imageUrl = urlData.publicUrl;
+      }
+      
       // Upsert chat settings to the new table
       const { error } = await supabase
         .from('user_chat_settings')
@@ -243,11 +410,21 @@ const Profile = () => {
           chat_name: chatSettings.chat_name,
           pfp_color: chatSettings.pfp_color,
           pfp_icon: chatSettings.pfp_icon,
+          pfp_type: chatSettings.pfp_type,
+          pfp_image_url: imageUrl,
+          pfp_gradient: chatSettings.pfp_gradient,
         }, {
           onConflict: 'user_id'
         });
       
       if (error) throw error;
+      
+      // Update local state
+      setChatSettings(prev => ({
+        ...prev,
+        pfp_image_url: imageUrl
+      }));
+      
       setSnackbar({ open: true, message: 'Настройки чата обновлены!', severity: 'success' });
     } catch (err: any) {
       setSnackbar({ open: true, message: err.message || 'Ошибка при обновлении настроек чата', severity: 'error' });
@@ -255,6 +432,53 @@ const Profile = () => {
       setChatSettingsLoading(false);
     }
   };
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setSnackbar({ open: true, message: 'Пожалуйста, выберите изображение', severity: 'error' });
+        return;
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setSnackbar({ open: true, message: 'Размер файла должен быть меньше 5MB', severity: 'error' });
+        return;
+      }
+      
+      setSelectedImage(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+      
+      // Update chat settings
+      setChatSettings(prev => ({
+        ...prev,
+        pfp_type: 'image'
+      }));
+    }
+  };
+
+  const handleCustomColorChange = (color: string) => {
+    setCustomColor(color);
+    setChatSettings(prev => ({
+      ...prev,
+      pfp_color: color,
+      pfp_type: 'icon'
+    }));
+  };
+
+  const handleGradientChange = (gradient: string) => {
+    // gradients removed
+  };
+
+  const predefinedGradients: [] = [];
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('ru-RU', {
@@ -264,6 +488,255 @@ const Profile = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  // Temporary function to check database schema
+  const checkDatabaseSchema = async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('user_chat_settings')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+      
+      console.log('Current user chat settings:', data);
+      console.log('Database error:', error);
+      console.log('Data keys:', data ? Object.keys(data) : 'No data');
+      console.log('pfp_type:', data?.pfp_type);
+      console.log('pfp_image_url:', data?.pfp_image_url);
+      console.log('pfp_gradient:', data?.pfp_gradient);
+    } catch (err) {
+      console.error('Error checking database schema:', err);
+    }
+  };
+
+  // Temporary function to add missing columns
+  const addMissingColumns = async () => {
+    if (!user) return;
+    try {
+      // Try to add the columns using RPC
+      const { data, error } = await supabase.rpc('add_profile_picture_columns');
+      console.log('Add columns result:', data, error);
+      
+      if (error) {
+        console.log('RPC failed, trying direct SQL...');
+        // Fallback: try to update the user's settings with new fields
+        const { error: updateError } = await supabase
+          .from('user_chat_settings')
+          .upsert({
+            user_id: user.id,
+            chat_name: chatSettings.chat_name,
+            pfp_color: chatSettings.pfp_color,
+            pfp_icon: chatSettings.pfp_icon,
+            pfp_type: 'icon',
+            pfp_image_url: '',
+            pfp_gradient: 'linear-gradient(45deg, #1976d2, #42a5f5)',
+          }, {
+            onConflict: 'user_id'
+          });
+        
+        console.log('Update result:', updateError);
+      }
+    } catch (err) {
+      console.error('Error adding columns:', err);
+    }
+  };
+
+  // Function to run the SQL script
+  const runSqlScript = async () => {
+    if (!user) return;
+    try {
+      // Try to execute the SQL script using a function call
+      const { data, error } = await supabase.rpc('execute_sql', {
+        sql_text: `
+          DO $$ 
+          BEGIN 
+              -- Add pfp_type column
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                             WHERE table_name = 'user_chat_settings' AND column_name = 'pfp_type') THEN
+                  ALTER TABLE user_chat_settings ADD COLUMN pfp_type TEXT DEFAULT 'icon';
+              END IF;
+              
+              -- Add pfp_image_url column
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                             WHERE table_name = 'user_chat_settings' AND column_name = 'pfp_image_url') THEN     
+                  ALTER TABLE user_chat_settings ADD COLUMN pfp_image_url TEXT;
+              END IF;
+              
+              -- Add pfp_gradient column
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                             WHERE table_name = 'user_chat_settings' AND column_name = 'pfp_gradient') THEN      
+                  ALTER TABLE user_chat_settings ADD COLUMN pfp_gradient TEXT DEFAULT 'linear-gradient(45deg, #1976d2, #42a5f5)';
+              END IF;
+          END $$;
+        `
+      });
+      
+      console.log('SQL script result:', data, error);
+      
+      if (error) {
+        console.log('SQL script failed, trying alternative approach...');
+        // Alternative: try to create the columns by inserting data with the new fields
+        const { error: insertError } = await supabase
+          .from('user_chat_settings')
+          .upsert({
+            user_id: user.id,
+            chat_name: chatSettings.chat_name,
+            pfp_color: chatSettings.pfp_color,
+            pfp_icon: chatSettings.pfp_icon,
+            pfp_type: 'icon',
+            pfp_image_url: '',
+            pfp_gradient: 'linear-gradient(45deg, #1976d2, #42a5f5)',
+          }, {
+            onConflict: 'user_id'
+          });
+        
+        console.log('Insert result:', insertError);
+      }
+    } catch (err) {
+      console.error('Error running SQL script:', err);
+    }
+  };
+
+  // Function to manually add columns by attempting insert
+  const manuallyAddColumns = async () => {
+    if (!user) return;
+    try {
+      console.log('Attempting to add columns by inserting data with new fields...');
+      
+      // Try to insert a record with the new fields
+      const { data, error } = await supabase
+        .from('user_chat_settings')
+        .upsert({
+          user_id: user.id,
+          chat_name: chatSettings.chat_name || 'User',
+          pfp_color: chatSettings.pfp_color || '#1976d2',
+          pfp_icon: chatSettings.pfp_icon || 'Person',
+          pfp_type: 'icon',
+          pfp_image_url: '',
+          pfp_gradient: 'linear-gradient(45deg, #1976d2, #42a5f5)',
+        }, {
+          onConflict: 'user_id'
+        });
+      
+      console.log('Manual insert result:', data, error);
+      
+      if (error) {
+        console.log('Insert failed, columns probably don\'t exist yet');
+        console.log('Error details:', error);
+      } else {
+        console.log('Insert succeeded! Columns might exist now');
+        // Refresh the page to reload settings
+        window.location.reload();
+      }
+    } catch (err) {
+      console.error('Error in manual column addition:', err);
+    }
+  };
+
+  // Function to force refresh chat data
+  const forceRefreshChat = async () => {
+    if (!user) return;
+    try {
+      console.log('Force refreshing chat data...');
+      
+      // Force refresh by updating user settings with current values
+      const { data, error } = await supabase
+        .from('user_chat_settings')
+        .upsert({
+          user_id: user.id,
+          chat_name: chatSettings.chat_name,
+          pfp_color: chatSettings.pfp_color,
+          pfp_icon: chatSettings.pfp_icon,
+          pfp_type: chatSettings.pfp_type,
+          pfp_image_url: chatSettings.pfp_image_url,
+          pfp_gradient: chatSettings.pfp_gradient,
+        }, {
+          onConflict: 'user_id'
+        });
+      
+      console.log('Force refresh result:', data, error);
+      
+      if (!error) {
+        console.log('Chat data refreshed successfully!');
+        // Reload the page to refresh all data
+        window.location.reload();
+      }
+    } catch (err) {
+      console.error('Error force refreshing chat:', err);
+    }
+  };
+
+  // Function to check chat user settings
+  const checkChatUserSettings = async () => {
+    if (!user) return;
+    try {
+      console.log('Checking chat user settings...');
+      
+      // Check what settings are currently in the database
+      const { data, error } = await supabase
+        .from('user_chat_settings')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+      
+      console.log('Current database settings:', data);
+      console.log('Current chatSettings state:', chatSettings);
+      
+      // Check if there's a mismatch
+      if (data) {
+        const mismatch = {
+          pfp_color: data.pfp_color !== chatSettings.pfp_color,
+          pfp_icon: data.pfp_icon !== chatSettings.pfp_icon,
+          pfp_type: data.pfp_type !== chatSettings.pfp_type,
+          pfp_image_url: data.pfp_image_url !== chatSettings.pfp_image_url,
+          pfp_gradient: data.pfp_gradient !== chatSettings.pfp_gradient,
+        };
+        
+        console.log('Mismatch between database and state:', mismatch);
+      }
+    } catch (err) {
+      console.error('Error checking chat user settings:', err);
+    }
+  };
+
+  // Function to check if profile image exists in storage
+  const checkProfileImage = async () => {
+    if (!user || !chatSettings.pfp_image_url) {
+      console.log('No user or no image URL to check');
+      return;
+    }
+    
+    try {
+      console.log('Checking profile image...');
+      console.log('Image URL:', chatSettings.pfp_image_url);
+      
+      // Try to fetch the image to see if it exists
+      const response = await fetch(chatSettings.pfp_image_url);
+      
+      if (response.ok) {
+        console.log('✅ Profile image exists and is accessible');
+        console.log('Response status:', response.status);
+        console.log('Content type:', response.headers.get('content-type'));
+      } else {
+        console.log('❌ Profile image not found or not accessible');
+        console.log('Response status:', response.status);
+        
+        // Try to list files in the storage bucket
+        const { data: files, error } = await supabase.storage
+          .from('profile-pictures')
+          .list();
+          
+        if (error) {
+          console.error('Error listing storage files:', error);
+        } else {
+          console.log('Files in profile-pictures bucket:', files);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking profile image:', error);
+    }
   };
 
   return (
@@ -440,13 +913,18 @@ const Profile = () => {
                   sx={{ 
                     width: 60, 
                     height: 60, 
-                    bgcolor: chatSettings.pfp_icon === 'Dev' ? 'transparent' : chatSettings.pfp_color,
-                    background: chatSettings.pfp_icon === 'Dev' ? 'linear-gradient(45deg, #4CAF50, #2196F3)' : chatSettings.pfp_color,
+                    bgcolor: chatSettings.pfp_type === 'image' ? 'transparent' : 
+                             chatSettings.pfp_icon === 'Dev' ? 'transparent' : chatSettings.pfp_color,
+                                        background: chatSettings.pfp_type === 'image' ? 'none' :
+                             chatSettings.pfp_icon === 'Dev' ? 'linear-gradient(45deg, #4CAF50, #2196F3)' : chatSettings.pfp_color,
                     boxShadow: chatSettings.pfp_icon === 'Dev' ? '0 0 10px #2196F3' : 'none',
-                    fontSize: '1.5rem'
+                    fontSize: '1.5rem',
+                    backgroundImage: chatSettings.pfp_type === 'image' ? `url(${imagePreview || chatSettings.pfp_image_url})` : 'none',
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
                   }}
                 >
-                  {(() => {
+                  {chatSettings.pfp_type === 'image' ? null : (() => {
                     const selectedIcon = pfpIcons.find(icon => icon.value === chatSettings.pfp_icon);
                     if (selectedIcon) {
                       const IconComponent = selectedIcon.icon;
@@ -481,10 +959,106 @@ const Profile = () => {
               </Box>
             </Box>
 
-            {/* Profile Picture Color */}
+            {/* Profile Picture Type */}
             <Box sx={{ flex: '1 1 300px', minWidth: 0 }}>
               <Typography variant="subtitle2" gutterBottom>
-                Цвет аватара
+                Тип аватара
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                <Button
+                  variant={chatSettings.pfp_type === 'icon' ? 'contained' : 'outlined'}
+                  size="small"
+                  onClick={() => setChatSettings(prev => ({ ...prev, pfp_type: 'icon' }))}
+                >
+                  Иконка
+                </Button>
+                <Button
+                  variant={chatSettings.pfp_type === 'image' ? 'contained' : 'outlined'}
+                  size="small"
+                  onClick={() => setChatSettings(prev => ({ ...prev, pfp_type: 'image' }))}
+                >
+                  Изображение
+                </Button>
+
+              </Box>
+            </Box>
+
+            {/* Image Upload */}
+            {chatSettings.pfp_type === 'image' && (
+              <Box sx={{ flex: '1 1 300px', minWidth: 0 }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Загрузить изображение
+                </Typography>
+                <input
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  id="image-upload"
+                  type="file"
+                  onChange={handleImageUpload}
+                />
+                <label htmlFor="image-upload">
+                  <Button
+                    variant="outlined"
+                    component="span"
+                    fullWidth
+                    startIcon={<Palette />}
+                  >
+                    Выбрать изображение
+                  </Button>
+                </label>
+                {selectedImage && (
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                    Выбрано: {selectedImage.name}
+                  </Typography>
+                )}
+              </Box>
+            )}
+
+            
+
+            {/* Custom Color Picker */}
+            {chatSettings.pfp_type === 'icon' && (
+              <Box sx={{ flex: '1 1 300px', minWidth: 0 }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Пользовательский цвет
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <Box
+                    sx={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: '50%',
+                      backgroundColor: customColor,
+                      border: '2px solid',
+                      borderColor: 'divider',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => setShowColorPicker(!showColorPicker)}
+                  />
+                  <input
+                    type="color"
+                    value={customColor}
+                    onChange={(e) => handleCustomColorChange(e.target.value)}
+                    style={{
+                      width: 40,
+                      height: 40,
+                      border: 'none',
+                      borderRadius: '50%',
+                      cursor: 'pointer',
+                    }}
+                  />
+                  <Typography variant="body2" color="text.secondary">
+                    Нажмите для выбора цвета
+                  </Typography>
+                </Box>
+              </Box>
+            )}
+
+            {/* Predefined Colors */}
+            {chatSettings.pfp_type === 'icon' && (
+              <Box sx={{ flex: '1 1 300px', minWidth: 0 }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Предустановленные цвета
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                 {pfpColors.map((color) => (
@@ -506,13 +1080,65 @@ const Profile = () => {
                 ))}
               </Box>
             </Box>
+            )}
 
             {/* Profile Picture Icon */}
+            {chatSettings.pfp_type === 'icon' && (
             <Box sx={{ flex: '1 1 300px', minWidth: 0 }}>
               <Typography variant="subtitle2" gutterBottom>
                 Иконка аватара
               </Typography>
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                
+                {/* Category Tabs */}
+                <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+                  {['basic', 'activities', 'lifestyle', 'entertainment', 'travel', 'business', 'shopping', 'finance', 'communication', 'special'].map((category) => (
+                    <Button
+                      key={category}
+                      variant="outlined"
+                      size="small"
+                      sx={{ 
+                        fontSize: '0.7rem',
+                        minWidth: 'auto',
+                        px: 1,
+                        py: 0.5
+                      }}
+                    >
+                      {category === 'basic' ? 'Основные' :
+                       category === 'activities' ? 'Активности' :
+                       category === 'lifestyle' ? 'Образ жизни' :
+                       category === 'entertainment' ? 'Развлечения' :
+                       category === 'travel' ? 'Путешествия' :
+                       category === 'business' ? 'Бизнес' :
+                       category === 'shopping' ? 'Покупки' :
+                       category === 'finance' ? 'Финансы' :
+                       category === 'communication' ? 'Общение' :
+                       category === 'special' ? 'Особые' : category}
+                    </Button>
+                  ))}
+                </Box>
+                
+                {/* Icons Grid */}
+                <Box sx={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(40px, 1fr))', 
+                  gap: 1,
+                  maxHeight: 200,
+                  overflowY: 'auto',
+                  '&::-webkit-scrollbar': {
+                    width: '6px',
+                  },
+                  '&::-webkit-scrollbar-track': {
+                    background: '#f1f1f1',
+                    borderRadius: '3px',
+                  },
+                  '&::-webkit-scrollbar-thumb': {
+                    background: '#c1c1c1',
+                    borderRadius: '3px',
+                  },
+                  '&::-webkit-scrollbar-thumb:hover': {
+                    background: '#a8a8a8',
+                  },
+                }}>
                 {pfpIcons.map((iconOption) => {
                   const IconComponent = iconOption.icon;
                   return (
@@ -523,6 +1149,7 @@ const Profile = () => {
                         height: 40,
                         borderRadius: '50%',
                         bgcolor: chatSettings.pfp_color,
+                        background: chatSettings.pfp_color,
                         cursor: 'pointer',
                         border: chatSettings.pfp_icon === iconOption.value ? '3px solid #000' : '2px solid #ddd',
                         display: 'flex',
@@ -531,9 +1158,12 @@ const Profile = () => {
                         fontSize: '1.2rem',
                         '&:hover': {
                           border: '3px solid #666',
+                            transform: 'scale(1.1)',
+                            transition: 'all 0.2s ease',
                         }
                       }}
                       onClick={() => setChatSettings(prev => ({ ...prev, pfp_icon: iconOption.value }))}
+                        title={iconOption.label}
                     >
                       <IconComponent sx={{ fontSize: '1.5rem', color: 'white', opacity: 0.7 }} />
                     </Box>
@@ -541,6 +1171,7 @@ const Profile = () => {
                 })}
               </Box>
             </Box>
+            )}
           </Box>
 
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
@@ -596,23 +1227,50 @@ const Settings = () => {
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({ open: false, message: '', severity: 'success' });
   
   // Get theme from localStorage for now
-  const [themeMode, setThemeMode] = useState<'light' | 'dark'>(() => {
-    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark';
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
+    const savedTheme = localStorage.getItem('theme') as ThemeMode;
     return savedTheme || 'light';
   });
 
-  const handleThemeChange = (newTheme: 'light' | 'dark') => {
+  const [themeVariant, setThemeVariant] = useState<ThemeVariant>(() => {
+    const savedVariant = localStorage.getItem('themeVariant') as ThemeVariant;
+    return savedVariant || 'default';
+  });
+
+  const handleThemeChange = (newTheme: ThemeMode) => {
     setThemeMode(newTheme);
     localStorage.setItem('theme', newTheme);
     // Reload page to apply theme
     window.location.reload();
   };
 
+  const handleThemeVariantChange = (newVariant: ThemeVariant) => {
+    setThemeVariant(newVariant);
+    localStorage.setItem('themeVariant', newVariant);
+    // Reload page to apply theme
+    window.location.reload();
+  };
+
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Typography variant="h4" gutterBottom>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h4">
         Настройки
       </Typography>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => {
+              const newMode = themeMode === 'light' ? 'dark' : 'light';
+              handleThemeChange(newMode);
+            }}
+            startIcon={themeMode === 'light' ? '🌙' : '☀️'}
+          >
+            {themeMode === 'light' ? 'Темная тема' : 'Светлая тема'}
+          </Button>
+        </Box>
+      </Box>
       <Divider sx={{ mb: 2 }} />
 
       <Card sx={{ mb: 3 }}>
@@ -629,15 +1287,99 @@ const Settings = () => {
               <FormControl fullWidth>
                 <Select
                   value={themeMode}
-                  onChange={(e) => handleThemeChange(e.target.value as 'light' | 'dark')}
+                  onChange={(e) => handleThemeChange(e.target.value as ThemeMode)}
                 >
                   <MenuItem value="light">Светлая</MenuItem>
                   <MenuItem value="dark">Темная</MenuItem>
+                  <MenuItem value="system">Системная</MenuItem>
                 </Select>
               </FormControl>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                Выберите предпочитаемую тему оформления
+                Выберите предпочитаемую тему оформления. "Системная" автоматически следует настройкам вашей операционной системы.
               </Typography>
+            </Box>
+
+            <Box>
+              <Typography variant="body1" gutterBottom>
+                Цветовая схема
+              </Typography>
+              <FormControl fullWidth>
+                <Select
+                  value={themeVariant}
+                  onChange={(e) => handleThemeVariantChange(e.target.value as ThemeVariant)}
+                >
+                  {themeVariants.map((variant) => (
+                    <MenuItem key={variant.value} value={variant.value}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box
+                          sx={{
+                            width: 16,
+                            height: 16,
+                            borderRadius: '50%',
+                            backgroundColor: variant.color,
+                            border: '1px solid rgba(0,0,0,0.1)'
+                          }}
+                        />
+                        {variant.label}
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                Выберите цветовую схему для интерфейса
+              </Typography>
+            </Box>
+
+            {/* Theme Preview */}
+            <Box>
+              <Typography variant="body1" gutterBottom>
+                Предпросмотр темы
+              </Typography>
+              <Box sx={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+                gap: 2,
+                mt: 1
+              }}>
+                {themeVariants.slice(0, 6).map((variant) => (
+                  <Card 
+                    key={variant.value}
+                    sx={{ 
+                      p: 2, 
+                      cursor: 'pointer',
+                      border: themeVariant === variant.value ? '2px solid' : '1px solid',
+                      borderColor: themeVariant === variant.value ? 'primary.main' : 'divider',
+                      backgroundColor: themeVariant === variant.value ? 'primary.light' : 'background.paper',
+                      '&:hover': {
+                        borderColor: 'primary.main',
+                        backgroundColor: 'primary.light',
+                      }
+                    }}
+                    onClick={() => handleThemeVariantChange(variant.value)}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <Box
+                        sx={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: '50%',
+                          backgroundColor: variant.color,
+                          border: '1px solid rgba(0,0,0,0.1)'
+                        }}
+                      />
+                      <Typography variant="subtitle2" fontWeight="bold">
+                        {variant.label}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 0.5 }}>
+                      <Box sx={{ width: 30, height: 20, backgroundColor: variant.color, borderRadius: 1 }} />
+                      <Box sx={{ width: 20, height: 20, backgroundColor: variant.color + '80', borderRadius: 1 }} />
+                      <Box sx={{ width: 25, height: 20, backgroundColor: variant.color + '40', borderRadius: 1 }} />
+                    </Box>
+                  </Card>
+                ))}
+              </Box>
             </Box>
           </Box>
         </CardContent>
@@ -945,6 +1687,7 @@ function AppContent() {
           <Route index element={<Marketplace />} />
           <Route path="chat" element={<MarketplaceChat />} />
           <Route path="my-listings" element={<MyListings />} />
+          <Route path="favorites" element={<FavoritesMarketplace />} />
         </Route>
 
         <Route path="/features-marketplace" element={<ProtectedRoute><AppLayout><FeaturesMarketplace /></AppLayout></ProtectedRoute>} />
@@ -986,17 +1729,27 @@ function AppContent() {
 }
 
 function App() {
-  const [themeMode, setThemeMode] = useState<'light' | 'dark'>(() => {
-    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark';
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
+    const savedTheme = localStorage.getItem('theme') as ThemeMode;
     return savedTheme || 'light';
   });
 
-  const currentTheme = createAppTheme(themeMode);
+  const [themeVariant, setThemeVariant] = useState<ThemeVariant>(() => {
+    const savedVariant = localStorage.getItem('themeVariant') as ThemeVariant;
+    return savedVariant || 'default';
+  });
+
+  const currentTheme = createAppTheme(themeMode, themeVariant);
 
   return (
     <ThemeProvider theme={currentTheme}>
       <CssBaseline />
-      <ThemeContextProvider themeMode={themeMode} setThemeMode={setThemeMode}>
+      <ThemeContextProvider 
+        themeMode={themeMode} 
+        setThemeMode={setThemeMode}
+        themeVariant={themeVariant}
+        setThemeVariant={setThemeVariant}
+      >
       <AuthProvider>
         <Router>
           <AppContent />
