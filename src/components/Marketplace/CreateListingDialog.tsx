@@ -261,7 +261,7 @@ export const CreateListingDialog: React.FC<CreateListingDialogProps> = ({
         }
       }}
     >
-      <DialogTitle sx={{ pb: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+      <DialogTitle sx={{ pb: 1, borderBottom: '1px solid', borderColor: 'divider', bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : undefined }}>
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="h6">Разместить товар</Typography>
           <IconButton onClick={handleClose} size="small">
@@ -271,7 +271,7 @@ export const CreateListingDialog: React.FC<CreateListingDialogProps> = ({
       </DialogTitle>
 
       <form onSubmit={handleSubmit(onSubmit)}>
-        <DialogContent sx={{ pt: 2, pb: 1, maxHeight: '70vh', overflow: 'auto' }}>
+        <DialogContent sx={{ pt: 2, pb: 1, maxHeight: '70vh', overflow: 'auto', bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.01)' : undefined }}>
           {error && (
             <Alert severity="error" sx={{ mb: 2, borderRadius: 1 }}>
               {error}
@@ -282,10 +282,10 @@ export const CreateListingDialog: React.FC<CreateListingDialogProps> = ({
             {/* Payout Card Selection */}
             <Box sx={{ 
               p: 2, 
-              bgcolor: 'primary.50', 
+              bgcolor: (theme) => theme.palette.mode === 'light' ? 'primary.50' : 'rgba(255,255,255,0.04)', 
               borderRadius: 1.5,
               border: '1px solid',
-              borderColor: 'primary.200'
+              borderColor: (theme) => theme.palette.mode === 'light' ? 'primary.200' : 'rgba(255,255,255,0.12)'
             }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
                 <CreditCard fontSize="small" color="primary" />
@@ -449,7 +449,7 @@ export const CreateListingDialog: React.FC<CreateListingDialogProps> = ({
             {/* Basic Information Section */}
             <Box sx={{ 
               p: 2, 
-              bgcolor: 'grey.50', 
+              bgcolor: (theme) => theme.palette.mode === 'light' ? 'grey.50' : 'rgba(255,255,255,0.04)', 
               borderRadius: 1.5,
               border: '1px solid',
               borderColor: 'divider'
@@ -574,10 +574,10 @@ export const CreateListingDialog: React.FC<CreateListingDialogProps> = ({
             {/* Purchase Limit Section */}
             <Box sx={{ 
               p: 2, 
-              bgcolor: 'warning.50', 
+              bgcolor: (theme) => theme.palette.mode === 'light' ? 'warning.50' : 'rgba(255,193,7,0.08)', 
               borderRadius: 1.5,
               border: '1px solid',
-              borderColor: 'warning.200'
+              borderColor: (theme) => theme.palette.mode === 'light' ? 'warning.200' : 'rgba(255,193,7,0.24)'
             }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
                 <Flag fontSize="small" color="warning" />
@@ -616,10 +616,10 @@ export const CreateListingDialog: React.FC<CreateListingDialogProps> = ({
             {/* Tags Section */}
             <Box sx={{ 
               p: 2, 
-              bgcolor: 'success.50', 
+              bgcolor: (theme) => theme.palette.mode === 'light' ? 'success.50' : 'rgba(76,175,80,0.08)', 
               borderRadius: 1.5,
               border: '1px solid',
-              borderColor: 'success.200'
+              borderColor: (theme) => theme.palette.mode === 'light' ? 'success.200' : 'rgba(76,175,80,0.24)'
             }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
                 <LabelOutlined fontSize="small" color="success" />
@@ -692,7 +692,7 @@ export const CreateListingDialog: React.FC<CreateListingDialogProps> = ({
           gap: 1.5,
           borderTop: '1px solid',
           borderColor: 'divider',
-          background: 'rgba(0, 0, 0, 0.02)'
+          background: (theme) => theme.palette.mode === 'light' ? 'rgba(0, 0, 0, 0.02)' : 'rgba(255,255,255,0.03)'
         }}>
           <Button 
             onClick={handleClose} 

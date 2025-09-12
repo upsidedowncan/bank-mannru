@@ -3,6 +3,7 @@ import { Box, Button, Typography, Paper, CircularProgress, Alert, Dialog, Dialog
 import { useAuthContext } from '../../contexts/AuthContext';
 import { supabase } from '../../config/supabase';
 import { AppLayout } from '../Layout/AppLayout';
+import PageHeader from '../Layout/PageHeader';
 
 export const TappingGame: React.FC = () => {
   const { user } = useAuthContext();
@@ -142,7 +143,7 @@ export const TappingGame: React.FC = () => {
     <AppLayout>
       <Box minHeight="100vh" display="flex" alignItems="center" justifyContent="center" bgcolor="background.default" sx={{ overflow: 'hidden' }}>
         <Paper elevation={3} sx={{ p: 4, maxWidth: 400, width: '100%', textAlign: 'center', overflow: 'hidden' }}>
-          <Typography variant="h4" gutterBottom>Таппинг-игра</Typography>
+          <PageHeader title="Таппинг-игра" />
           {!gameActive && !showResult && (
             <Button variant="contained" color="primary" onClick={startGame} size="large">Начать игру</Button>
           )}

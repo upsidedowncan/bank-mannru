@@ -26,6 +26,7 @@ import { supabase } from '../../config/supabase';
 import { formatCurrency } from '../../utils/formatters';
 import { CreateListingDialog } from './CreateListingDialog';
 import { ItemDetailsDialog } from './ItemDetailsDialog';
+import PageHeader from '../Layout/PageHeader';
 
 interface MarketplaceItem {
   id: string;
@@ -184,14 +185,7 @@ export const Marketplace: React.FC = () => {
 
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 4 } }}>
-      <Box 
-        display="flex" 
-        justifyContent="space-between" 
-        alignItems="center"
-        gap={2}
-        mb={2}
-      >
-        <Typography variant="h4">Рынок</Typography>
+      <PageHeader title="Рынок" actions={
         <Button 
           variant="contained" 
           startIcon={<AddIcon />} 
@@ -200,7 +194,7 @@ export const Marketplace: React.FC = () => {
         >
           Добавить товар
         </Button>
-      </Box>
+      } />
       <Divider sx={{ mb: 2 }} />
       {/* Mobile FAB to publish items */}
       <Fab

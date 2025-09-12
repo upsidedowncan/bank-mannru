@@ -209,10 +209,34 @@ export const createAppTheme = (mode: ThemeMode, variant: ThemeVariant = 'default
             textTransform: 'none',
             fontWeight: 600,
             boxShadow: 'none',
+            transition: 'transform 0.12s ease, box-shadow 0.2s ease',
+            '&:active': {
+              transform: 'scale(0.95)'
+            },
             '&:hover': {
               boxShadow: actualMode === 'light' 
                 ? '0 4px 12px rgba(0, 0, 0, 0.15)' 
                 : '0 4px 12px rgba(0, 0, 0, 0.4)',
+            },
+          },
+        },
+      },
+      MuiIconButton: {
+        styleOverrides: {
+          root: {
+            transition: 'transform 0.12s ease, box-shadow 0.2s ease',
+            '&:active': {
+              transform: 'scale(0.95)'
+            },
+          },
+        },
+      },
+      MuiListItemButton: {
+        styleOverrides: {
+          root: {
+            transition: 'transform 0.12s ease, background-color 0.2s ease',
+            '&:active': {
+              transform: 'scale(0.98)'
             },
           },
         },

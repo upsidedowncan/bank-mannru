@@ -28,6 +28,7 @@ import {
 import { useAuthContext } from '../../contexts/AuthContext';
 import { supabase } from '../../config/supabase';
 import { formatCurrency } from '../../utils/formatters';
+import PageHeader from '../Layout/PageHeader';
 
 interface BankCard {
   id: string;
@@ -204,7 +205,7 @@ export const FlipGame: React.FC = () => {
   if (cards.length === 0) {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Typography variant="h4" gutterBottom>Игра "Брось монету"</Typography>
+        <PageHeader title='Игра "Брось монету"' />
         <Divider sx={{ mb: 2 }} />
         <Alert severity="warning">
           У вас нет активных карт. Создайте карту в панели управления, чтобы играть.
@@ -215,7 +216,7 @@ export const FlipGame: React.FC = () => {
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Typography variant="h4" gutterBottom>Игра "Брось монету"</Typography>
+      <PageHeader title='Игра "Брось монету"' />
       <Divider sx={{ mb: 2 }} />
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 4 }}>

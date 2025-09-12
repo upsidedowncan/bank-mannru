@@ -16,6 +16,7 @@ import {
   Chip,
 } from '@mui/material';
 import { supabase } from '../config/supabase';
+import PageHeader from './Layout/PageHeader';
 
 interface BankCard {
   id: string;
@@ -86,15 +87,14 @@ export const Cheats: React.FC = () => {
 
   return (
     <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 } }}>
-      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: { xs: 'stretch', md: 'center' }, gap: 2, mb: 2 }}>
-        <Typography variant="h4" gutterBottom sx={{ flex: 1, mb: { xs: 1, md: 0 } }}>CHEATS — Управление всеми картами</Typography>
+      <PageHeader title="CHEATS — Управление всеми картами" actions={
         <TextField
           label="Поиск по названию, номеру или user_id"
           value={search}
           onChange={e => setSearch(e.target.value)}
           sx={{ width: { xs: '100%', md: 400 } }}
         />
-      </Box>
+      } />
       <Box sx={{ width: '100%', overflowX: 'auto', mb: 2 }}>
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)', lg: 'repeat(4, 1fr)' }, gap: 3 }}>
           {filteredCards.map(card => (

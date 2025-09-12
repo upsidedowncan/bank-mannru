@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Box, Typography, Avatar, IconButton, TextField, CircularProgress, Button, Tooltip, Chip, LinearProgress, Card, CardContent, CardMedia } from '@mui/material';
+import { Box, Typography, Avatar, IconButton, TextField, CircularProgress, Button, Tooltip, Chip, LinearProgress, Card, CardContent, CardMedia, Dialog, DialogTitle, DialogContent, DialogActions, Divider } from '@mui/material';
 import AddReactionIcon from '@mui/icons-material/AddReaction';
 import ReactionPill from './ReactionPill';
 import EmojiPicker from './EmojiPicker';
@@ -257,6 +257,9 @@ const Message: React.FC<MessageProps> = React.memo(({
       ) : part
     );
   }, [message.message, searchQuery]);
+
+  // Determine if the message belongs to the current user (used in bubbles)
+  const isOwnMessage = user?.id === message.user_id;
 
   // Memoize expensive computations
   const messageContent = useMemo(() => {
@@ -561,7 +564,8 @@ const Message: React.FC<MessageProps> = React.memo(({
     formatAudioTime,
     openCardSelectionDialog,
     claimingGift,
-    voiceMessageWidget
+    voiceMessageWidget,
+    isOwnMessage
   ]);
 
   // Memoize the profile icon component
@@ -606,11 +610,12 @@ const Message: React.FC<MessageProps> = React.memo(({
     }, {});
   }, [message.reactions]);
 
+  const [userDialogOpen, setUserDialogOpen] = useState(false);
+  const [fullImageOpen, setFullImageOpen] = useState(false);
+
   const handleUserClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (user?.id !== message.user_id) {
-      onStartDm(message.user_id);
-    }
+    setUserDialogOpen(true);
   };
 
   const handleReactionClick = (event: React.MouseEvent<HTMLElement>) => {
@@ -631,7 +636,6 @@ const Message: React.FC<MessageProps> = React.memo(({
     }
   };
 
-  const isOwnMessage = user?.id === message.user_id;
   const isRead = readBy.includes(user?.id || '');
   const isPending = message.message_type === 'text' && !isRead && isOwnMessage;
 
@@ -661,7 +665,7 @@ const Message: React.FC<MessageProps> = React.memo(({
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         bgcolor: isPinned ? 'action.hover' : 'transparent',
       }}
-      onClick={(e) => handleMessageMenuOpen(e, message)}
+      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); handleMessageMenuOpen(e, message); }}
     >
       {/* Pin indicator */}
       {isPinned && (
@@ -702,6 +706,7 @@ const Message: React.FC<MessageProps> = React.memo(({
             }
           }}
           title={`Debug: pfp_type=${message.pfp_type || 'undefined'}, pfp_color=${message.pfp_color || 'undefined'}, pfp_icon=${message.pfp_icon || 'undefined'}, pfp_image_url=${message.pfp_image_url || 'undefined'}, pfp_gradient=${message.pfp_gradient || 'undefined'}, imageLoadFailed=${imageLoadFailed}`}
+          onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
         >
           {(() => {
             // If it's an image type with a valid URL and image loaded successfully, show nothing (just the image)
@@ -735,7 +740,8 @@ const Message: React.FC<MessageProps> = React.memo(({
               color: isOwnMessage ? 'primary.main' : 'text.primary',
               transition: 'color 0.2s ease',
             }}
-            onClick={handleUserClick}
+            onClick={(e) => { e.stopPropagation(); handleUserClick(e); }}
+            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
           >
             {message.user_name}
           </Typography>
@@ -912,6 +918,98 @@ const Message: React.FC<MessageProps> = React.memo(({
           )}
         </Box>
       </Box>
+      {/* User Info Dialog */}
+      <Dialog
+        open={userDialogOpen}
+        onClose={() => setUserDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>
+          Профиль пользователя
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+            <Avatar
+              onClick={() => {
+                if (message.pfp_type === 'image' && message.pfp_image_url && !imageLoadFailed) {
+                  setFullImageOpen(true);
+                }
+              }}
+              sx={{
+                width: 64,
+                height: 64,
+                bgcolor: (message.pfp_type === 'image' && message.pfp_image_url && !imageLoadFailed) ? 'transparent' : 
+                         message.pfp_type === 'gradient' ? 'transparent' : 
+                         message.pfp_icon === 'Dev' ? 'transparent' : (message.pfp_color || '#1976d2'),
+                background: (message.pfp_type === 'image' && message.pfp_image_url && !imageLoadFailed) ? 'none' :
+                           message.pfp_type === 'gradient' ? (message.pfp_gradient || message.pfp_color || '#1976d2') :
+                           message.pfp_icon === 'Dev'
+                             ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                             : (message.pfp_color || '#1976d2'),
+                backgroundImage: (message.pfp_type === 'image' && message.pfp_image_url && !imageLoadFailed) ? `url(${message.pfp_image_url})` : 'none',
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                color: 'white',
+                cursor: (message.pfp_type === 'image' && message.pfp_image_url && !imageLoadFailed) ? 'zoom-in' : 'default',
+              }}
+            >
+              {(() => {
+                if (message.pfp_type === 'image' && message.pfp_image_url && !imageLoadFailed) {
+                  return <></>;
+                }
+                if (message.pfp_icon) {
+                  const IconComponent = getProfileIconComponent(message.pfp_icon);
+                  return <IconComponent sx={{ fontSize: 24, color: 'white', opacity: 0.9 }} />;
+                }
+                return message.user_name?.charAt(0) || 'U';
+              })()}
+            </Avatar>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="h6" sx={{ fontWeight: 700 }} noWrap>
+                {message.user_name}
+              </Typography>
+              
+            </Box>
+          </Box>
+          <Divider sx={{ my: 1 }} />
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {isOwnMessage ? (
+              <Chip label="Это вы" color="primary" size="small" />
+            ) : null}
+            
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setUserDialogOpen(false)}>Закрыть</Button>
+          {!isOwnMessage && (
+            <Button variant="contained" onClick={() => { setUserDialogOpen(false); onStartDm(message.user_id); }}>
+              Написать в ЛС
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+      {/* Full-size avatar image dialog */}
+      <Dialog
+        open={!!fullImageOpen}
+        onClose={() => setFullImageOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          Аватар {message.user_name}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {message.pfp_image_url && (
+              <img src={message.pfp_image_url} alt={message.user_name || 'avatar'} style={{ maxWidth: '100%', height: 'auto', borderRadius: 8 }} />
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setFullImageOpen(false)}>Закрыть</Button>
+        </DialogActions>
+      </Dialog>
       <EmojiPicker
         anchorEl={anchorEl}
         onClose={handleClose}

@@ -213,30 +213,13 @@ export const ItemDetailsDialog: React.FC<ItemDetailsDialogProps> = ({
         }
       }
 
-      // Deduct money from buyer's card
-      const { error: updateBuyerError } = await supabase
-        .from('bank_cards')
-        .update({ balance: card.balance - item.price })
-        .eq('id', card.id)
-      if (updateBuyerError) throw updateBuyerError
-      // Add money to seller's payout card
-      if (!item.payout_card_id) {
-        setError('У продавца не выбрана карта для получения оплаты. Покупка невозможна.')
-        return
-      }
-      const { data: payoutCard } = await supabase
-        .from('bank_cards')
-        .select('*')
-        .eq('id', item.payout_card_id)
-        .single()
-      if (!payoutCard) {
-        setError('Карта продавца для получения оплаты не найдена. Покупка невозможна.')
-        return
-      }
-      await supabase
-        .from('bank_cards')
-        .update({ balance: payoutCard.balance + item.price })
-        .eq('id', payoutCard.id)
+      // Transfer funds via server-side RPC (atomic on the DB side)
+      const { data: transferResult, error: transferError } = await supabase.rpc('handle_manpay_transaction', {
+        sender_id_in: user.id,
+        receiver_id_in: item.seller_id,
+        amount_in: item.price,
+      })
+      if (transferError) throw transferError
       // Create purchase transaction
       const { error: purchaseError } = await supabase
         .from('marketplace_purchases')
@@ -250,7 +233,7 @@ export const ItemDetailsDialog: React.FC<ItemDetailsDialogProps> = ({
         })
       if (purchaseError) throw purchaseError
 
-      // Check if we need to delete the item (purchase limit reached)
+      // Check if we need to delete the item (purchase limit reached) AFTER successful transfer and purchase record
       if (item.purchase_limit !== null && item.purchase_limit !== undefined) {
         const { data: allPurchases, error: countError } = await supabase
           .from('marketplace_purchases')

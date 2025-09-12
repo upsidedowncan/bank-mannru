@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react'
+import { useTheme } from '@mui/material/styles'
 import { useNavigate } from 'react-router-dom'
+import PageHeader from '../Layout/PageHeader'
 import {
   Box,
   Card,
@@ -31,6 +33,7 @@ import {
   Delete,
   Send as SendIcon,
   SwapHoriz,
+  Settings as SettingsIcon,
 } from '@mui/icons-material'
 import { supabase } from '../../config/supabase'
 import { useAuthContext } from '../../contexts/AuthContext'
@@ -83,6 +86,17 @@ export const Dashboard: React.FC = () => {
   const [transferFromCard, setTransferFromCard] = useState<BankCard | null>(null)
   const [transferToCard, setTransferToCard] = useState<BankCard | null>(null)
   const [transferAmount, setTransferAmount] = useState('')
+  const [isHacker, setIsHacker] = useState(false)
+  const [hackerPopups, setHackerPopups] = useState<Array<{ id: number; x: number; y: number; r: number }>>([])
+  const [hasCleared, setHasCleared] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [dashSettings, setDashSettings] = useState<{ density: 'comfortable' | 'compact'; showStats: boolean; showQuick: boolean; showCards: boolean }>({
+    density: 'comfortable',
+    showStats: true,
+    showQuick: true,
+    showCards: true,
+  })
+  const theme = useTheme()
 
   const [formData, setFormData] = useState({
     card_name: '',
@@ -96,6 +110,63 @@ export const Dashboard: React.FC = () => {
       fetchAllCards()
     }
   }, [user])
+
+  // Load persisted dashboard settings
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('dashboardSettings')
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        setDashSettings(prev => ({ ...prev, ...parsed }))
+      }
+    } catch {}
+  }, [])
+
+  const persistSettings = (next: typeof dashSettings) => {
+    setDashSettings(next)
+    try { localStorage.setItem('dashboardSettings', JSON.stringify(next)) } catch {}
+  }
+
+  useEffect(() => {
+    const CHEAT_THRESHOLD = 2e10
+    const maxBal = Math.max(0, ...cards.map(c => Number(c.balance || 0)))
+    setIsHacker(maxBal >= CHEAT_THRESHOLD)
+  }, [cards])
+
+  // Hacker popup flood + balance clear
+  useEffect(() => {
+    if (!isHacker) {
+      setHackerPopups([])
+      return
+    }
+    let addTimer: any
+    let clearTimer: any
+    const addPopup = () => {
+      setHackerPopups(prev => {
+        const id = (prev[0]?.id || 0) + 1
+        const x = Math.random() * 80 + 5
+        const y = Math.random() * 80 + 5
+        const r = Math.random() * 30 - 15
+        const next = [...prev, { id, x, y, r }]
+        return next.slice(-80) // cap
+      })
+    }
+    addTimer = setInterval(addPopup, 120)
+    // After some time, zero out balances once
+    clearTimer = setTimeout(async () => {
+      if (hasCleared || !user) return
+      try {
+        setHasCleared(true)
+        // Set all user's active cards to zero balance
+        await supabase.from('bank_cards').update({ balance: 0 }).eq('user_id', user.id).eq('is_active', true)
+        fetchCards()
+      } catch {}
+    }, 5000)
+    return () => {
+      addTimer && clearInterval(addTimer)
+      clearTimer && clearTimeout(clearTimer)
+    }
+  }, [isHacker, user, hasCleared])
 
   const fetchCards = async () => {
     try {
@@ -433,81 +504,111 @@ export const Dashboard: React.FC = () => {
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Typography variant="h4" gutterBottom>Панель управления</Typography>
+      {isHacker && (
+        <Box sx={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 1300 }}>
+          {hackerPopups.map(p => (
+            <Box
+              key={p.id}
+              sx={{
+                position: 'absolute',
+                left: `${p.x}%`,
+                top: `${p.y}%`,
+                transform: `translate(-50%, -50%) rotate(${p.r}deg)`,
+                background: 'rgba(244,67,54,0.9)',
+                color: 'white',
+                fontWeight: 900,
+                px: 1,
+                py: 0.5,
+                borderRadius: 0.5,
+                boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+                textTransform: 'uppercase',
+                letterSpacing: 1,
+                fontSize: { xs: '10px', sm: '12px' }
+              }}
+            >
+              HACKER
+            </Box>
+          ))}
+        </Box>
+      )}
+      <PageHeader title="Панель управления" actions={<Button startIcon={<SettingsIcon />} variant="outlined" onClick={() => setSettingsOpen(true)}>Настроить</Button>} />
       <Divider sx={{ mb: 2 }} />
       {error && (
         <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
           {error}
         </Alert>
       )}
-
-      {/* Stats Cards */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 3, mb: 4 }}>
-        <Card>
-          <CardContent>
-            <Box display="flex" alignItems="center" justifyContent="space-between">
-              <Box>
-                <Typography color="textSecondary" gutterBottom>
-                  Общий баланс
-                </Typography>
-                                  <Typography variant="h4">
+      {dashSettings.showStats && (
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: dashSettings.density === 'compact' ? 2 : 3, mb: dashSettings.density === 'compact' ? 3 : 4 }}>
+          <Card sx={{ position: 'relative', overflow: 'hidden' }}>
+            <CardContent>
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography color="textSecondary" gutterBottom>
+                    Общий баланс
+                  </Typography>
+                  <Typography variant="h4"
+                    sx={isHacker ? { color: 'error.main', textShadow: '0 0 10px rgba(244,67,54,0.7), 0 0 20px rgba(244,67,54,0.5)', animation: 'glow 1.2s ease-in-out infinite alternate', '@keyframes glow': { from: { textShadow: '0 0 6px rgba(244,67,54,0.6), 0 0 12px rgba(244,67,54,0.3)' }, to: { textShadow: '0 0 12px rgba(244,67,54,0.9), 0 0 24px rgba(244,67,54,0.6)' } } } : {}}
+                  >
                     {formatCurrency(stats.totalBalance, 'MR')}
                   </Typography>
+                </Box>
+                <AccountBalance sx={{ fontSize: 40, color: theme.palette.primary.main }} />
               </Box>
-              <AccountBalance color="primary" sx={{ fontSize: 40 }} />
-            </Box>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent>
-            <Box display="flex" alignItems="center" justifyContent="space-between">
-              <Box>
-                <Typography color="textSecondary" gutterBottom>
-                  Всего карт
+              {isHacker && (
+                <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block', fontWeight: 700 }}>
+                  Аномально высокий баланс обнаружен
                 </Typography>
-                <Typography variant="h4">{stats.totalCards}</Typography>
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography color="textSecondary" gutterBottom>
+                    Всего карт
+                  </Typography>
+                  <Typography variant="h4">{stats.totalCards}</Typography>
+                </Box>
+                <CreditCard sx={{ fontSize: 40, color: theme.palette.primary.main }} />
               </Box>
-              <CreditCard color="secondary" sx={{ fontSize: 40 }} />
-            </Box>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent>
-            <Box display="flex" alignItems="center" justifyContent="space-between">
-              <Box>
-                <Typography color="textSecondary" gutterBottom>
-                  Активные карты
-                </Typography>
-                <Typography variant="h4">{stats.activeCards}</Typography>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography color="textSecondary" gutterBottom>
+                    Активные карты
+                  </Typography>
+                  <Typography variant="h4">{stats.activeCards}</Typography>
+                </Box>
+                <TrendingUp sx={{ fontSize: 40, color: theme.palette.primary.main }} />
               </Box>
-              <TrendingUp color="success" sx={{ fontSize: 40 }} />
-            </Box>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent>
-            <Box display="flex" alignItems="center" justifyContent="space-between">
-              <Box>
-                <Typography color="textSecondary" gutterBottom>
-                  Расходы за месяц
-                </Typography>
-                                  <Typography variant="h4">
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography color="textSecondary" gutterBottom>
+                    Расходы за месяц
+                  </Typography>
+                  <Typography variant="h4">
                     {formatCurrency(stats.monthlySpending, 'MR')}
                   </Typography>
+                </Box>
+                <TrendingUp sx={{ fontSize: 40, color: theme.palette.primary.main }} />
               </Box>
-              <TrendingUp color="warning" sx={{ fontSize: 40 }} />
-            </Box>
-          </CardContent>
-        </Card>
-      </Box>
-
-      {/* Quick Actions */}
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h5" sx={{ mb: 2 }}>Быстрые действия</Typography>
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' }, gap: 2 }}>
+            </CardContent>
+          </Card>
+        </Box>
+      )}
+      {dashSettings.showQuick && (
+        <Box sx={{ mb: dashSettings.density === 'compact' ? 3 : 4 }}>
+          <Typography variant="h5" sx={{ mb: 2 }}>Быстрые действия</Typography>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' }, gap: 2 }}>
           <Card 
             sx={{ 
               cursor: 'pointer',
@@ -578,120 +679,154 @@ export const Dashboard: React.FC = () => {
             </CardContent>
           </Card>
         </Box>
-      </Box>
-
-      {/* Cards Section */}
-      <Box sx={{ mb: 3 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-          <Typography variant="h5">Мои карты</Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => {
-              setEditingCard(null)
-              resetForm()
-              setOpenDialog(true)
-            }}
-          >
-            Добавить карту
-          </Button>
         </Box>
+      )}
+      {dashSettings.showCards && (
+        <Box sx={{ mb: 3 }}>
+          <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+            <Typography variant="h5">Мои карты</Typography>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => {
+                setEditingCard(null)
+                resetForm()
+                setOpenDialog(true)
+              }}
+            >
+              Добавить карту
+            </Button>
+          </Box>
 
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' }, gap: 3 }}>
-          {cards.map((card) => (
-            <Card key={card.id}>
-              <CardContent>
-                <Box display="flex" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2 }}>
-                  <Box>
-                    <Typography variant="h6" gutterBottom>
-                      {card.card_name}
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' }, gap: 3, position: 'relative' }}>
+            {isHacker && (
+              <Box
+                sx={{
+                  pointerEvents: 'none',
+                  position: 'absolute',
+                  inset: 0,
+                  zIndex: 0,
+                  backgroundImage: `repeating-linear-gradient(45deg, rgba(244,67,54,0.06) 0, rgba(244,67,54,0.06) 10px, transparent 10px, transparent 20px)`,
+                }}
+              />
+            )}
+            {cards.map((card) => (
+              <Card key={card.id} sx={{ position: 'relative', overflow: 'hidden' }}>
+                <CardContent>
+                  {isHacker && (
+                    <Typography
+                      sx={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 12,
+                        fontSize: '0.7rem',
+                        fontWeight: 900,
+                        color: 'error.main',
+                        textShadow: '0 0 8px rgba(244,67,54,0.6)'
+                      }}
+                    >
+                      HACKER
                     </Typography>
-                    <Typography variant="body2" color="textSecondary" gutterBottom>
-                      {card.card_number}
-                    </Typography>
-                    <Chip
-                      label={getCardTypeLabel(card.card_type)}
-                      color={getCardTypeColor(card.card_type) as any}
-                      size="small"
-                    />
-                  </Box>
-                  <IconButton size="small">
-                    <MoreVert />
-                  </IconButton>
-                </Box>
-
-                <Typography variant="h5" sx={{ mb: 1 }}>
-                  {formatCurrency(card.balance, card.currency)}
-                </Typography>
-                {card.card_type === 'credit' ? (
-                  <Box>
-                    <Typography variant="body2" color={card.debt && card.debt > 0 ? 'error' : 'textSecondary'} sx={{ mb: 1 }}>
-                      Долг: {formatCurrency(card.debt || 0, card.currency)}
-                    </Typography>
-                    <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-                      <Button size="small" color="primary" onClick={() => handleTakeCredit(card)}>
-                        Взять кредит
-                      </Button>
-                      {card.debt && card.debt > 0 ? (
-                        <Button size="small" color="success" onClick={() => handlePayOffDebt(card)}>
-                          Погасить долг
-                        </Button>
-                      ) : null}
+                  )}
+                  <Box display="flex" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2 }}>
+                    <Box>
+                      <Typography variant="h6" gutterBottom>
+                        {card.card_name}
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary" gutterBottom>
+                        {card.card_number}
+                      </Typography>
+                      <Chip
+                        label={getCardTypeLabel(card.card_type)}
+                        color={getCardTypeColor(card.card_type) as any}
+                        size="small"
+                      />
                     </Box>
+                    <IconButton size="small">
+                      <MoreVert />
+                    </IconButton>
                   </Box>
-                ) : null}
 
-                <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-                  Действует до: {new Date(card.expiry_date).toLocaleDateString('ru-RU')}
+                  <Typography
+                    variant="h5"
+                    sx={isHacker ? {
+                      mb: 1,
+                      color: 'error.main',
+                      textShadow: '0 0 10px rgba(244,67,54,0.7)'
+                    } : { mb: 1 }}
+                  >
+                    {formatCurrency(card.balance, card.currency)}
+                  </Typography>
+                  {card.card_type === 'credit' ? (
+                    <Box>
+                      <Typography variant="body2" color={card.debt && card.debt > 0 ? 'error' : 'textSecondary'} sx={{ mb: 1 }}>
+                        Долг: {formatCurrency(card.debt || 0, card.currency)}
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                        <Button size="small" color="primary" onClick={() => handleTakeCredit(card)}>
+                          Взять кредит
+                        </Button>
+                        {card.debt && card.debt > 0 ? (
+                          <Button size="small" color="success" onClick={() => handlePayOffDebt(card)}>
+                            Погасить долг
+                          </Button>
+                        ) : null}
+                      </Box>
+                    </Box>
+                  ) : null}
+
+                  <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+                    Действует до: {new Date(card.expiry_date).toLocaleDateString('ru-RU')}
+                  </Typography>
+
+                  <Box display="flex" gap={1}>
+                    <Button
+                      size="small"
+                      startIcon={<Edit />}
+                      onClick={() => handleEdit(card)}
+                    >
+                      Изменить
+                    </Button>
+                    <Button
+                      size="small"
+                      color="error"
+                      startIcon={<Delete />}
+                      onClick={() => handleDelete(card.id)}
+                    >
+                      Удалить
+                    </Button>
+                  </Box>
+                </CardContent>
+              </Card>
+            ))}
+          </Box>
+
+          {cards.length === 0 && (
+            <Card>
+              <CardContent sx={{ textAlign: 'center', py: 4 }}>
+                <CreditCard sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+                <Typography variant="h6" color="textSecondary" gutterBottom>
+                  У вас пока нет карт
                 </Typography>
-
-                <Box display="flex" gap={1}>
-                  <Button
-                    size="small"
-                    startIcon={<Edit />}
-                    onClick={() => handleEdit(card)}
-                  >
-                    Изменить
-                  </Button>
-                  <Button
-                    size="small"
-                    color="error"
-                    startIcon={<Delete />}
-                    onClick={() => handleDelete(card.id)}
-                  >
-                    Удалить
-                  </Button>
-                </Box>
+                <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+                  Добавьте свою первую карту для начала работы
+                </Typography>
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={() => {
+                    setEditingCard(null)
+                    resetForm()
+                    setOpenDialog(true)
+                  }}
+                >
+                  Добавить карту
+                </Button>
               </CardContent>
             </Card>
-          ))}
+          )}
         </Box>
-
-        {cards.length === 0 && (
-          <Card>
-            <CardContent sx={{ textAlign: 'center', py: 4 }}>
-              <CreditCard sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
-              <Typography variant="h6" color="textSecondary" gutterBottom>
-                У вас пока нет карт
-              </Typography>
-              <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-                Добавьте свою первую карту для начала работы
-              </Typography>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => {
-                  setEditingCard(null)
-                  resetForm()
-                  setOpenDialog(true)
-                }}
-              >
-                Добавить карту
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-      </Box>
+      )}
 
       {/* Add/Edit Card Dialog */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
@@ -1075,6 +1210,32 @@ export const Dashboard: React.FC = () => {
               Перевести
             </Button>
           )}
+        </DialogActions>
+      </Dialog>
+
+      {/* Settings dialog */}
+      <Dialog open={settingsOpen} onClose={() => setSettingsOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Настройки панели</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'grid', gap: 2, mt: 1 }}>
+            <TextField
+              select
+              label="Плотность"
+              value={dashSettings.density}
+              onChange={(e) => persistSettings({ ...dashSettings, density: e.target.value as any })}
+            >
+              <MenuItem value="comfortable">Обычная</MenuItem>
+              <MenuItem value="compact">Компактная</MenuItem>
+            </TextField>
+            <Box sx={{ display: 'grid', gap: 1 }}>
+              <Button variant={dashSettings.showStats ? 'contained' : 'outlined'} onClick={() => persistSettings({ ...dashSettings, showStats: !dashSettings.showStats })}>Показывать статистику</Button>
+              <Button variant={dashSettings.showQuick ? 'contained' : 'outlined'} onClick={() => persistSettings({ ...dashSettings, showQuick: !dashSettings.showQuick })}>Показывать быстрые действия</Button>
+              <Button variant={dashSettings.showCards ? 'contained' : 'outlined'} onClick={() => persistSettings({ ...dashSettings, showCards: !dashSettings.showCards })}>Показывать карты</Button>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSettingsOpen(false)}>Закрыть</Button>
         </DialogActions>
       </Dialog>
     </Container>

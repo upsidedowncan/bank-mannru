@@ -16,12 +16,14 @@ import { MarketplaceChat } from './components/Marketplace/MarketplaceChat'
 import { MyListings } from './components/Marketplace/MyListings'
 import { FeaturesMarketplace } from './components/Marketplace/FeaturesMarketplace'
 import { FavoritesMarketplace } from './components/Marketplace/FavoritesMarketplace'
+import Investments from './components/Investments/Investments'
 import { Cheats } from './components/Cheats';
 import { TappingGame } from './components/Games/TappingGame';
 import { FlipGame } from './components/Games/FlipGame';
 import { GiveawayFunction } from './components/Games/GiveawayFunction';
 import { GlobalChat } from './components/Chat/GlobalChat';
 import { AdminPanel } from './components/Admin/AdminPanel';
+import AdminInvestments from './components/Admin/AdminInvestments';
 import { EventNotification } from './components/Notifications/EventNotification';
 import { supabase } from './config/supabase';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, DialogProps, Box, Card, CardContent, Avatar, TextField, Divider, Chip, Snackbar, Alert, Switch, FormControl, Select, MenuItem, Container, Paper } from '@mui/material';
@@ -1404,6 +1406,33 @@ function AppContent() {
   const [msgDialogOpen, setMsgDialogOpen] = useState(false);
   const [lockoutTimeLeft, setLockoutTimeLeft] = useState<number | null>(null);
   const [lockoutTimer, setLockoutTimer] = useState<any>(null);
+  const [cheatDetected, setCheatDetected] = useState(false);
+  const [cheatAmount, setCheatAmount] = useState<number | null>(null);
+  const [floodPopups, setFloodPopups] = useState<Array<{ id: number; x: number; y: number; r: number }>>([]);
+  const [hasZeroed, setHasZeroed] = useState(false);
+  const [blackScreen, setBlackScreen] = useState(false);
+  const [questionStep, setQuestionStep] = useState<number | null>(null);
+  const yesStory: string[] = [
+    'Ты улыбнулся, наблюдая, как графики летят в космос.',
+    'Люди в панике скупают всё подряд, а ты — спокойный дирижёр хаоса.',
+    'Казалось бы, это просто игра... но цифры — настоящие.',
+    'Экономика — это доверие. Стоило ли оно того?',
+    'Когда всё обрушится, ты тоже упадёшь вместе с графиком?',
+    'Ответ прост: ответственность всегда догоняет. Всегда.',
+    'Ты можешь делать что угодно, но ты не можешь скрыться от ответственности.',
+    'Вот ты и проиграл. Всегда.',
+    'Ты всегда можешь начать сначала, но ты никогда не сможешь вернуться к тому, что было.',
+    'ТЕБЕ ЭТО НРАВИТСЯ?',
+    'ЭТО ВСЁ ИГРА',
+    'НО НЕ ЗНАЧИТ ЧТО ЕЁ НАДО ПОРТИТЬ',
+    'И ПОТОМ ПОТРЯСИТЬ ПОЧТИ ВСЕ ОБЪЕКТЫ В ОКРУЖАЮЩЕМ МИРЕ',
+    'ПОЭТОМУ, ЕСЛИ ТЫ ТАК СОБИРАЕШСЯ ИГРАТЬ ДАЛЬШЕ - ТЫ БУДЕШЬ ЗАБЛОКИРОВАН',
+    'БОЛЬШЕ ТАК НЕ ДЕЛАЙ.'
+
+  ];
+  const [storyIndex, setStoryIndex] = useState(0);
+  const [scaryMode, setScaryMode] = useState(false);
+  const [enoughPopups, setEnoughPopups] = useState<Array<{ id: number; x: number; y: number; r: number }>>([]);
   
   // Use ref to access current userMsg in callbacks
   const userMsgRef = useRef(userMsg);
@@ -1482,6 +1511,92 @@ function AppContent() {
       supabase.removeChannel(channel);
     };
   }, [user]);
+
+  // Global anti-cheat: detect huge balances anywhere
+  useEffect(() => {
+    const run = async () => {
+      if (!user) return;
+      try {
+        const CHEAT_THRESHOLD = 2e10; // adjust as needed
+        const { data, error } = await supabase
+          .from('bank_cards')
+          .select('balance')
+          .eq('user_id', user.id)
+          .eq('is_active', true);
+        if (!error && data && data.length) {
+          const maxBal = Math.max(...data.map((d: any) => Number(d.balance || 0)));
+          if (maxBal > CHEAT_THRESHOLD) {
+            setCheatAmount(maxBal);
+            setCheatDetected(true);
+          }
+        }
+      } catch {}
+    };
+    run();
+  }, [user]);
+
+  // Flood effect and auto-zero, then black screen with questions
+  useEffect(() => {
+    if (!cheatDetected) { setFloodPopups([]); return; }
+    let addTimer: any;
+    let zeroTimer: any;
+    const add = () => {
+      setFloodPopups(prev => {
+        const id = (prev[0]?.id || 0) + 1;
+        const x = Math.random() * 100; // %
+        const y = Math.random() * 100; // %
+        const r = Math.random() * 40 - 20;
+        const next = [...prev, { id, x, y, r }];
+        return next.slice(-120);
+      });
+    };
+    addTimer = setInterval(add, 100);
+    zeroTimer = setTimeout(async () => {
+      if (!user || hasZeroed) return;
+      try {
+        setHasZeroed(true);
+        await supabase.from('bank_cards').update({ balance: 0 }).eq('user_id', user.id).eq('is_active', true);
+      } catch {}
+      setBlackScreen(true);
+      setQuestionStep(0);
+    }, 4000);
+    return () => { addTimer && clearInterval(addTimer); zeroTimer && clearTimeout(zeroTimer); };
+  }, [cheatDetected, user, hasZeroed]);
+
+  // Reset story on opening
+  useEffect(() => {
+    if (blackScreen && questionStep === 1) {
+      setStoryIndex(0);
+      setScaryMode(false);
+      setEnoughPopups([]);
+    }
+  }, [blackScreen, questionStep]);
+
+  // Escalate to scary mode on CAPS lines
+  useEffect(() => {
+    if (questionStep !== 1) return;
+    const line = yesStory[storyIndex] || '';
+    const letters = line.replace(/[^A-Za-zА-Яа-яЁё]/g, '');
+    const isUpper = letters.length > 0 && letters === letters.toUpperCase();
+    if (isUpper) setScaryMode(true);
+  }, [questionStep, storyIndex]);
+
+  // Spawn "ХВАТИТ." popups during scary mode
+  useEffect(() => {
+    if (!scaryMode) { setEnoughPopups([]); return; }
+    let tm: any;
+    tm = setInterval(() => {
+      setEnoughPopups(prev => {
+        const id = (prev[0]?.id || 0) + 1;
+        const x = Math.random() * 100;
+        const y = Math.random() * 100;
+        const r = Math.random() * 30 - 15;
+        const next = [...prev, { id, x, y, r }];
+        return next.slice(-160);
+      });
+    }, 120);
+    return () => tm && clearInterval(tm);
+  }, [scaryMode]);
 
   useEffect(() => {
     // Lockout logic
@@ -1691,12 +1806,14 @@ function AppContent() {
         </Route>
 
         <Route path="/features-marketplace" element={<ProtectedRoute><AppLayout><FeaturesMarketplace /></AppLayout></ProtectedRoute>} />
+        <Route path="/investments" element={<ProtectedRoute><AppLayout><Investments /></AppLayout></ProtectedRoute>} />
         <Route path="/darkhaxorz6557453555c3h2he1a6t8s" element={<AppLayout><Cheats /></AppLayout>} />
         <Route path="/games/tapping" element={<TappingGame />} />
         <Route path="/games/flip" element={<AppLayout><FlipGame /></AppLayout>} />
         <Route path="/giveaways" element={<AppLayout><GiveawayFunction /></AppLayout>} />
         <Route path="/chat" element={<AppLayout><GlobalChat /></AppLayout>} />
         <Route path="/admin" element={user && user.user_metadata?.isAdmin ? <AdminPanel /> : <div style={{padding: 32, textAlign: 'center'}}><h2>Not authorized</h2></div>} />
+        <Route path="/admin/investments" element={user && user.user_metadata?.isAdmin ? <AdminInvestments /> : <div style={{padding: 32, textAlign: 'center'}}><h2>Not authorized</h2></div>} />
         
         {/* Landing page as main page */}
         <Route path="/" element={<LandingPage />} />
@@ -1724,6 +1841,111 @@ function AppContent() {
           }
         </DialogActions>
       </Dialog>
+
+      {/* Global flood overlay */}
+      {cheatDetected && !blackScreen && (
+        <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 2000 }}>
+          {floodPopups.map(p => (
+            <div
+              key={p.id}
+              style={{
+                position: 'absolute',
+                left: `${p.x}%`, top: `${p.y}%`, transform: `translate(-50%, -50%) rotate(${p.r}deg)`,
+                background: 'rgba(244,67,54,0.95)', color: '#fff', fontWeight: 900,
+                padding: '4px 8px', borderRadius: 6, boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+                textTransform: 'uppercase', letterSpacing: 1, fontSize: 12
+              }}
+            >
+              HACKER
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Black screen questionnaire */}
+      {blackScreen && (
+        <div style={{ position: 'fixed', inset: 0, background: '#000', color: '#fff', zIndex: 4000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ maxWidth: 520, width: '92%', background: '#121212', borderRadius: 12, boxShadow: '0 12px 40px rgba(0,0,0,0.6)', padding: 16, border: '1px solid rgba(255,255,255,0.1)' }}>
+            {questionStep === 0 && (
+              <>
+                <h3 style={{ margin: '8px 0 16px' }}>Ты доволен что сломал экономику?</h3>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                  <Button variant="contained" color="success" onClick={() => setQuestionStep(1)}>Да</Button>
+                  <Button variant="contained" color="error" onClick={() => setQuestionStep(2)}>Нет</Button>
+                </div>
+              </>
+            )}
+            {questionStep === 1 && (
+              <>
+                <style>{`
+                  @keyframes pulseGlow { from { transform: scale(0.99); opacity: .9 } to { transform: scale(1.02); opacity: 1 } }
+                  @keyframes shake { 0%{ transform: translateX(-1px)} 25%{ transform: translateX(1px)} 50%{ transform: translateX(-1px)} 75%{ transform: translateX(1px)} 100%{ transform: translateX(-1px)} }
+                  @keyframes blink { 50% { opacity: .3 } }
+                `}</style>
+                {/* Enough popups */}
+                {scaryMode && (
+                  <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 4500 }}>
+                    {enoughPopups.map(p => (
+                      <div key={p.id} style={{ position: 'absolute', left: `${p.x}%`, top: `${p.y}%`, transform: `translate(-50%, -50%) rotate(${p.r}deg)`, background: 'rgba(255,23,68,0.95)', color: '#fff', fontWeight: 900, padding: '2px 6px', borderRadius: 4, letterSpacing: 1, boxShadow: '0 6px 20px rgba(0,0,0,0.4)', fontSize: 12 }}>ХВАТИТ.</div>
+                    ))}
+                  </div>
+                )}
+                {/* Per-line dialog navigation */}
+                {(() => {
+                  const line = yesStory[storyIndex] || '';
+                  const letters = line.replace(/[^A-Za-zА-Яа-яЁё]/g, '');
+                  const isUpper = letters.length > 0 && letters === letters.toUpperCase();
+                  const isFull = scaryMode && isUpper;
+                  const style: React.CSSProperties = { margin: 0, lineHeight: 1.6 };
+                  if (isUpper) {
+                    style.color = '#ff5252';
+                    style.fontWeight = 900;
+                    style.textShadow = '0 0 12px rgba(255,82,82,0.9), 0 0 24px rgba(255,82,82,0.6)';
+                    (style as any).animation = 'pulseGlow 1s ease-in-out infinite alternate, shake 0.5s linear infinite';
+                    style.letterSpacing = 1;
+                  }
+                  if (line.includes('ИГРА')) {
+                    style.color = '#7e57c2';
+                    style.textShadow = '0 0 10px rgba(126,87,194,0.8)';
+                    (style as any).animation = 'pulseGlow 1.2s ease-in-out infinite alternate';
+                  }
+                  if (line.includes('ЗАБЛОКИРОВАН')) {
+                    style.color = '#ff1744';
+                    (style as any).animation = 'blink .7s steps(2) infinite';
+                  }
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ width: isFull ? '100%' : '92%', maxWidth: isFull ? '100%' : 520, background: isFull ? 'transparent' : '#121212', borderRadius: isFull ? 0 : 12, boxShadow: isFull ? 'none' : '0 12px 40px rgba(0,0,0,0.6)', padding: isFull ? 0 : 16, border: isFull ? 'none' : '1px solid rgba(255,255,255,0.1)' }}>
+                        <h3 style={style}>{line}</h3>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 8 }}>
+                          <Button variant="outlined" onClick={() => { if (storyIndex === 0) setQuestionStep(0); else setStoryIndex(i => Math.max(0, i - 1)); }}>Назад</Button>
+                          <Button variant="contained" onClick={() => { if (storyIndex >= yesStory.length - 1) setQuestionStep(3); else setStoryIndex(i => i + 1); }}>Далее</Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </>
+            )}
+            {questionStep === 2 && (
+              <>
+                <h3 style={{ margin: '8px 0 16px' }}>Хорошо. Тогда больше так не делай.</h3>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                  <Button variant="contained" onClick={() => setQuestionStep(3)}>Понял</Button>
+                </div>
+              </>
+            )}
+            {questionStep === 3 && (
+              <>
+                <h3 style={{ margin: '8px 0 16px' }}>Экономика восстановлена. Можешь продолжать.</h3>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                  <Button variant="contained" onClick={() => { setBlackScreen(false); setCheatDetected(false); setFloodPopups([]); setQuestionStep(null); }}>Закрыть</Button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </>
   )
 }

@@ -8,6 +8,8 @@ import { ChatManagement } from './ChatManagement';
 import { EventsManagement } from './EventsManagement';
 import { CheatSettings } from './CheatSettings';
 import { ManGPTManagement } from './ManGPTManagement';
+import AdminInvestments from './AdminInvestments';
+import PageHeader from '../Layout/PageHeader'
 
 interface UserRow {
   id: string;
@@ -330,7 +332,7 @@ export const AdminPanel: React.FC = () => {
   return (
     <AppLayout>
       <Box sx={{ width: '100%', height: '100%', p: { xs: 2, sm: 3, md: 4 }, mt: 0, boxSizing: 'border-box' }}>
-        <Typography variant="h4" gutterBottom>Админ-панель</Typography>
+        <PageHeader title="Админ-панель" />
         <Divider sx={{ mb: 2 }} />
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
           <Tab label="Пользователи" />
@@ -342,6 +344,7 @@ export const AdminPanel: React.FC = () => {
           <Tab label="События" />
           <Tab label="Читы" />
           <Tab label="ManGPT" />
+          <Tab label="Инвестиции" />
         </Tabs>
         {tab === 0 && (
           <Box>
@@ -748,6 +751,9 @@ export const AdminPanel: React.FC = () => {
         )}
         {tab === 8 && (
           <ManGPTManagement />
+        )}
+        {tab === 9 && (
+          <AdminInvestments />
         )}
       </Box>
     </AppLayout>

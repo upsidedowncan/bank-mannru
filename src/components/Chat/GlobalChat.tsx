@@ -1937,6 +1937,27 @@ export const GlobalChat: React.FC = () => {
     }
   }, []);
 
+  // Sidebar search state
+  const [channelSearch, setChannelSearch] = useState('');
+
+  // Sidebar filtered lists (must be declared before any early returns)
+  const filteredChannels = useMemo(() => {
+    const q = channelSearch.trim().toLowerCase();
+    if (!q) return channels;
+    return channels.filter(c =>
+      c.name.toLowerCase().includes(q) || (c.description || '').toLowerCase().includes(q)
+    );
+  }, [channels, channelSearch]);
+
+  const filteredDMs = useMemo(() => {
+    const q = channelSearch.trim().toLowerCase();
+    if (!q) return dmConversations;
+    return dmConversations.filter(convo => {
+      const other = convo.participants.find(p => p.user_id !== user?.id);
+      return (other?.user_name || '').toLowerCase().includes(q) || (convo.last_message_content || '').toLowerCase().includes(q);
+    });
+  }, [dmConversations, channelSearch, user?.id]);
+
   const loadMoreMarketItems = useCallback(() => {
     if (!marketItemsLoading && hasMoreMarketItems) {
       const nextPage = marketItemsPage + 1;
@@ -1973,7 +1994,7 @@ export const GlobalChat: React.FC = () => {
 
   const renderChannels = () => (
     <List sx={{ flex: 1, overflowY: 'auto', py: 0 }}>
-      {channels.map((channel) => (
+      {filteredChannels.map((channel) => (
         <ListItem key={channel.id} disablePadding>
           <ListItemButton
             selected={selectedChat?.id === channel.id}
@@ -1982,16 +2003,26 @@ export const GlobalChat: React.FC = () => {
               if (isMobile) setMobileDrawerOpen(false);
             }}
             sx={{
-              py: isMobile ? 1.5 : 1,
-              px: isMobile ? 2 : 1,
+              py: isMobile ? 1.25 : 1,
+              px: isMobile ? 2 : 1.5,
               borderRadius: isMobile ? 1 : 0,
               mx: isMobile ? 1 : 0,
-              mb: isMobile ? 0.5 : 0,
+              mb: isMobile ? 0.25 : 0,
+              position: 'relative',
+              '&:hover': {
+                bgcolor: 'action.hover'
+              },
               '&.Mui-selected': {
-                bgcolor: 'primary.main',
-                color: 'white',
-                '&:hover': {
-                  bgcolor: 'primary.dark',
+                bgcolor: 'action.selected',
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  left: 0,
+                  top: 6,
+                  bottom: 6,
+                  width: 3,
+                  borderRadius: 3,
+                  backgroundColor: 'primary.main'
                 }
               }
             }}
@@ -2003,8 +2034,8 @@ export const GlobalChat: React.FC = () => {
               primary={channel.name} 
               secondary={channel.description}
               primaryTypographyProps={{
-                fontSize: isMobile ? '0.95rem' : '0.875rem',
-                fontWeight: selectedChat?.id === channel.id ? 600 : 400
+                fontSize: isMobile ? '0.95rem' : '0.9rem',
+                fontWeight: selectedChat?.id === channel.id ? 600 : 500
               }}
               secondaryTypographyProps={{
                 fontSize: isMobile ? '0.8rem' : '0.75rem',
@@ -2101,7 +2132,7 @@ export const GlobalChat: React.FC = () => {
       >
         Direct Messages
       </Typography>
-      {dmConversations.map((convo) => {
+      {filteredDMs.map((convo) => {
         const otherParticipant = convo.participants.find(p => p.user_id !== user?.id);
         const IconComponent = getProfileIconComponent(otherParticipant?.pfp_icon || 'Person');
         return (
@@ -2113,16 +2144,26 @@ export const GlobalChat: React.FC = () => {
                 if (isMobile) setMobileDrawerOpen(false);
               }}
               sx={{
-                py: isMobile ? 1.5 : 1,
-                px: isMobile ? 2 : 1,
+                py: isMobile ? 1.25 : 1,
+                px: isMobile ? 2 : 1.5,
                 borderRadius: isMobile ? 1 : 0,
                 mx: isMobile ? 1 : 0,
-                mb: isMobile ? 0.5 : 0,
+                mb: isMobile ? 0.25 : 0,
+                position: 'relative',
+                '&:hover': {
+                  bgcolor: 'action.hover'
+                },
                 '&.Mui-selected': {
-                  bgcolor: 'primary.main',
-                  color: 'white',
-                  '&:hover': {
-                    bgcolor: 'primary.dark',
+                  bgcolor: 'action.selected',
+                  '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    left: 0,
+                    top: 6,
+                    bottom: 6,
+                    width: 3,
+                    borderRadius: 3,
+                    backgroundColor: 'primary.main'
                   }
                 }
               }}
@@ -2141,8 +2182,8 @@ export const GlobalChat: React.FC = () => {
                 primary={otherParticipant?.user_name || 'User'}
                 secondary={convo.last_message_content}
                 primaryTypographyProps={{
-                  fontSize: isMobile ? '0.95rem' : '0.875rem',
-                  fontWeight: selectedChat?.id === convo.id ? 600 : 400
+                  fontSize: isMobile ? '0.95rem' : '0.9rem',
+                  fontWeight: selectedChat?.id === convo.id ? 600 : 500
                 }}
                 secondaryTypographyProps={{ 
                   noWrap: true, 
@@ -2288,14 +2329,33 @@ export const GlobalChat: React.FC = () => {
           </Box>
         </Drawer>
       ) : (
-        <Box sx={{ width: 280, flexShrink: 0, borderRight: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
-          <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6">Чаты</Typography>
-            <IconButton onClick={() => setNewDmDialogOpen(true)}>
-              <AddIcon />
-            </IconButton>
+        <Box sx={{ width: 300, flexShrink: 0, borderRight: '1px solid', borderColor: 'divider', display: 'flex', flexDirection: 'column', bgcolor: 'background.paper' }}>
+          <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider', position: 'sticky', top: 0, zIndex: 2, backdropFilter: 'saturate(160%) blur(8px)', backgroundImage: (theme.palette.mode === 'light')
+            ? `linear-gradient(180deg, ${theme.palette.background.paper} 0%, ${theme.palette.background.paper} 70%, rgba(0,0,0,0.02) 100%)`
+            : 'linear-gradient(180deg, rgba(26,26,26,1) 0%, rgba(26,26,26,0.9) 70%, rgba(255,255,255,0.04) 100%)' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>Чаты</Typography>
+              <IconButton onClick={() => setNewDmDialogOpen(true)} sx={{ bgcolor: 'action.hover', '&:hover': { bgcolor: 'action.selected' } }}>
+                <AddIcon />
+              </IconButton>
+            </Box>
+            <TextField
+              value={channelSearch}
+              onChange={(e) => setChannelSearch(e.target.value)}
+              placeholder="Поиск"
+              size="small"
+              fullWidth
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  bgcolor: 'background.default'
+                }
+              }}
+            />
           </Box>
-          {renderChannels()}
+          <Box sx={{ overflowY: 'auto', flex: 1, '&::-webkit-scrollbar': { width: 6 }, '&::-webkit-scrollbar-thumb': { backgroundColor: 'divider', borderRadius: 3 } }}>
+            {renderChannels()}
+          </Box>
         </Box>
       )}
 
@@ -2304,13 +2364,17 @@ export const GlobalChat: React.FC = () => {
         {/* Header */}
         <Box sx={{ 
           p: isMobile ? 1.5 : 1, 
-          borderBottom: 1, 
+          borderBottom: '1px solid', 
           borderColor: 'divider', 
           flexShrink: 0,
           bgcolor: 'background.paper',
           position: 'sticky',
           top: 0,
-          zIndex: 10
+          zIndex: 10,
+          backdropFilter: 'saturate(180%) blur(10px)',
+          backgroundImage: (theme.palette.mode === 'light')
+            ? `linear-gradient(180deg, ${theme.palette.background.paper} 0%, ${theme.palette.background.paper} 70%, rgba(0,0,0,0.02) 100%)`
+            : 'linear-gradient(180deg, rgba(26,26,26,1) 0%, rgba(26,26,26,0.9) 70%, rgba(255,255,255,0.04) 100%)'
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: isMobile ? 1.5 : 1, flex: 1, minWidth: 0 }}>
@@ -2332,7 +2396,8 @@ export const GlobalChat: React.FC = () => {
                     fontWeight: 600,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap'
+                    whiteSpace: 'nowrap',
+                    letterSpacing: 0.2
                   }}
                 >
                 {selectedChat ? (
@@ -2461,15 +2526,16 @@ export const GlobalChat: React.FC = () => {
             <Fade in={!conversationLoading} timeout={500}>
                 <Box 
                   sx={{ 
-                  p: isMobile ? 1.5 : 2, 
-                    borderTop: 1, 
+                  p: isMobile ? 1.25 : 1.5, 
+                    borderTop: '1px solid', 
                     borderColor: 'divider', 
                     bgcolor: 'background.paper', 
                     flexShrink: 0,
                   transition: 'all 0.2s ease-in-out',
                   position: 'sticky',
                   bottom: 0,
-                  zIndex: 10
+                  zIndex: 10,
+                  backdropFilter: 'saturate(160%) blur(8px)'
                   }}
                   onDragOver={handleDragOver}
                   onDrop={handleDrop}
@@ -2658,19 +2724,22 @@ export const GlobalChat: React.FC = () => {
                   )}
                   <Box 
                     display="flex" 
-                    gap={isMobile ? 0.5 : 1} 
+                    gap={isMobile ? 0.75 : 1}
                     alignItems="flex-end"
                     sx={{
-                      // Mobile-specific improvements
-                      ...(isMobile && {
-                        '& .MuiTextField-root': {
-                          '& .MuiInputBase-root': {
-                            '&:focus-within': {
-                              boxShadow: '0 0 0 2px rgba(25, 118, 210, 0.2)',
-                            }
-                          }
+                      p: isMobile ? 0.5 : 0.75,
+                      borderRadius: 2,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      boxShadow: theme.palette.mode === 'light' ? '0 4px 14px rgba(0,0,0,0.06)' : '0 6px 18px rgba(0,0,0,0.35)',
+                      bgcolor: 'background.paper',
+                      '& .MuiTextField-root': {
+                        flex: 1,
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: 2,
+                          bgcolor: 'background.default'
                         }
-                      })
+                      }
                     }}
                   >
                     <TextField

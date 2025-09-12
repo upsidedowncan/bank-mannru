@@ -100,7 +100,7 @@ import {
   ExpandLess,
   ExpandMore,
 } from '@mui/icons-material'
-import { Outlet, useNavigate } from 'react-router-dom'
+import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthContext } from '../../contexts/AuthContext'
 import { useThemeContext } from '../../contexts/ThemeContext'
 import { supabase } from '../../config/supabase';
@@ -197,6 +197,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const [mobileOpen, setMobileOpen] = React.useState(false)
   const theme = useTheme()
   const navigate = useNavigate()
+  const location = useLocation()
   const { signOut, user } = useAuthContext()
   const [dynamicFeatures, setDynamicFeatures] = React.useState<{ title: string; route: string; icon: string }[]>([])
   const [openMarketplace, setOpenMarketplace] = React.useState(true)
@@ -232,8 +233,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     { text: 'Главная', icon: <Home />, path: '/' },
     { text: 'Панель управления', icon: <Dashboard />, path: '/dashboard' },
     { text: 'Рынок', icon: <StoreIcon />, path: '/marketplace' },
-    { text: 'Мои товары', icon: <InventoryIcon />, path: '/marketplace/my-listings' },
     { text: 'Сообщения', icon: <ChatIcon />, path: '/marketplace/chat' },
+    { text: 'Инвестиции', icon: <TrendingUp />, path: '/investments' },
     { text: 'Маркет функций', icon: <ExtensionIcon />, path: '/features-marketplace' },
     { text: 'Профиль', icon: <Person />, path: '/dashboard/profile' },
     { text: 'Настройки', icon: <Settings />, path: '/dashboard/settings' },
@@ -263,7 +264,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             ml: -1.25,
           }}
         />
-        <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
+        <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1, fontWeight: 700 }}>
           Банк Маннру
         </Typography>
       </Toolbar>
@@ -281,8 +282,18 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             item.path === '/marketplace' ? (
               <Box key={item.text}>
                 <ListItem disablePadding>
-                  <ListItemButton onClick={() => setOpenMarketplace(v => !v)}>
-                    <ListItemIcon>{item.icon}</ListItemIcon>
+                  <ListItemButton
+                    onClick={() => setOpenMarketplace(v => !v)}
+                    sx={{
+                      mx: 1,
+                      my: 0.5,
+                      borderRadius: 2,
+                      '&:hover': {
+                        backgroundColor: theme.palette.mode === 'light' ? theme.palette.primary.light : 'rgba(255,255,255,0.06)'
+                      }
+                    }}
+                  >
+                    <ListItemIcon sx={{ color: theme.palette.text.secondary, minWidth: 40 }}>{item.icon}</ListItemIcon>
                     <ListItemText primary={item.text} />
                     {openMarketplace ? <ExpandLess /> : <ExpandMore />}
                   </ListItemButton>
@@ -290,22 +301,86 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                 <Collapse in={openMarketplace} timeout="auto" unmountOnExit>
                   <List component="div" disablePadding>
                     <ListItem disablePadding>
-                      <ListItemButton sx={{ pl: 7 }} onClick={() => navigate('/marketplace')}>
+                      <ListItemButton
+                        selected={location.pathname === '/marketplace'}
+                        sx={{
+                          pl: 7,
+                          mx: 1,
+                          mr: 1.5,
+                          my: 0.25,
+                          borderRadius: 2,
+                          '&.Mui-selected': {
+                            backgroundColor: theme.palette.mode === 'light' ? theme.palette.primary.light : 'rgba(255,255,255,0.08)'
+                          },
+                          '&:hover': {
+                            backgroundColor: theme.palette.mode === 'light' ? theme.palette.primary.light : 'rgba(255,255,255,0.06)'
+                          }
+                        }}
+                        onClick={() => navigate('/marketplace')}
+                      >
                         <ListItemText primary="Все товары" />
                       </ListItemButton>
                     </ListItem>
                     <ListItem disablePadding>
-                      <ListItemButton sx={{ pl: 7 }} onClick={() => navigate('/marketplace/my-listings')}>
+                      <ListItemButton
+                        selected={location.pathname === '/marketplace/my-listings'}
+                        sx={{
+                          pl: 7,
+                          mx: 1,
+                          mr: 1.5,
+                          my: 0.25,
+                          borderRadius: 2,
+                          '&.Mui-selected': {
+                            backgroundColor: theme.palette.mode === 'light' ? theme.palette.primary.light : 'rgba(255,255,255,0.08)'
+                          },
+                          '&:hover': {
+                            backgroundColor: theme.palette.mode === 'light' ? theme.palette.primary.light : 'rgba(255,255,255,0.06)'
+                          }
+                        }}
+                        onClick={() => navigate('/marketplace/my-listings')}
+                      >
                         <ListItemText primary="Мои товары" />
                       </ListItemButton>
                     </ListItem>
                     <ListItem disablePadding>
-                      <ListItemButton sx={{ pl: 7 }} onClick={() => navigate('/marketplace/chat')}>
+                      <ListItemButton
+                        selected={location.pathname === '/marketplace/chat'}
+                        sx={{
+                          pl: 7,
+                          mx: 1,
+                          mr: 1.5,
+                          my: 0.25,
+                          borderRadius: 2,
+                          '&.Mui-selected': {
+                            backgroundColor: theme.palette.mode === 'light' ? theme.palette.primary.light : 'rgba(255,255,255,0.08)'
+                          },
+                          '&:hover': {
+                            backgroundColor: theme.palette.mode === 'light' ? theme.palette.primary.light : 'rgba(255,255,255,0.06)'
+                          }
+                        }}
+                        onClick={() => navigate('/marketplace/chat')}
+                      >
                         <ListItemText primary="Сообщения" />
                       </ListItemButton>
                     </ListItem>
                     <ListItem disablePadding>
-                      <ListItemButton sx={{ pl: 7 }} onClick={() => navigate('/marketplace/favorites')}>
+                      <ListItemButton
+                        selected={location.pathname === '/marketplace/favorites'}
+                        sx={{
+                          pl: 7,
+                          mx: 1,
+                          mr: 1.5,
+                          my: 0.25,
+                          borderRadius: 2,
+                          '&.Mui-selected': {
+                            backgroundColor: theme.palette.mode === 'light' ? theme.palette.primary.light : 'rgba(255,255,255,0.08)'
+                          },
+                          '&:hover': {
+                            backgroundColor: theme.palette.mode === 'light' ? theme.palette.primary.light : 'rgba(255,255,255,0.06)'
+                          }
+                        }}
+                        onClick={() => navigate('/marketplace/favorites')}
+                      >
                         <ListItemText primary="Избранное" />
                       </ListItemButton>
                     </ListItem>
@@ -314,8 +389,25 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
               </Box>
             ) : (
               <ListItem key={item.text} disablePadding>
-                <ListItemButton onClick={() => navigate(item.path)}>
-                  <ListItemIcon>{item.icon}</ListItemIcon>
+                <ListItemButton
+                  selected={location.pathname === item.path || (item.path === '/marketplace' && location.pathname.startsWith('/marketplace'))}
+                  onClick={() => navigate(item.path)}
+                  sx={{
+                    mx: 1,
+                    my: 0.5,
+                    borderRadius: 2,
+                    transition: 'background-color 0.2s ease',
+                    '&.Mui-selected': {
+                      backgroundColor: theme.palette.mode === 'light' ? theme.palette.primary.light : 'rgba(255,255,255,0.08)'
+                    },
+                    '&:hover': {
+                      backgroundColor: theme.palette.mode === 'light' ? theme.palette.primary.light : 'rgba(255,255,255,0.06)'
+                    }
+                  }}
+                >
+                  <ListItemIcon sx={{ color: (location.pathname === item.path || (item.path === '/marketplace' && location.pathname.startsWith('/marketplace'))) ? theme.palette.primary.main : theme.palette.text.secondary, minWidth: 40 }}>
+                    {item.icon}
+                  </ListItemIcon>
                   <ListItemText primary={item.text} />
                 </ListItemButton>
               </ListItem>
@@ -362,18 +454,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             Банк Маннру
           </Typography>
-          <IconButton
-            color="inherit"
-            aria-label="toggle theme"
-            onClick={() => {
-              const newMode = theme.palette.mode === 'light' ? 'dark' : 'light';
-              localStorage.setItem('theme', newMode);
-              window.location.reload();
-            }}
-            sx={{ display: { sm: 'none' } }}
-          >
-            {theme.palette.mode === 'light' ? '🌙' : '☀️'}
-          </IconButton>
+          {/* Theme toggle removed on mobile */}
         </Toolbar>
       </AppBar>
       <Box
@@ -393,6 +474,11 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             '& .MuiDrawer-paper': {
               boxSizing: 'border-box',
               width: drawerWidth,
+              backgroundImage: theme.palette.mode === 'light'
+                ? `linear-gradient(180deg, ${theme.palette.background.paper} 0%, ${theme.palette.background.paper} 60%, ${theme.palette.primary.light} 160%)`
+                : 'linear-gradient(180deg, #121212 0%, #121212 60%, rgba(255,255,255,0.04) 160%)',
+              backgroundColor: theme.palette.background.paper,
+              paddingTop: 0,
             },
           }}
         >
@@ -405,6 +491,11 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             '& .MuiDrawer-paper': {
               boxSizing: 'border-box',
               width: drawerWidth,
+              backgroundImage: theme.palette.mode === 'light'
+                ? `linear-gradient(180deg, ${theme.palette.background.paper} 0%, ${theme.palette.background.paper} 60%, ${theme.palette.primary.light} 160%)`
+                : 'linear-gradient(180deg, #121212 0%, #121212 60%, rgba(255,255,255,0.04) 160%)',
+              backgroundColor: theme.palette.background.paper,
+              paddingTop: 0,
             },
           }}
           open
