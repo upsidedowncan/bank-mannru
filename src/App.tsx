@@ -26,7 +26,7 @@ import { AdminPanel } from './components/Admin/AdminPanel';
 import AdminInvestments from './components/Admin/AdminInvestments';
 import { EventNotification } from './components/Notifications/EventNotification';
 import { supabase } from './config/supabase';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, DialogProps, Box, Card, CardContent, Avatar, TextField, Divider, Chip, Snackbar, Alert, Switch, FormControl, Select, MenuItem, Container, Paper } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, DialogProps, Box, Card, CardContent, Avatar, TextField, Divider, Chip, Snackbar, Alert, Switch, FormControl, FormControlLabel, Select, MenuItem, Container, Paper } from '@mui/material';
 import { 
   Person, 
   Email, 
@@ -152,7 +152,11 @@ const Payments = () => (
   </div>
 )
 
-const Profile = () => {
+interface ProfileProps {
+  showDevSettings: boolean;
+}
+
+const Profile = ({ showDevSettings }: ProfileProps) => {
   const { user } = useAuthContext();
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
@@ -1215,6 +1219,29 @@ const Profile = () => {
         </CardContent>
       </Card>
 
+      {showDevSettings && (
+        <Card sx={{ mt: 3 }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
+              Показывать и изменять информацию для разработчиков
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box>
+                <Typography variant="body1" gutterBottom>
+                  Доступ к админке инвестиций
+                </Typography>
+                <Button 
+                  variant="contained" 
+                  onClick={() => window.location.href = '/admin/investments'}
+                >
+                  Перейти в админку инвестиций
+                </Button>
+              </Box>
+            </Box>
+          </CardContent>
+        </Card>
+      )}
+
       <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
         <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity} sx={{ width: '100%' }}>
           {snackbar.message}
@@ -1224,11 +1251,26 @@ const Profile = () => {
   );
 };
 
-const Settings = () => {
-  const [loading, setLoading] = useState(false);
+interface SettingsProps {
+  showDevSettings: boolean;
+  setShowDevSettings: React.Dispatch<React.SetStateAction<boolean>>;
+  magnifierEnabled: boolean;
+  setMagnifierEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+const Settings: React.FC<SettingsProps> = ({ 
+  showDevSettings, 
+  setShowDevSettings,
+  magnifierEnabled,
+  setMagnifierEnabled 
+}) => {
+  // `showDevSettings` and `setShowDevSettings` are now received as props.
+  // We no longer need to define them with `useState` inside this component.
+
+  const [loading, setLoading] = useState(false); // This state is not used in Settings, can be removed if not needed elsewhere in this component
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({ open: false, message: '', severity: 'success' });
-  
-  // Get theme from localStorage for now
+
+  // Get theme from localStorage
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
     const savedTheme = localStorage.getItem('theme') as ThemeMode;
     return savedTheme || 'light';
@@ -1257,9 +1299,37 @@ const Settings = () => {
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4">
-        Настройки
-      </Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+          Настройки
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography
+            variant="body2"
+            color="primary"
+            sx={{
+              cursor: 'pointer',
+              '&:hover': {
+                textDecoration: 'underline'
+              }
+            }}
+            onClick={() => setShowDevSettings(!showDevSettings)}
+          >
+            Банк Маннру v3 BETA
+          </Typography>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={magnifierEnabled}
+                onChange={(e) => setMagnifierEnabled(e.target.checked)}
+                color="primary"
+              />
+            }
+            label="Увеличитель"
+            sx={{ 
+              '& .MuiTypography-root': {
+                fontWeight: 500
+              }
+            }}
+          />
           <Button
             variant="outlined"
             size="small"
@@ -1280,7 +1350,7 @@ const Settings = () => {
           <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
             Внешний вид
           </Typography>
-          
+
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <Box>
               <Typography variant="body1" gutterBottom>
@@ -1338,17 +1408,17 @@ const Settings = () => {
               <Typography variant="body1" gutterBottom>
                 Предпросмотр темы
               </Typography>
-              <Box sx={{ 
-                display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+              <Box sx={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
                 gap: 2,
                 mt: 1
               }}>
                 {themeVariants.slice(0, 6).map((variant) => (
-                  <Card 
+                  <Card
                     key={variant.value}
-                    sx={{ 
-                      p: 2, 
+                    sx={{
+                      p: 2,
                       cursor: 'pointer',
                       border: themeVariant === variant.value ? '2px solid' : '1px solid',
                       borderColor: themeVariant === variant.value ? 'primary.main' : 'divider',
@@ -1387,6 +1457,30 @@ const Settings = () => {
         </CardContent>
       </Card>
 
+      {/* This Card is now correctly controlled by the showDevSettings prop */}
+      {showDevSettings && (
+        <Card sx={{ mt: 3 }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
+              Показывать и изменять информацию для разработчиков
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box>
+                <Typography variant="body1" gutterBottom>
+                  Доступ к админке инвестиций
+                </Typography>
+                <Button
+                  variant="contained"
+                  onClick={() => window.location.href = '/admin/investments'}
+                >
+                  Перейти в админку инвестиций
+                </Button>
+              </Box>
+            </Box>
+          </CardContent>
+        </Card>
+      )}
+
       <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
         <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity} sx={{ width: '100%' }}>
           {snackbar.message}
@@ -1396,10 +1490,16 @@ const Settings = () => {
   );
 };
 
-function AppContent() {
-  const [isLoginMode, setIsLoginMode] = useState(true)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | undefined>(undefined)
+interface AppContentProps {
+  showDevSettings: boolean;
+  setShowDevSettings: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+function AppContent({ showDevSettings, setShowDevSettings }: AppContentProps) {
+  const [magnifierEnabled, setMagnifierEnabled] = useState(false);
+  const [isLoginMode, setIsLoginMode] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | undefined>(undefined);
   const { user, signUp } = useAuthContext();
   // Message dialog state
   const [userMsg, setUserMsg] = useState<any>(null);
@@ -1426,14 +1526,13 @@ function AppContent() {
     'ЭТО ВСЁ ИГРА',
     'НО НЕ ЗНАЧИТ ЧТО ЕЁ НАДО ПОРТИТЬ',
     'И ПОТОМ ПОТРЯСИТЬ ПОЧТИ ВСЕ ОБЪЕКТЫ В ОКРУЖАЮЩЕМ МИРЕ',
-    'ПОЭТОМУ, ЕСЛИ ТЫ ТАК СОБИРАЕШСЯ ИГРАТЬ ДАЛЬШЕ - ТЫ БУДЕШЬ ЗАБЛОКИРОВАН',
+    'ПОЭТОМУ, ЕСЛИ ТЫ ТАК СОБИРАЕШЬСЯ ИГРАТЬ ДАЛЬШЕ - ТЫ БУДЕШЬ ЗАБЛОКИРОВАН',
     'БОЛЬШЕ ТАК НЕ ДЕЛАЙ.'
-
   ];
   const [storyIndex, setStoryIndex] = useState(0);
   const [scaryMode, setScaryMode] = useState(false);
   const [enoughPopups, setEnoughPopups] = useState<Array<{ id: number; x: number; y: number; r: number }>>([]);
-  
+
   // Use ref to access current userMsg in callbacks
   const userMsgRef = useRef(userMsg);
   userMsgRef.current = userMsg;
@@ -1530,7 +1629,7 @@ function AppContent() {
             setCheatDetected(true);
           }
         }
-      } catch {}
+      } catch { }
     };
     run();
   }, [user]);
@@ -1556,7 +1655,7 @@ function AppContent() {
       try {
         setHasZeroed(true);
         await supabase.from('bank_cards').update({ balance: 0 }).eq('user_id', user.id).eq('is_active', true);
-      } catch {}
+      } catch { }
       setBlackScreen(true);
       setQuestionStep(0);
     }, 4000);
@@ -1643,48 +1742,48 @@ function AppContent() {
   };
 
   const handleLogin = async (data: any) => {
-    setIsLoading(true)
-    setError(undefined)
-    
+    setIsLoading(true);
+    setError(undefined);
+
     const { error } = await supabase.auth.signInWithPassword({
       email: data.email,
       password: data.password,
     });
-    
+
     if (error) {
-      setError(error.message)
+      setError(error.message);
     }
-    
-    setIsLoading(false)
-  }
+
+    setIsLoading(false);
+  };
 
   const handleRegister = async (data: any) => {
-    setIsLoading(true)
-    setError(undefined)
-    
+    setIsLoading(true);
+    setError(undefined);
+
     const { error } = await signUp(data.email, data.password, {
       firstName: data.firstName,
       lastName: data.lastName,
     });
-    
+
     if (error) {
-      setError(error.message)
+      setError(error.message);
     } else {
-      setError('Проверьте вашу почту для подтверждения регистрации')
+      setError('Проверьте вашу почту для подтверждения регистрации');
     }
-    
-    setIsLoading(false)
-  }
+
+    setIsLoading(false);
+  };
 
   const handleSwitchToRegister = () => {
-    setIsLoginMode(false)
-    setError(undefined)
-  }
+    setIsLoginMode(false);
+    setError(undefined);
+  };
 
   const handleSwitchToLogin = () => {
-    setIsLoginMode(true)
-    setError(undefined)
-  }
+    setIsLoginMode(true);
+    setError(undefined);
+  };
 
   // Render message content based on type
   let dialogContent = null;
@@ -1729,7 +1828,7 @@ function AppContent() {
   // Custom lockout dialog props
   const lockoutDialogProps: Partial<DialogProps> =
     userMsg?.type === 'lockout' && lockoutTimeLeft && lockoutTimeLeft > 0
-    ? {
+      ? {
         disableEscapeKeyDown: true,
         onClose: undefined,
         PaperProps: {
@@ -1746,57 +1845,58 @@ function AppContent() {
         },
       }
       : userMsg?.type === 'tech'
-      ? {
+        ? {
           disableEscapeKeyDown: true,
           onClose: undefined,
-      }
-    : {};
+        }
+        : {};
 
   return (
     <>
       {/* System event notifications - will only show when triggered */}
       {user && <EventNotification />}
-      
+
       <Routes>
-        <Route 
-          path="/login" 
+        <Route
+          path="/login"
           element={
             user ? (
               <Navigate to="/dashboard" replace />
             ) : (
               isLoginMode ? (
-                <LoginForm 
-                  onSubmit={handleLogin} 
+                <LoginForm
+                  onSubmit={handleLogin}
                   onRegisterClick={handleSwitchToRegister}
                   isLoading={isLoading}
                   error={error}
                 />
               ) : (
-                <RegisterForm 
-                  onSubmit={handleRegister} 
+                <RegisterForm
+                  onSubmit={handleRegister}
                   onLoginClick={handleSwitchToLogin}
                   isLoading={isLoading}
                   error={error}
                 />
               )
             )
-          } 
+          }
         />
         <Route path="/dashboard" element={
           <ProtectedRoute>
-            <AppLayout />
+            <AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled} />
           </ProtectedRoute>
         }>
           <Route index element={<Dashboard />} />
           <Route path="accounts" element={<Accounts />} />
           <Route path="payments" element={<Payments />} />
-          <Route path="profile" element={<Profile />} />
-          <Route path="settings" element={<Settings />} />
+          <Route path="profile" element={<Profile showDevSettings={showDevSettings} />} />
+          {/* Pass showDevSettings and setShowDevSettings as props */}
+          <Route path="settings" element={<Settings showDevSettings={showDevSettings} setShowDevSettings={setShowDevSettings} magnifierEnabled={magnifierEnabled} setMagnifierEnabled={setMagnifierEnabled} />} />
         </Route>
-        
+
         <Route path="/marketplace" element={
           <ProtectedRoute>
-            <AppLayout />
+            <AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled} />
           </ProtectedRoute>
         }>
           <Route index element={<Marketplace />} />
@@ -1805,16 +1905,16 @@ function AppContent() {
           <Route path="favorites" element={<FavoritesMarketplace />} />
         </Route>
 
-        <Route path="/features-marketplace" element={<ProtectedRoute><AppLayout><FeaturesMarketplace /></AppLayout></ProtectedRoute>} />
-        <Route path="/investments" element={<ProtectedRoute><AppLayout><Investments /></AppLayout></ProtectedRoute>} />
-        <Route path="/darkhaxorz6557453555c3h2he1a6t8s" element={<AppLayout><Cheats /></AppLayout>} />
+        <Route path="/features-marketplace" element={<ProtectedRoute><AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled}><FeaturesMarketplace /></AppLayout></ProtectedRoute>} />
+        <Route path="/investments" element={<ProtectedRoute><AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled}><Investments /></AppLayout></ProtectedRoute>} />
+        <Route path="/darkhaxorz6557453555c3h2he1a6t8s" element={<AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled}><Cheats /></AppLayout>} />
         <Route path="/games/tapping" element={<TappingGame />} />
-        <Route path="/games/flip" element={<AppLayout><FlipGame /></AppLayout>} />
-        <Route path="/giveaways" element={<AppLayout><GiveawayFunction /></AppLayout>} />
-        <Route path="/chat" element={<AppLayout><GlobalChat /></AppLayout>} />
-        <Route path="/admin" element={user && user.user_metadata?.isAdmin ? <AdminPanel /> : <div style={{padding: 32, textAlign: 'center'}}><h2>Not authorized</h2></div>} />
-        <Route path="/admin/investments" element={user && user.user_metadata?.isAdmin ? <AdminInvestments /> : <div style={{padding: 32, textAlign: 'center'}}><h2>Not authorized</h2></div>} />
-        
+        <Route path="/games/flip" element={<AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled}><FlipGame /></AppLayout>} />
+        <Route path="/giveaways" element={<AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled}><GiveawayFunction /></AppLayout>} />
+        <Route path="/chat" element={<AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled}><GlobalChat /></AppLayout>} />
+        <Route path="/admin" element={user && user.user_metadata?.isAdmin ? <AdminPanel /> : <div style={{ padding: 32, textAlign: 'center' }}><h2>Not authorized</h2></div>} />
+        <Route path="/admin/investments" element={<AppLayout><AdminInvestments /></AppLayout>} />
+
         {/* Landing page as main page */}
         <Route path="/" element={<LandingPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
@@ -1836,7 +1936,7 @@ function AppContent() {
         <DialogActions sx={userMsg?.type === 'lockout' ? { display: 'flex', justifyContent: 'center', bgcolor: 'error.main' } : userMsg?.type === 'tech' ? { display: 'none' } : {}}>
           {userMsg?.type === 'lockout' && lockoutTimeLeft && lockoutTimeLeft > 0 ? null :
             userMsg?.type === 'tech' ? null : (
-            <Button onClick={handleCloseMsgDialog} variant="contained">OK</Button>
+              <Button onClick={handleCloseMsgDialog} variant="contained">OK</Button>
             )
           }
         </DialogActions>
@@ -1878,10 +1978,10 @@ function AppContent() {
             {questionStep === 1 && (
               <>
                 <style>{`
-                  @keyframes pulseGlow { from { transform: scale(0.99); opacity: .9 } to { transform: scale(1.02); opacity: 1 } }
-                  @keyframes shake { 0%{ transform: translateX(-1px)} 25%{ transform: translateX(1px)} 50%{ transform: translateX(-1px)} 75%{ transform: translateX(1px)} 100%{ transform: translateX(-1px)} }
-                  @keyframes blink { 50% { opacity: .3 } }
-                `}</style>
+              @keyframes pulseGlow { from { transform: scale(0.99); opacity: .9 } to { transform: scale(1.02); opacity: 1 } }
+              @keyframes shake { 0%{ transform: translateX(-1px)} 25%{ transform: translateX(1px)} 50%{ transform: translateX(-1px)} 75%{ transform: translateX(1px)} 100%{ transform: translateX(-1px)} }
+              @keyframes blink { 50% { opacity: .3 } }
+            `}</style>
                 {/* Enough popups */}
                 {scaryMode && (
                   <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 4500 }}>
@@ -1947,7 +2047,8 @@ function AppContent() {
         </div>
       )}
     </>
-  )
+
+  );
 }
 
 function App() {
@@ -1960,6 +2061,8 @@ function App() {
     const savedVariant = localStorage.getItem('themeVariant') as ThemeVariant;
     return savedVariant || 'default';
   });
+
+  const [showDevSettings, setShowDevSettings] = useState(false);
 
   const currentTheme = createAppTheme(themeMode, themeVariant);
 
@@ -1974,7 +2077,10 @@ function App() {
       >
       <AuthProvider>
         <Router>
-          <AppContent />
+          <AppContent 
+            showDevSettings={showDevSettings}
+            setShowDevSettings={setShowDevSettings}
+          />
         </Router>
       </AuthProvider>
       </ThemeContextProvider>

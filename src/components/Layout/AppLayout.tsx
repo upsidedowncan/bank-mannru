@@ -15,7 +15,7 @@ import {
   useTheme,
   Button,
   Collapse,
-} from '@mui/material'
+} from '@mui/material';
 import {
   Menu as MenuIcon,
   Dashboard,
@@ -191,9 +191,14 @@ const drawerWidth = 280
 
 interface AppLayoutProps {
   children?: React.ReactNode
+  showDevSettings?: boolean
+  magnifierEnabled?: boolean
 }
 
-export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
+export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings = false }) => {
+  const [magnifierEnabled, setMagnifierEnabled] = React.useState(false);
+
+
   const [mobileOpen, setMobileOpen] = React.useState(false)
   const theme = useTheme()
   const navigate = useNavigate()
@@ -235,6 +240,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     { text: 'Рынок', icon: <StoreIcon />, path: '/marketplace' },
     { text: 'Сообщения', icon: <ChatIcon />, path: '/marketplace/chat' },
     { text: 'Инвестиции', icon: <TrendingUp />, path: '/investments' },
+    ...(showDevSettings ? [{ text: 'Админка инвестиций', icon: <Security />, path: '/admin/investments' }] : []),
     { text: 'Маркет функций', icon: <ExtensionIcon />, path: '/features-marketplace' },
     { text: 'Профиль', icon: <Person />, path: '/dashboard/profile' },
     { text: 'Настройки', icon: <Settings />, path: '/dashboard/settings' },
@@ -251,7 +257,15 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
   const drawer = (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Toolbar sx={{ alignItems: 'center', py: 2, px: 2 }}>
+      <Toolbar sx={{ 
+        alignItems: 'center', 
+        py: 2, 
+        px: 2,
+        background: theme.palette.mode === 'light' 
+          ? `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`
+          : `linear-gradient(135deg, ${theme.palette.grey[900]} 0%, ${theme.palette.grey[800]} 100%)`,
+        color: theme.palette.common.white
+      }}>
         <Box
           component="img"
           src="/icon512.png"
@@ -262,21 +276,40 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             mr: 1,
             borderRadius: 1,
             ml: -1.25,
+            transition: 'transform 0.3s ease',
+            '&:hover': {
+              transform: 'scale(1.1) rotate(5deg)'
+            }
           }}
         />
-        <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1, fontWeight: 700 }}>
+        <Typography
+          variant="h6"
+          noWrap
+          component="div"
+          sx={{
+            flexGrow: 1,
+            fontWeight: 600,
+            fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
+            letterSpacing: '0.5px',
+            textShadow: '0 1px 3px rgba(0,0,0,0.3)'
+          }}
+        >
           Банк Маннру
         </Typography>
       </Toolbar>
-      <Box sx={{ 
-        flexGrow: 1, 
-        overflow: 'auto',
-        '&::-webkit-scrollbar': {
-          display: 'none'
-        },
-        scrollbarWidth: 'none',
-        msOverflowStyle: 'none'
-      }}>
+          <Box sx={{ 
+            flexGrow: 1, 
+            overflow: 'auto',
+            '&::-webkit-scrollbar': {
+              display: 'none'
+            },
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            background: theme.palette.mode === 'light'
+              ? 'rgba(255,255,255,0.7)'
+              : 'rgba(0,0,0,0.3)',
+            borderRight: `1px solid ${theme.palette.divider}`
+          }}>
         <List>
           {menuItems.map((item) => (
             item.path === '/marketplace' ? (
@@ -288,12 +321,24 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                       mx: 1,
                       my: 0.5,
                       borderRadius: 2,
+                      transition: 'all 0.3s ease',
                       '&:hover': {
-                        backgroundColor: theme.palette.mode === 'light' ? theme.palette.primary.light : 'rgba(255,255,255,0.06)'
+                        backgroundColor: theme.palette.mode === 'light' ? theme.palette.primary.light : 'rgba(255,255,255,0.1)',
+                        transform: 'translateX(5px)'
                       }
                     }}
                   >
-                    <ListItemIcon sx={{ color: theme.palette.text.secondary, minWidth: 40 }}>{item.icon}</ListItemIcon>
+                  <ListItemIcon sx={{ 
+                    color: theme.palette.text.secondary, 
+                    minWidth: 40,
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      color: theme.palette.primary.main,
+                      transform: 'scale(1.2)'
+                    }
+                  }}>
+                    {item.icon}
+                  </ListItemIcon>
                     <ListItemText primary={item.text} />
                     {openMarketplace ? <ExpandLess /> : <ExpandMore />}
                   </ListItemButton>
@@ -389,19 +434,26 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
               </Box>
             ) : (
               <ListItem key={item.text} disablePadding>
-                <ListItemButton
+                  <ListItemButton
                   selected={location.pathname === item.path || (item.path === '/marketplace' && location.pathname.startsWith('/marketplace'))}
                   onClick={() => navigate(item.path)}
                   sx={{
                     mx: 1,
                     my: 0.5,
                     borderRadius: 2,
-                    transition: 'background-color 0.2s ease',
-                    '&.Mui-selected': {
-                      backgroundColor: theme.palette.mode === 'light' ? theme.palette.primary.light : 'rgba(255,255,255,0.08)'
-                    },
+                    transition: 'all 0.3s ease',
                     '&:hover': {
-                      backgroundColor: theme.palette.mode === 'light' ? theme.palette.primary.light : 'rgba(255,255,255,0.06)'
+                      backgroundColor: theme.palette.mode === 'light' ? theme.palette.primary.light : 'rgba(255,255,255,0.1)',
+                      transform: magnifierEnabled 
+                        ? `translateX(5px) scale(${magnificationSize})` 
+                        : 'translateX(5px)',
+                      zIndex: magnifierEnabled ? 1 : 'auto'
+                    },
+                    '&.Mui-selected': {
+                      backgroundColor: theme.palette.mode === 'light' ? theme.palette.primary.main : 'rgba(255,255,255,0.16)',
+                      '&:hover': {
+                        backgroundColor: theme.palette.mode === 'light' ? theme.palette.primary.dark : 'rgba(255,255,255,0.24)'
+                      }
                     }
                   }}
                 >

@@ -1,3 +1,6 @@
+// HTML sanitization utility function
+
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Box,
@@ -244,7 +247,6 @@ export const GlobalChat: React.FC = () => {
   // New features state
   const [searchQuery, setSearchQuery] = useState('');
   const [searchDialogOpen, setSearchDialogOpen] = useState(false);
-  const [pinnedMessages, setPinnedMessages] = useState<Set<string>>(new Set());
   const [typingUsers, setTypingUsers] = useState<Array<{user_id: string; user_name: string; timestamp: number}>>([]);
   const [showReadReceipts, setShowReadReceipts] = useState(false);
   const [readBy, setReadBy] = useState<{[messageId: string]: string[]}>({});
@@ -321,6 +323,8 @@ export const GlobalChat: React.FC = () => {
   // Check if user is admin
   const isUserAdmin = useCallback(async () => {
     if (!user) return false;
+    
+    // First check user_chat_settings
     try {
       const { data, error } = await supabase
         .from('user_chat_settings')
@@ -328,12 +332,24 @@ export const GlobalChat: React.FC = () => {
         .eq('user_id', user.id)
         .single();
       
-      if (error) return false;
-      return data?.is_admin || false;
-    } catch {
-      return false;
-    }
+      if (!error && data?.is_admin) return true;
+    } catch {}
+
+    // Fall back to user metadata
+    return user.user_metadata?.isAdmin || false;
   }, [user]);
+
+  // Initialize admin status
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      const adminStatus = await isUserAdmin();
+      setIsAdmin(adminStatus);
+    };
+    
+    if (user) {
+      checkAdminStatus();
+    }
+  }, [user, isUserAdmin]);
 
   // Messages state
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -489,34 +505,7 @@ export const GlobalChat: React.FC = () => {
     }
   }, [selectedChat, currentPage, hasMoreMessages, isLoadingMore, showSnackbar]);
 
-  // Pin/unpin message functions
-  const handlePinMessage = async (messageId: string) => {
-    if (!user || !selectedChat || !isChannel(selectedChat)) return;
-    
-    try {
-      setPinnedMessages(prev => new Set(prev).add(messageId));
-      showSnackbar('Сообщение закреплено', 'success');
-    } catch (error) {
-      console.error('Error pinning message:', error);
-      showSnackbar('Ошибка при закреплении сообщения', 'error');
-    }
-  };
 
-  const handleUnpinMessage = async (messageId: string) => {
-    if (!user || !selectedChat || !isChannel(selectedChat)) return;
-    
-    try {
-      setPinnedMessages(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(messageId);
-        return newSet;
-      });
-      showSnackbar('Сообщение откреплено', 'success');
-    } catch (error) {
-      console.error('Error unpinning message:', error);
-      showSnackbar('Ошибка при откреплении сообщения', 'error');
-    }
-  };
 
   // Message selection function
   const handleMessageSelect = (messageId: string) => {
@@ -1171,6 +1160,9 @@ export const GlobalChat: React.FC = () => {
     const commandName = parts[0];
     const args = parts.slice(1);
 
+    // Skip /html command since it's handled in handleSend
+    if (commandName === 'html') return;
+
     switch (commandName) {
       case 'gift':
         const amount = parseInt(args[0], 10);
@@ -1367,9 +1359,8 @@ export const GlobalChat: React.FC = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const sanitizeHTML = (html: string) => {
-    // ... (omitted for brevity, no changes needed here)
-  };
+// HTML sanitization utility function
+
 
   const sendMoneyGift = async (amount: number) => {
     if (!user) {
@@ -1380,6 +1371,10 @@ export const GlobalChat: React.FC = () => {
       showSnackbar('Подарки можно отправлять только в каналы.', 'error');
       return;
     }
+    if (!isAdmin) {
+      showSnackbar('Только администраторы могут отправлять подарки.', 'error');
+      return;
+    }
 
     try {
       // Create optimistic message for immediate UI update
@@ -1387,7 +1382,7 @@ export const GlobalChat: React.FC = () => {
         id: `temp-gift-${Date.now()}`,
         channel_id: selectedChat.id,
         user_id: user.id,
-        message: `Отправил подарок в размере ${amount} монет!`,
+        message: `Отправил подарок в размере ${amount} МР!`,
         message_type: 'money_gift',
         is_edited: false,
         edited_at: null,
@@ -1409,7 +1404,7 @@ export const GlobalChat: React.FC = () => {
       const { error } = await supabase.from('chat_messages').insert({
         channel_id: selectedChat.id,
         user_id: user.id,
-        message: `Отправил подарок в размере ${amount} монет!`,
+        message: `Отправил подарок в размере ${amount} МР!`,
         message_type: 'money_gift',
         gift_amount: amount,
       });
@@ -1503,7 +1498,7 @@ export const GlobalChat: React.FC = () => {
       }
 
       // If everything is successful
-      showSnackbar(`Вы получили ${amount} монет!`, 'success');
+      showSnackbar(`Вы получили ${amount} МР!`, 'success');
       setClaimedGifts(prev => new Set(prev).add(messageId));
       setCardSelectionDialog({ open: false, messageId: null, amount: 0 });
       setMessages(prev => prev.map(m =>
@@ -1633,7 +1628,75 @@ export const GlobalChat: React.FC = () => {
 
     if (!text && !file) return;
 
-    // Check if this is a command (starts with /)
+    // Handle /html command
+    if (text.startsWith('/html ')) {
+      const htmlContent = text.slice(6); // Remove '/html ' prefix
+      
+      // Create optimistic message with HTML type
+      const optimisticMessage: ChatMessage = {
+        id: `temp-${Date.now()}`,
+        channel_id: isChannel(selectedChat) ? selectedChat.id : selectedChat.id,
+        user_id: user.id,
+        message: htmlContent,
+        message_type: 'html',
+        is_edited: false,
+        edited_at: null,
+        created_at: new Date().toISOString(),
+        user_name: userSettings?.chat_name || user.email || 'You',
+        pfp_color: userSettings?.pfp_color || '#1976d2',
+        pfp_icon: userSettings?.pfp_icon || 'Person',
+        pfp_type: userSettings?.pfp_type || 'icon',
+        pfp_image_url: userSettings?.pfp_image_url || '',
+        pfp_gradient: userSettings?.pfp_gradient || 'linear-gradient(45deg, #1976d2, #42a5f5)',
+        reactions: [],
+        reply_to: replyId || undefined,
+        reply_to_message: replyingTo ? {
+          id: replyingTo.id,
+          message: replyingTo.message,
+          user_id: replyingTo.user_id,
+          user_name: replyingTo.user_name,
+          pfp_color: replyingTo.pfp_color,
+          pfp_icon: replyingTo.pfp_icon,
+          pfp_type: replyingTo.pfp_type || 'icon',
+          pfp_image_url: replyingTo.pfp_image_url || '',
+          pfp_gradient: replyingTo.pfp_gradient || 'linear-gradient(45deg, #1976d2, #42a5f5)',
+          created_at: replyingTo.created_at,
+          message_type: replyingTo.message_type,
+          media_url: replyingTo.media_url,
+          media_type: replyingTo.media_type,
+          audio_url: replyingTo.audio_url,
+          channel_id: replyingTo.channel_id || '',
+          is_edited: replyingTo.is_edited || false,
+          edited_at: replyingTo.edited_at || null,
+          reactions: [],
+        } : undefined,
+        is_optimistic: true,
+      };
+
+      setMessages(currentMessages => [...currentMessages, optimisticMessage]);
+      
+      if (isChannel(selectedChat)) {
+        // Update new message content and type before calling sendMessage
+        setNewMessage(htmlContent);
+        sendMessage('html');
+      } else {
+        const receiver = selectedChat.participants.find(p => p.user_id !== user.id);
+        if (receiver) {
+          // For DMs, we need to modify the sendDm implementation to support message_type
+          // Currently just send as text but mark as HTML in optimistic message
+          sendDm(receiver.user_id, htmlContent, null, replyId);
+        }
+      }
+
+      setNewMessage('');
+      setReplyingTo(null);
+      if(file) {
+        handleCancelMedia();
+      }
+      return;
+    }
+
+    // Check if this is another command (starts with /)
     if (text.startsWith('/')) {
       handleCommand(text);
       setNewMessage('');
@@ -2499,9 +2562,7 @@ export const GlobalChat: React.FC = () => {
                   onStartDm={startDmWithUser}
                       participants={isChannel(selectedChat) ? [] : (selectedChat.participants || [])}
                       searchQuery={searchQuery}
-                      pinnedMessages={pinnedMessages}
-                      onPinMessage={handlePinMessage}
-                      onUnpinMessage={handleUnpinMessage}
+
                       showReadReceipts={showReadReceipts}
                       readBy={readBy}
                       loading={loadingMore}

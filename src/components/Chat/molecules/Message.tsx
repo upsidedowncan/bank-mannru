@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+
 import { Box, Typography, Avatar, IconButton, TextField, CircularProgress, Button, Tooltip, Chip, LinearProgress, Card, CardContent, CardMedia, Dialog, DialogTitle, DialogContent, DialogActions, Divider } from '@mui/material';
 import AddReactionIcon from '@mui/icons-material/AddReaction';
 import ReactionPill from './ReactionPill';
@@ -289,6 +290,24 @@ const Message: React.FC<MessageProps> = React.memo(({
 
     // Memoize different message types to prevent unnecessary re-renders
     switch (message.message_type) {
+      case 'html':
+        return (
+          <Box
+            sx={{
+              wordBreak: 'break-word',
+              '& a': {
+                color: 'primary.main',
+                textDecoration: 'underline',
+              },
+              '& img': {
+                maxWidth: '100%',
+                height: 'auto',
+                borderRadius: 1,
+              },
+            }}
+            dangerouslySetInnerHTML={{ __html: message.message }}
+          />
+        );
       case 'voice':
         return voiceMessageWidget;
       

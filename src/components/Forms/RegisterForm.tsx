@@ -9,6 +9,10 @@ import {
   Alert,
   Divider,
 } from '@mui/material'
+import AccountCircleIcon from '@mui/icons-material/AccountCircle'
+import PersonIcon from '@mui/icons-material/Person'
+import EmailIcon from '@mui/icons-material/Email'
+import LockIcon from '@mui/icons-material/Lock'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { registerSchema, RegisterFormData } from '../../utils/validation'
@@ -42,16 +46,33 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
         alignItems: 'center',
         minHeight: '100vh',
         bgcolor: 'background.default',
+        p: 0
       }}
     >
-      <Card sx={{ maxWidth: 400, width: '100%', mx: 2 }}>
-        <CardContent sx={{ p: 4 }}>
-          <Typography variant="h4" component="h1" gutterBottom align="center">
+      <Card sx={{ 
+        width: '100%',
+        maxWidth: '100%',
+        height: '100vh',
+        borderRadius: 0,
+        boxShadow: 'none',
+        display: 'flex',
+        flexDirection: 'column'
+      }}>
+        <Box sx={{ 
+          bgcolor: 'primary.main',
+          color: 'primary.contrastText',
+          p: 4,
+          textAlign: 'center'
+        }}>
+          <AccountCircleIcon sx={{ fontSize: 60, mb: 2 }} />
+          <Typography variant="h4" component="h1" gutterBottom>
             Регистрация
           </Typography>
-          <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
-            Создайте новый аккаунт
+          <Typography variant="subtitle1">
+            Создайте новый аккаунт BKMR
           </Typography>
+        </Box>
+        <CardContent sx={{ p: 4 }}>
 
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
@@ -68,6 +89,11 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
               error={!!errors.firstName}
               helperText={errors.firstName?.message}
               disabled={isLoading}
+              InputProps={{
+                startAdornment: (
+                  <PersonIcon color="action" sx={{ mr: 1 }} />
+                ),
+              }}
             />
 
             <TextField
@@ -78,6 +104,11 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
               error={!!errors.lastName}
               helperText={errors.lastName?.message}
               disabled={isLoading}
+              InputProps={{
+                startAdornment: (
+                  <PersonIcon color="action" sx={{ mr: 1 }} />
+                ),
+              }}
             />
 
             <TextField
@@ -89,6 +120,11 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
               error={!!errors.email}
               helperText={errors.email?.message}
               disabled={isLoading}
+              InputProps={{
+                startAdornment: (
+                  <EmailIcon color="action" sx={{ mr: 1 }} />
+                ),
+              }}
             />
 
             <TextField
@@ -100,6 +136,11 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
               error={!!errors.password}
               helperText={errors.password?.message}
               disabled={isLoading}
+              InputProps={{
+                startAdornment: (
+                  <LockIcon color="action" sx={{ mr: 1 }} />
+                ),
+              }}
             />
 
             <TextField
@@ -111,6 +152,11 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
               error={!!errors.confirmPassword}
               helperText={errors.confirmPassword?.message}
               disabled={isLoading}
+              InputProps={{
+                startAdornment: (
+                  <LockIcon color="action" sx={{ mr: 1 }} />
+                ),
+              }}
             />
 
             <Button
@@ -118,7 +164,16 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
               fullWidth
               variant="contained"
               size="large"
-              sx={{ mt: 3, mb: 2 }}
+              sx={{ 
+                mt: 3, 
+                mb: 2,
+                py: 1.5,
+                fontSize: '1.1rem',
+                bgcolor: 'secondary.main',
+                '&:hover': {
+                  bgcolor: 'secondary.dark'
+                }
+              }}
               disabled={isLoading}
             >
               {isLoading ? 'Регистрация...' : 'Зарегистрироваться'}
