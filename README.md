@@ -1,46 +1,65 @@
-# Getting Started with Create React App
+# Bank MannRu 🏦
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+## О проекте
+Bank MannRu - это современная банковская платформа, разработанная на TypeScript, предоставляющая широкий спектр функциональных возможностей для управления финансовыми операциями и социального взаимодействия.
 
-## Available Scripts
+## Основные возможности 🚀
 
-In the project directory, you can run:
+### 💰 Денежные операции
+- Система денежных подарков с поддержкой карточек
+- Безопасные финансовые транзакции
+- Гибкая система управления балансом
 
-### `npm start`
+### 💬 Социальные функции
+- Система реакций на действия пользователей
+- Поддержка медиа-контента
+- HTML-поддержка в сообщениях
+- Система ответов на сообщения
+- Голосовые сообщения
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+### 🎮 Геймификация
+- Система розыгрышей призов
+- Игровые подсказки и читы
+- Система достижений
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+### 👥 Пользовательский функционал
+- Надёжная система регистрации и авторизации
+- Административная панель с расширенными возможностями
+- Система ролей и прав доступа (RLS)
+- Управление профилем пользователя
 
-### `npm test`
+## Технический стек 🛠
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+- TypeScript
+- Next.js
+- PostgreSQL
+- Supabase (для базы данных и аутентификации)
+- Vercel (для хостинга)
 
-### `npm run build`
+## Установка и настройка ⚙️
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+Подробные инструкции по установке и настройке проекта можно найти в файле [SETUP.md](SETUP.md).
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+В случае возникновения проблем, обратитесь к [TROUBLESHOOTING.md](TROUBLESHOOTING.md) для решения распространённых проблем.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## База данных 📊
 
-### `npm run eject`
+Проект использует PostgreSQL с следующими основными таблицами:
+- Пользователи (users)
+- Денежные подарки (money_gifts)
+- Медиа-контент (media)
+- Реакции (reactions)
+- Голосовые сообщения (voice_messages)
+- Розыгрыши (giveaways)
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+## Развёртывание 🚀
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+Приложение развёрнуто на Vercel и доступно по адресу: [https://mannru.vercel.app](https://mannru.vercel.app)
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+## Лицензия 📝
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+Этот проект распространяется как проприетарное программное обеспечение. Все права защищены.
 
-## Learn More
+## Поддержка 🤝
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
+Если у вас возникли вопросы или проблемы, создайте issue в репозитории проекта.
