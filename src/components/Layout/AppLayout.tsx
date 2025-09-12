@@ -445,7 +445,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
                     '&:hover': {
                       backgroundColor: theme.palette.mode === 'light' ? theme.palette.primary.light : 'rgba(255,255,255,0.1)',
                       transform: magnifierEnabled 
-                        ? `translateX(5px) scale(${magnificationSize})` 
+                        ? 'translateX(5px) scale(1.2)' 
                         : 'translateX(5px)',
                       zIndex: magnifierEnabled ? 1 : 'auto'
                     },
