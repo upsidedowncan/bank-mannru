@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { ThemeProvider } from '@mui/material/styles'
+import { ThemeProvider, useTheme } from '@mui/material/styles' // Import useTheme here
 import { CssBaseline } from '@mui/material'
 import { theme, createAppTheme, ThemeMode, ThemeVariant, themeVariants } from './theme/theme'
 import { AppLayout } from './components/Layout/AppLayout'
@@ -8,7 +8,7 @@ import { LoginForm } from './components/Forms/LoginForm'
 import { RegisterForm } from './components/Forms/RegisterForm'
 import { AuthProvider, useAuthContext } from './contexts/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
-
+import { ChartRunnerGame } from './components/ChartRunnerGame'
 import { Dashboard } from './components/Dashboard/Dashboard'
 import { LandingPage } from './components/Landing/LandingPage'
 import { Marketplace } from './components/Marketplace/Marketplace'
@@ -18,25 +18,29 @@ import { FeaturesMarketplace } from './components/Marketplace/FeaturesMarketplac
 import { FavoritesMarketplace } from './components/Marketplace/FavoritesMarketplace'
 import Investments from './components/Investments/Investments'
 import { Cheats } from './components/Cheats';
+import { BankGardenGame } from './components/BankGardenGame';
 import { TappingGame } from './components/Games/TappingGame';
 import { FlipGame } from './components/Games/FlipGame';
 import { GiveawayFunction } from './components/Games/GiveawayFunction';
 import { GlobalChat } from './components/Chat/GlobalChat';
 import { AdminPanel } from './components/Admin/AdminPanel';
+import { FortuneWheelGame } from './components/FortuneWheelGame';
 import AdminInvestments from './components/Admin/AdminInvestments';
+import { MemoryGame } from './components/MemoryGame';
+import { VaultManagementPage } from './components/VaultManagementPage';
 import { EventNotification } from './components/Notifications/EventNotification';
 import { supabase } from './config/supabase';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, DialogProps, Box, Card, CardContent, Avatar, TextField, Divider, Chip, Snackbar, Alert, Switch, FormControl, FormControlLabel, Select, MenuItem, Container, Paper } from '@mui/material';
-import { 
-  Person, 
-  Email, 
-  CalendarToday, 
-  Edit, 
-  Save, 
-  Cancel, 
-  Logout, 
-  Chat, 
-  Palette, 
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, DialogProps, Box, Card, CardContent, Avatar, TextField, Divider, Chip, Snackbar, Alert, Switch, FormControl, FormControlLabel, Select, MenuItem, Container, Paper, Slider } from '@mui/material';
+import {
+  Person,
+  Email,
+  CalendarToday,
+  Edit,
+  Save,
+  Cancel,
+  Logout,
+  Chat,
+  Palette,
   Face,
   AccountCircle,
   SportsEsports,
@@ -109,6 +113,11 @@ import {
   LocalCafe,
   LocalPizza,
   LocalDining,
+  Settings as SettingsIcon, // Renamed to avoid conflict
+  ZoomIn, // For magnifier
+  SupervisedUserCircle, // For admin
+  MonetizationOn, // For investments
+  ColorLens, // For color scheme
 } from '@mui/icons-material';
 import { createClient } from '@supabase/supabase-js';
 import { ThemeProvider as ThemeContextProvider } from './contexts/ThemeContext';
@@ -195,12 +204,12 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
           .select('chat_name, pfp_color, pfp_icon, pfp_type, pfp_image_url')
           .eq('user_id', user.id)
           .single();
-        
+
         if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
           console.error('Error loading chat settings:', error);
           return;
         }
-        
+
         if (data) {
           setChatSettings({
             chat_name: data.chat_name,
@@ -224,7 +233,7 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
   }, [user]);
 
   const pfpColors = [
-    '#1976d2', '#d32f2f', '#388e3c', '#f57c00', '#7b1fa2', 
+    '#1976d2', '#d32f2f', '#388e3c', '#f57c00', '#7b1fa2',
     '#303f9f', '#c2185b', '#5d4037', '#455a64', '#ff6f00',
     '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3',
     '#00bcd4', '#009688', '#4caf50', '#8bc34a', '#cddc39',
@@ -237,7 +246,7 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
     { value: 'Person', label: 'Пользователь', icon: Person, category: 'basic' },
     { value: 'Face', label: 'Лицо', icon: Face, category: 'basic' },
     { value: 'AccountCircle', label: 'Аккаунт', icon: AccountCircle, category: 'basic' },
-    
+
     // Activities
     { value: 'SportsEsports', label: 'Игры', icon: SportsEsports, category: 'activities' },
     { value: 'School', label: 'Образование', icon: School, category: 'activities' },
@@ -247,7 +256,7 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
     { value: 'DirectionsBike', label: 'Велосипед', icon: DirectionsBike, category: 'activities' },
     { value: 'DirectionsRun', label: 'Бег', icon: DirectionsRun, category: 'activities' },
     { value: 'DirectionsWalk', label: 'Прогулка', icon: DirectionsWalk, category: 'activities' },
-    
+
     // Lifestyle
     { value: 'ChildCare', label: 'Дети', icon: ChildCare, category: 'lifestyle' },
     { value: 'Pets', label: 'Питомцы', icon: Pets, category: 'lifestyle' },
@@ -258,13 +267,13 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
     { value: 'LocalCafe', label: 'Кафе', icon: LocalCafe, category: 'lifestyle' },
     { value: 'LocalPizza', label: 'Пицца', icon: LocalPizza, category: 'lifestyle' },
     { value: 'LocalDining', label: 'Ресторан', icon: LocalDining, category: 'lifestyle' },
-    
+
     // Entertainment
     { value: 'MusicNote', label: 'Музыка', icon: MusicNote, category: 'entertainment' },
     { value: 'Movie', label: 'Кино', icon: Movie, category: 'entertainment' },
     { value: 'Games', label: 'Игры', icon: Games, category: 'entertainment' },
     { value: 'TheaterComedy', label: 'Театр', icon: TheaterComedy, category: 'entertainment' },
-    
+
     // Travel & Transport
     { value: 'Flight', label: 'Путешествия', icon: Flight, category: 'travel' },
     { value: 'DirectionsCar', label: 'Автомобиль', icon: DirectionsCar, category: 'travel' },
@@ -275,7 +284,7 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
     { value: 'DirectionsRailway', label: 'Поезд', icon: DirectionsRailway, category: 'travel' },
     { value: 'LocalTaxi', label: 'Такси', icon: LocalTaxi, category: 'travel' },
     { value: 'Hotel', label: 'Отель', icon: Hotel, category: 'travel' },
-    
+
     // Business & Services
     { value: 'Business', label: 'Бизнес', icon: Business, category: 'business' },
     { value: 'Security', label: 'Безопасность', icon: Security, category: 'business' },
@@ -289,7 +298,7 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
     { value: 'LocalLibrary', label: 'Библиотека', icon: LocalLibrary, category: 'business' },
     { value: 'LocalMall', label: 'Торговый центр', icon: LocalMall, category: 'business' },
     { value: 'LocalParking', label: 'Парковка', icon: LocalParking, category: 'business' },
-    
+
     // Shopping & Commerce
     { value: 'ShoppingCart', label: 'Корзина', icon: ShoppingCart, category: 'shopping' },
     { value: 'LocalGroceryStore', label: 'Продукты', icon: LocalGroceryStore, category: 'shopping' },
@@ -298,14 +307,14 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
     { value: 'Loyalty', label: 'Лояльность', icon: Loyalty, category: 'shopping' },
     { value: 'Redeem', label: 'Погашение', icon: Redeem, category: 'shopping' },
     { value: 'CardGiftcard', label: 'Подарочная карта', icon: CardGiftcard, category: 'shopping' },
-    
+
     // Finance & Payments
     { value: 'AccountBalance', label: 'Баланс', icon: AccountBalance, category: 'finance' },
     { value: 'Payment', label: 'Платеж', icon: Payment, category: 'finance' },
     { value: 'CreditCard', label: 'Кредитная карта', icon: CreditCard, category: 'finance' },
     { value: 'Receipt', label: 'Чек', icon: Receipt, category: 'finance' },
     { value: 'LocalShipping', label: 'Доставка', icon: LocalShipping, category: 'finance' },
-    
+
     // Communication
     { value: 'Email', label: 'Email', icon: Email, category: 'communication' },
     { value: 'Phone', label: 'Телефон', icon: Phone, category: 'communication' },
@@ -313,7 +322,7 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
     { value: 'LocationOn', label: 'Местоположение', icon: LocationOn, category: 'communication' },
     { value: 'Schedule', label: 'Расписание', icon: Schedule, category: 'communication' },
     { value: 'CalendarToday', label: 'Календарь', icon: CalendarToday, category: 'communication' },
-    
+
     // Special & Premium
     { value: 'Favorite', label: 'Избранное', icon: Favorite, category: 'special' },
     { value: 'Star', label: 'Звезда', icon: Star, category: 'special' },
@@ -326,7 +335,7 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
     { value: 'Accessibility', label: 'Доступность', icon: Accessibility, category: 'special' },
     { value: 'Elderly', label: 'Пожилые', icon: Elderly, category: 'special' },
     { value: 'Spa', label: 'Спа', icon: Spa, category: 'special' },
-    
+
     // Secret/Developer
     { value: 'Dev', label: 'Разработчик (секретная)', icon: DevIcon, category: 'secret' },
   ];
@@ -352,7 +361,7 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
           pfp_type: 'icon',
           pfp_gradient: '',
         }));
-        
+
         // Also update in database
         await supabase
           .from('user_chat_settings')
@@ -390,7 +399,7 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
     setChatSettingsLoading(true);
     try {
       let imageUrl = chatSettings.pfp_image_url;
-      
+
       // Handle image upload if there's a selected image
       if (selectedImage) {
         const fileExt = selectedImage.name.split('.').pop();
@@ -398,16 +407,16 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('profile-pictures')
           .upload(fileName, selectedImage);
-        
+
         if (uploadError) throw uploadError;
-        
+
         const { data: urlData } = supabase.storage
           .from('profile-pictures')
           .getPublicUrl(fileName);
-        
+
         imageUrl = urlData.publicUrl;
       }
-      
+
       // Upsert chat settings to the new table
       const { error } = await supabase
         .from('user_chat_settings')
@@ -422,15 +431,15 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
         }, {
           onConflict: 'user_id'
         });
-      
+
       if (error) throw error;
-      
+
       // Update local state
       setChatSettings(prev => ({
         ...prev,
         pfp_image_url: imageUrl
       }));
-      
+
       setSnackbar({ open: true, message: 'Настройки чата обновлены!', severity: 'success' });
     } catch (err: any) {
       setSnackbar({ open: true, message: err.message || 'Ошибка при обновлении настроек чата', severity: 'error' });
@@ -447,22 +456,22 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
         setSnackbar({ open: true, message: 'Пожалуйста, выберите изображение', severity: 'error' });
         return;
       }
-      
+
       // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         setSnackbar({ open: true, message: 'Размер файла должен быть меньше 5MB', severity: 'error' });
         return;
       }
-      
+
       setSelectedImage(file);
-      
+
       // Create preview
       const reader = new FileReader();
       reader.onload = (e) => {
         setImagePreview(e.target?.result as string);
       };
       reader.readAsDataURL(file);
-      
+
       // Update chat settings
       setChatSettings(prev => ({
         ...prev,
@@ -505,7 +514,7 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
         .select('*')
         .eq('user_id', user.id)
         .single();
-      
+
       console.log('Current user chat settings:', data);
       console.log('Database error:', error);
       console.log('Data keys:', data ? Object.keys(data) : 'No data');
@@ -524,7 +533,7 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
       // Try to add the columns using RPC
       const { data, error } = await supabase.rpc('add_profile_picture_columns');
       console.log('Add columns result:', data, error);
-      
+
       if (error) {
         console.log('RPC failed, trying direct SQL...');
         // Fallback: try to update the user's settings with new fields
@@ -541,7 +550,7 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
           }, {
             onConflict: 'user_id'
           });
-        
+
         console.log('Update result:', updateError);
       }
     } catch (err) {
@@ -549,163 +558,7 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
     }
   };
 
-  // Function to run the SQL script
-  const runSqlScript = async () => {
-    if (!user) return;
-    try {
-      // Try to execute the SQL script using a function call
-      const { data, error } = await supabase.rpc('execute_sql', {
-        sql_text: `
-          DO $$ 
-          BEGIN 
-              -- Add pfp_type column
-              IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
-                             WHERE table_name = 'user_chat_settings' AND column_name = 'pfp_type') THEN
-                  ALTER TABLE user_chat_settings ADD COLUMN pfp_type TEXT DEFAULT 'icon';
-              END IF;
-              
-              -- Add pfp_image_url column
-              IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
-                             WHERE table_name = 'user_chat_settings' AND column_name = 'pfp_image_url') THEN     
-                  ALTER TABLE user_chat_settings ADD COLUMN pfp_image_url TEXT;
-              END IF;
-              
-              -- Add pfp_gradient column
-              IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
-                             WHERE table_name = 'user_chat_settings' AND column_name = 'pfp_gradient') THEN      
-                  ALTER TABLE user_chat_settings ADD COLUMN pfp_gradient TEXT DEFAULT 'linear-gradient(45deg, #1976d2, #42a5f5)';
-              END IF;
-          END $$;
-        `
-      });
-      
-      console.log('SQL script result:', data, error);
-      
-      if (error) {
-        console.log('SQL script failed, trying alternative approach...');
-        // Alternative: try to create the columns by inserting data with the new fields
-        const { error: insertError } = await supabase
-          .from('user_chat_settings')
-          .upsert({
-            user_id: user.id,
-            chat_name: chatSettings.chat_name,
-            pfp_color: chatSettings.pfp_color,
-            pfp_icon: chatSettings.pfp_icon,
-            pfp_type: 'icon',
-            pfp_image_url: '',
-            pfp_gradient: 'linear-gradient(45deg, #1976d2, #42a5f5)',
-          }, {
-            onConflict: 'user_id'
-          });
-        
-        console.log('Insert result:', insertError);
-      }
-    } catch (err) {
-      console.error('Error running SQL script:', err);
-    }
-  };
 
-  // Function to manually add columns by attempting insert
-  const manuallyAddColumns = async () => {
-    if (!user) return;
-    try {
-      console.log('Attempting to add columns by inserting data with new fields...');
-      
-      // Try to insert a record with the new fields
-      const { data, error } = await supabase
-        .from('user_chat_settings')
-        .upsert({
-          user_id: user.id,
-          chat_name: chatSettings.chat_name || 'User',
-          pfp_color: chatSettings.pfp_color || '#1976d2',
-          pfp_icon: chatSettings.pfp_icon || 'Person',
-          pfp_type: 'icon',
-          pfp_image_url: '',
-          pfp_gradient: 'linear-gradient(45deg, #1976d2, #42a5f5)',
-        }, {
-          onConflict: 'user_id'
-        });
-      
-      console.log('Manual insert result:', data, error);
-      
-      if (error) {
-        console.log('Insert failed, columns probably don\'t exist yet');
-        console.log('Error details:', error);
-      } else {
-        console.log('Insert succeeded! Columns might exist now');
-        // Refresh the page to reload settings
-        window.location.reload();
-      }
-    } catch (err) {
-      console.error('Error in manual column addition:', err);
-    }
-  };
-
-  // Function to force refresh chat data
-  const forceRefreshChat = async () => {
-    if (!user) return;
-    try {
-      console.log('Force refreshing chat data...');
-      
-      // Force refresh by updating user settings with current values
-      const { data, error } = await supabase
-        .from('user_chat_settings')
-        .upsert({
-          user_id: user.id,
-          chat_name: chatSettings.chat_name,
-          pfp_color: chatSettings.pfp_color,
-          pfp_icon: chatSettings.pfp_icon,
-          pfp_type: chatSettings.pfp_type,
-          pfp_image_url: chatSettings.pfp_image_url,
-          pfp_gradient: chatSettings.pfp_gradient,
-        }, {
-          onConflict: 'user_id'
-        });
-      
-      console.log('Force refresh result:', data, error);
-      
-      if (!error) {
-        console.log('Chat data refreshed successfully!');
-        // Reload the page to refresh all data
-        window.location.reload();
-      }
-    } catch (err) {
-      console.error('Error force refreshing chat:', err);
-    }
-  };
-
-  // Function to check chat user settings
-  const checkChatUserSettings = async () => {
-    if (!user) return;
-    try {
-      console.log('Checking chat user settings...');
-      
-      // Check what settings are currently in the database
-      const { data, error } = await supabase
-        .from('user_chat_settings')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-      
-      console.log('Current database settings:', data);
-      console.log('Current chatSettings state:', chatSettings);
-      
-      // Check if there's a mismatch
-      if (data) {
-        const mismatch = {
-          pfp_color: data.pfp_color !== chatSettings.pfp_color,
-          pfp_icon: data.pfp_icon !== chatSettings.pfp_icon,
-          pfp_type: data.pfp_type !== chatSettings.pfp_type,
-          pfp_image_url: data.pfp_image_url !== chatSettings.pfp_image_url,
-          pfp_gradient: data.pfp_gradient !== chatSettings.pfp_gradient,
-        };
-        
-        console.log('Mismatch between database and state:', mismatch);
-      }
-    } catch (err) {
-      console.error('Error checking chat user settings:', err);
-    }
-  };
 
   // Function to check if profile image exists in storage
   const checkProfileImage = async () => {
@@ -713,14 +566,14 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
       console.log('No user or no image URL to check');
       return;
     }
-    
+
     try {
       console.log('Checking profile image...');
       console.log('Image URL:', chatSettings.pfp_image_url);
-      
+
       // Try to fetch the image to see if it exists
       const response = await fetch(chatSettings.pfp_image_url);
-      
+
       if (response.ok) {
         console.log('✅ Profile image exists and is accessible');
         console.log('Response status:', response.status);
@@ -728,12 +581,12 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
       } else {
         console.log('❌ Profile image not found or not accessible');
         console.log('Response status:', response.status);
-        
+
         // Try to list files in the storage bucket
         const { data: files, error } = await supabase.storage
           .from('profile-pictures')
           .list();
-          
+
         if (error) {
           console.error('Error listing storage files:', error);
         } else {
@@ -755,27 +608,27 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-            <Avatar sx={{ 
-              width: 80, 
-              height: 80, 
-              mr: 3, 
+            <Avatar sx={{
+              width: 80,
+              height: 80,
+              mr: 3,
               background: isSpecialName ? 'linear-gradient(45deg, #4CAF50, #2196F3)' : 'primary.main',
               boxShadow: isSpecialName ? '0 0 10px #2196F3' : 'none',
             }}>
-              {isSpecialName ? 
-                <AnimatedDevIcon /> : 
+              {isSpecialName ?
+                <AnimatedDevIcon /> :
                 <Person sx={{ fontSize: 40 }} />
               }
             </Avatar>
             <Box>
               <Typography variant="h5" gutterBottom>
                 {user?.user_metadata?.first_name} {user?.user_metadata?.last_name}
-                {isSpecialName && 
+                {isSpecialName &&
                   <span style={{ marginLeft: '8px', fontSize: '0.8em', color: '#4CAF50' }}>💻</span>
                 }
               </Typography>
-              <Chip 
-                label={user?.user_metadata?.isAdmin ? 'Администратор' : 'Пользователь'} 
+              <Chip
+                label={user?.user_metadata?.isAdmin ? 'Администратор' : 'Пользователь'}
                 color={user?.user_metadata?.isAdmin ? 'error' : 'primary'}
                 size="small"
               />
@@ -893,7 +746,7 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
             <Chat />
             Настройки чата
           </Typography>
-          
+
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
             {/* Chat Name */}
             <Box sx={{ flex: '1 1 300px', minWidth: 0 }}>
@@ -915,14 +768,14 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
                 Предпросмотр аватара
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Avatar 
-                  sx={{ 
-                    width: 60, 
-                    height: 60, 
-                    bgcolor: chatSettings.pfp_type === 'image' ? 'transparent' : 
-                             chatSettings.pfp_icon === 'Dev' ? 'transparent' : chatSettings.pfp_color,
-                                        background: chatSettings.pfp_type === 'image' ? 'none' :
-                             chatSettings.pfp_icon === 'Dev' ? 'linear-gradient(45deg, #4CAF50, #2196F3)' : chatSettings.pfp_color,
+                <Avatar
+                  sx={{
+                    width: 60,
+                    height: 60,
+                    bgcolor: chatSettings.pfp_type === 'image' ? 'transparent' :
+                      chatSettings.pfp_icon === 'Dev' ? 'transparent' : chatSettings.pfp_color,
+                    background: chatSettings.pfp_type === 'image' ? 'none' :
+                      chatSettings.pfp_icon === 'Dev' ? 'linear-gradient(45deg, #4CAF50, #2196F3)' : chatSettings.pfp_color,
                     boxShadow: chatSettings.pfp_icon === 'Dev' ? '0 0 10px #2196F3' : 'none',
                     fontSize: '1.5rem',
                     backgroundImage: chatSettings.pfp_type === 'image' ? `url(${imagePreview || chatSettings.pfp_image_url})` : 'none',
@@ -935,16 +788,16 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
                     if (selectedIcon) {
                       const IconComponent = selectedIcon.icon;
                       const isSpecialIcon = chatSettings.pfp_icon === 'Dev';
-                      
+
                       if (isSpecialIcon) {
                         return <AnimatedDevIcon sx={{ fontSize: '3rem' }} />;
                       } else {
-                        return <IconComponent 
-                          sx={{ 
-                            fontSize: '3rem', 
-                            color: 'white', 
+                        return <IconComponent
+                          sx={{
+                            fontSize: '3rem',
+                            color: 'white',
                             opacity: 0.7
-                          }} 
+                          }}
                         />;
                       }
                     }
@@ -954,7 +807,7 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
                 <Box>
                   <Typography variant="body2" color="text.secondary">
                     {chatSettings.chat_name}
-                    {chatSettings.pfp_icon === 'Dev' && 
+                    {chatSettings.pfp_icon === 'Dev' &&
                       <span style={{ marginLeft: '4px', fontSize: '0.8em', color: '#4CAF50' }}>💻</span>
                     }
                   </Typography>
@@ -1020,7 +873,7 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
               </Box>
             )}
 
-            
+
 
             {/* Custom Color Picker */}
             {chatSettings.pfp_type === 'icon' && (
@@ -1065,36 +918,36 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
               <Box sx={{ flex: '1 1 300px', minWidth: 0 }}>
                 <Typography variant="subtitle2" gutterBottom>
                   Предустановленные цвета
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                {pfpColors.map((color) => (
-                  <Box
-                    key={color}
-                    sx={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: '50%',
-                      bgcolor: color,
-                      cursor: 'pointer',
-                      border: chatSettings.pfp_color === color ? '3px solid #000' : '2px solid #ddd',
-                      '&:hover': {
-                        border: '3px solid #666',
-                      }
-                    }}
-                    onClick={() => setChatSettings(prev => ({ ...prev, pfp_color: color }))}
-                  />
-                ))}
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  {pfpColors.map((color) => (
+                    <Box
+                      key={color}
+                      sx={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: '50%',
+                        bgcolor: color,
+                        cursor: 'pointer',
+                        border: chatSettings.pfp_color === color ? '3px solid #000' : '2px solid #ddd',
+                        '&:hover': {
+                          border: '3px solid #666',
+                        }
+                      }}
+                      onClick={() => setChatSettings(prev => ({ ...prev, pfp_color: color }))}
+                    />
+                  ))}
+                </Box>
               </Box>
-            </Box>
             )}
 
             {/* Profile Picture Icon */}
             {chatSettings.pfp_type === 'icon' && (
-            <Box sx={{ flex: '1 1 300px', minWidth: 0 }}>
-              <Typography variant="subtitle2" gutterBottom>
-                Иконка аватара
-              </Typography>
-                
+              <Box sx={{ flex: '1 1 300px', minWidth: 0 }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Иконка аватара
+                </Typography>
+
                 {/* Category Tabs */}
                 <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
                   {['basic', 'activities', 'lifestyle', 'entertainment', 'travel', 'business', 'shopping', 'finance', 'communication', 'special'].map((category) => (
@@ -1102,7 +955,7 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
                       key={category}
                       variant="outlined"
                       size="small"
-                      sx={{ 
+                      sx={{
                         fontSize: '0.7rem',
                         minWidth: 'auto',
                         px: 1,
@@ -1110,23 +963,23 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
                       }}
                     >
                       {category === 'basic' ? 'Основные' :
-                       category === 'activities' ? 'Активности' :
-                       category === 'lifestyle' ? 'Образ жизни' :
-                       category === 'entertainment' ? 'Развлечения' :
-                       category === 'travel' ? 'Путешествия' :
-                       category === 'business' ? 'Бизнес' :
-                       category === 'shopping' ? 'Покупки' :
-                       category === 'finance' ? 'Финансы' :
-                       category === 'communication' ? 'Общение' :
-                       category === 'special' ? 'Особые' : category}
+                        category === 'activities' ? 'Активности' :
+                          category === 'lifestyle' ? 'Образ жизни' :
+                            category === 'entertainment' ? 'Развлечения' :
+                              category === 'travel' ? 'Путешествия' :
+                                category === 'business' ? 'Бизнес' :
+                                  category === 'shopping' ? 'Покупки' :
+                                    category === 'finance' ? 'Финансы' :
+                                      category === 'communication' ? 'Общение' :
+                                        category === 'special' ? 'Особые' : category}
                     </Button>
                   ))}
                 </Box>
-                
+
                 {/* Icons Grid */}
-                <Box sx={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(40px, 1fr))', 
+                <Box sx={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(40px, 1fr))',
                   gap: 1,
                   maxHeight: 200,
                   overflowY: 'auto',
@@ -1145,38 +998,38 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
                     background: '#a8a8a8',
                   },
                 }}>
-                {pfpIcons.map((iconOption) => {
-                  const IconComponent = iconOption.icon;
-                  return (
-                    <Box
-                      key={iconOption.value}
-                      sx={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: '50%',
-                        bgcolor: chatSettings.pfp_color,
-                        background: chatSettings.pfp_color,
-                        cursor: 'pointer',
-                        border: chatSettings.pfp_icon === iconOption.value ? '3px solid #000' : '2px solid #ddd',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '1.2rem',
-                        '&:hover': {
-                          border: '3px solid #666',
+                  {pfpIcons.map((iconOption) => {
+                    const IconComponent = iconOption.icon;
+                    return (
+                      <Box
+                        key={iconOption.value}
+                        sx={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: '50%',
+                          bgcolor: chatSettings.pfp_color,
+                          background: chatSettings.pfp_color,
+                          cursor: 'pointer',
+                          border: chatSettings.pfp_icon === iconOption.value ? '3px solid #000' : '2px solid #ddd',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '1.2rem',
+                          '&:hover': {
+                            border: '3px solid #666',
                             transform: 'scale(1.1)',
                             transition: 'all 0.2s ease',
-                        }
-                      }}
-                      onClick={() => setChatSettings(prev => ({ ...prev, pfp_icon: iconOption.value }))}
+                          }
+                        }}
+                        onClick={() => setChatSettings(prev => ({ ...prev, pfp_icon: iconOption.value }))}
                         title={iconOption.label}
-                    >
-                      <IconComponent sx={{ fontSize: '1.5rem', color: 'white', opacity: 0.7 }} />
-                    </Box>
-                  );
-                })}
+                      >
+                        <IconComponent sx={{ fontSize: '1.5rem', color: 'white', opacity: 0.7 }} />
+                      </Box>
+                    );
+                  })}
+                </Box>
               </Box>
-            </Box>
             )}
           </Box>
 
@@ -1230,8 +1083,8 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
                 <Typography variant="body1" gutterBottom>
                   Доступ к админке инвестиций
                 </Typography>
-                <Button 
-                  variant="contained" 
+                <Button
+                  variant="contained"
                   onClick={() => window.location.href = '/admin/investments'}
                 >
                   Перейти в админку инвестиций
@@ -1256,18 +1109,19 @@ interface SettingsProps {
   setShowDevSettings: React.Dispatch<React.SetStateAction<boolean>>;
   magnifierEnabled: boolean;
   setMagnifierEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+  magnifierIntensity: number; // Controlled prop
+  setMagnifierIntensity: React.Dispatch<React.SetStateAction<number>>; // Controlled prop setter
 }
 
-const Settings: React.FC<SettingsProps> = ({ 
-  showDevSettings, 
+const Settings: React.FC<SettingsProps> = ({
+  showDevSettings,
   setShowDevSettings,
   magnifierEnabled,
-  setMagnifierEnabled 
+  setMagnifierEnabled,
+  magnifierIntensity, // Direct prop
+  setMagnifierIntensity // Direct prop setter
 }) => {
-  // `showDevSettings` and `setShowDevSettings` are now received as props.
-  // We no longer need to define them with `useState` inside this component.
-
-  const [loading, setLoading] = useState(false); // This state is not used in Settings, can be removed if not needed elsewhere in this component
+  const theme = useTheme(); // Use useTheme hook here
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({ open: false, message: '', severity: 'success' });
 
   // Get theme from localStorage
@@ -1295,10 +1149,29 @@ const Settings: React.FC<SettingsProps> = ({
     window.location.reload();
   };
 
+  // Gradient background for the header
+  const headerBg = theme.palette.mode === 'light'
+    ? `linear-gradient(180deg, ${theme.palette.primary.main}1A 0%, transparent 100%)`
+    : `linear-gradient(180deg, ${theme.palette.primary.main}33 0%, transparent 100%)`;
+
+
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h4">
+      {/* Settings Page Header with Gradient from PageHeader.tsx */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          mb: 3,
+          background: headerBg, // Apply the gradient
+          borderRadius: 1.5,
+          px: 2,
+          py: 1.5,
+          // Removed boxShadow to match PageHeader.tsx
+        }}
+      >
+        <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold', m: 0 }}> {/* Removed icon here */}
           Настройки
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -1307,56 +1180,78 @@ const Settings: React.FC<SettingsProps> = ({
             color="primary"
             sx={{
               cursor: 'pointer',
+              fontWeight: 'medium',
               '&:hover': {
-                textDecoration: 'underline'
+                transition: 'all 0.2s ease',
+                fontWeight: 'bold'
               }
             }}
             onClick={() => setShowDevSettings(!showDevSettings)}
           >
             Банк Маннру v3 BETA
           </Typography>
-          <FormControlLabel
-            control={
-              <Switch
-                checked={magnifierEnabled}
-                onChange={(e) => setMagnifierEnabled(e.target.checked)}
-                color="primary"
-              />
-            }
-            label="Увеличитель"
-            sx={{ 
-              '& .MuiTypography-root': {
-                fontWeight: 500
-              }
-            }}
-          />
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={() => {
-              const newMode = themeMode === 'light' ? 'dark' : 'light';
-              handleThemeChange(newMode);
-            }}
-            startIcon={themeMode === 'light' ? '🌙' : '☀️'}
-          >
-            {themeMode === 'light' ? 'Темная тема' : 'Светлая тема'}
-          </Button>
         </Box>
       </Box>
-      <Divider sx={{ mb: 2 }} />
 
-      <Card sx={{ mb: 3 }}>
+      {/* Accessibility Section */}
+      <Card sx={{ mb: 3, boxShadow: 3, borderRadius: 2 }}>
         <CardContent>
-          <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
-            Внешний вид
-          </Typography>
-
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <Box>
-              <Typography variant="body1" gutterBottom>
-                Тема оформления
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+            <Accessibility fontSize="small" />
+            <Typography variant="h6">Доступность</Typography>
+          </Box>
+          <Divider sx={{ mb: 2 }} />
+          <Box sx={{ mb: 2 }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={magnifierEnabled}
+                  onChange={(e) => setMagnifierEnabled(e.target.checked)}
+                  color="primary"
+                />
+              }
+              label="Экранная лупа"
+            />
+          </Box>
+          {magnifierEnabled && (
+            <Box sx={{ mb: 2, ml: 4 }}> {/* Indent slider slightly */}
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                Интенсивность увеличения
               </Typography>
-              <FormControl fullWidth>
+              <Slider
+                value={magnifierIntensity}
+                onChange={(_event: Event, newValue: number | number[]) => setMagnifierIntensity(newValue as number)}
+                min={1}
+                max={3}
+                step={0.1}
+                marks={[
+                  { value: 1, label: '1x' },
+                  { value: 2, label: '2x' },
+                  { value: 3, label: '3x' }
+                ]}
+                valueLabelDisplay="auto"
+                color="primary"
+              />
+            </Box>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Appearance Section */}
+      <Card sx={{ mb: 3, boxShadow: 3, borderRadius: 2 }}>
+        <CardContent>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+            <Palette fontSize="small" />
+            <Typography variant="h6">Внешний вид</Typography>
+          </Box>
+          <Divider sx={{ mb: 2 }} />
+
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}> {/* Increased gap */}
+            <Box>
+              <Typography variant="body1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Palette fontSize="small" /> Тема оформления
+              </Typography>
+              <FormControl fullWidth size="small"> {/* Added size="small" for compactness */}
                 <Select
                   value={themeMode}
                   onChange={(e) => handleThemeChange(e.target.value as ThemeMode)}
@@ -1372,10 +1267,10 @@ const Settings: React.FC<SettingsProps> = ({
             </Box>
 
             <Box>
-              <Typography variant="body1" gutterBottom>
-                Цветовая схема
+              <Typography variant="body1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <ColorLens fontSize="small" /> Цветовая схема
               </Typography>
-              <FormControl fullWidth>
+              <FormControl fullWidth size="small"> {/* Added size="small" for compactness */}
                 <Select
                   value={themeVariant}
                   onChange={(e) => handleThemeVariantChange(e.target.value as ThemeVariant)}
@@ -1399,81 +1294,36 @@ const Settings: React.FC<SettingsProps> = ({
                 </Select>
               </FormControl>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                Выберите цветовую схему для интерфейса
+                Выберите цветовую схему для интерфейса.
               </Typography>
             </Box>
-
-            {/* Theme Preview */}
-            <Box>
-              <Typography variant="body1" gutterBottom>
-                Предпросмотр темы
-              </Typography>
-              <Box sx={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: 2,
-                mt: 1
-              }}>
-                {themeVariants.slice(0, 6).map((variant) => (
-                  <Card
-                    key={variant.value}
-                    sx={{
-                      p: 2,
-                      cursor: 'pointer',
-                      border: themeVariant === variant.value ? '2px solid' : '1px solid',
-                      borderColor: themeVariant === variant.value ? 'primary.main' : 'divider',
-                      backgroundColor: themeVariant === variant.value ? 'primary.light' : 'background.paper',
-                      '&:hover': {
-                        borderColor: 'primary.main',
-                        backgroundColor: 'primary.light',
-                      }
-                    }}
-                    onClick={() => handleThemeVariantChange(variant.value)}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <Box
-                        sx={{
-                          width: 20,
-                          height: 20,
-                          borderRadius: '50%',
-                          backgroundColor: variant.color,
-                          border: '1px solid rgba(0,0,0,0.1)'
-                        }}
-                      />
-                      <Typography variant="subtitle2" fontWeight="bold">
-                        {variant.label}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 0.5 }}>
-                      <Box sx={{ width: 30, height: 20, backgroundColor: variant.color, borderRadius: 1 }} />
-                      <Box sx={{ width: 20, height: 20, backgroundColor: variant.color + '80', borderRadius: 1 }} />
-                      <Box sx={{ width: 25, height: 20, backgroundColor: variant.color + '40', borderRadius: 1 }} />
-                    </Box>
-                  </Card>
-                ))}
-              </Box>
-            </Box>
+            {/* Visual Theme Selection previews removed */}
           </Box>
         </CardContent>
       </Card>
 
-      {/* This Card is now correctly controlled by the showDevSettings prop */}
+      {/* Developer Settings */}
       {showDevSettings && (
-        <Card sx={{ mt: 3 }}>
+        <Card sx={{ mt: 3, boxShadow: 3, borderRadius: 2 }}>
           <CardContent>
-            <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
-              Показывать и изменять информацию для разработчиков
-            </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <DevIcon fontSize="small" />
+              <Typography variant="h6">Разработчик</Typography>
+            </Box>
+            <Divider sx={{ mb: 2 }} />
+            <Box sx={{ display: 'grid', gap: 2 }}>
               <Box>
-                <Typography variant="body1" gutterBottom>
-                  Доступ к админке инвестиций
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <SupervisedUserCircle fontSize="small" /> Администрирование
                 </Typography>
                 <Button
-                  variant="contained"
+                  variant="outlined"
+                  fullWidth
+                  startIcon={<MonetizationOn />}
                   onClick={() => window.location.href = '/admin/investments'}
+                  sx={{ justifyContent: 'flex-start' }}
                 >
-                  Перейти в админку инвестиций
+                  Инвестиции
                 </Button>
               </Box>
             </Box>
@@ -1493,10 +1343,37 @@ const Settings: React.FC<SettingsProps> = ({
 interface AppContentProps {
   showDevSettings: boolean;
   setShowDevSettings: React.Dispatch<React.SetStateAction<boolean>>;
+  magnifierIntensity?: number;
+  setMagnifierIntensity?: React.Dispatch<React.SetStateAction<number>>;
 }
 
-function AppContent({ showDevSettings, setShowDevSettings }: AppContentProps) {
-  const [magnifierEnabled, setMagnifierEnabled] = useState(false);
+function AppContent({ showDevSettings, setShowDevSettings, magnifierIntensity = 1.5, setMagnifierIntensity }: AppContentProps) {
+  const [magnifierEnabled, setMagnifierEnabled] = useState(() => {
+    const saved = localStorage.getItem('magnifierEnabled');
+    return saved === 'true';
+  });
+  const [localMagnifierIntensity, setLocalMagnifierIntensity] = useState<number>(() => {
+    const saved = localStorage.getItem('magnifierIntensity');
+    return saved ? parseFloat(saved) : 1.5;
+  });
+
+  // Persist magnifierEnabled state
+  useEffect(() => {
+    localStorage.setItem('magnifierEnabled', String(magnifierEnabled));
+  }, [magnifierEnabled]);
+
+  // Persist localMagnifierIntensity state
+  useEffect(() => {
+    localStorage.setItem('magnifierIntensity', String(localMagnifierIntensity));
+  }, [localMagnifierIntensity]);
+
+  // If setMagnifierIntensity is provided, update it when localMagnifierIntensity changes
+  useEffect(() => {
+    if (setMagnifierIntensity) {
+      setMagnifierIntensity(localMagnifierIntensity);
+    }
+  }, [localMagnifierIntensity, setMagnifierIntensity]);
+
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
@@ -1858,6 +1735,76 @@ function AppContent({ showDevSettings, setShowDevSettings }: AppContentProps) {
 
       <Routes>
         <Route
+          path="/vault-management"
+          element={
+            <ProtectedRoute>
+              <AppLayout
+                showDevSettings={showDevSettings}
+                magnifierEnabled={magnifierEnabled}
+                magnifierIntensity={localMagnifierIntensity}
+              >
+                <VaultManagementPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/games/memory"
+          element={
+            <ProtectedRoute>
+              <AppLayout
+                showDevSettings={showDevSettings}
+                magnifierEnabled={magnifierEnabled}
+                magnifierIntensity={localMagnifierIntensity}
+              >
+                <MemoryGame />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/games/fortune-wheel"
+          element={
+            <ProtectedRoute>
+              <AppLayout
+                showDevSettings={showDevSettings}
+                magnifierEnabled={magnifierEnabled}
+                magnifierIntensity={localMagnifierIntensity}
+              >
+                <FortuneWheelGame />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/games/chart-runner"
+          element={
+            <ProtectedRoute>
+              <AppLayout
+                showDevSettings={showDevSettings}
+                magnifierEnabled={magnifierEnabled}
+                magnifierIntensity={localMagnifierIntensity}
+              >
+                <ChartRunnerGame />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+                <Route
+          path="/games/grow-a-bank"
+          element={
+            <ProtectedRoute>
+              <AppLayout
+                showDevSettings={showDevSettings}
+                magnifierEnabled={magnifierEnabled}
+                magnifierIntensity={localMagnifierIntensity}
+              >
+                <BankGardenGame />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/login"
           element={
             user ? (
@@ -1883,7 +1830,11 @@ function AppContent({ showDevSettings, setShowDevSettings }: AppContentProps) {
         />
         <Route path="/dashboard" element={
           <ProtectedRoute>
-            <AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled} />
+            <AppLayout
+              showDevSettings={showDevSettings}
+              magnifierEnabled={magnifierEnabled}
+              magnifierIntensity={localMagnifierIntensity}
+            />
           </ProtectedRoute>
         }>
           <Route index element={<Dashboard />} />
@@ -1891,27 +1842,42 @@ function AppContent({ showDevSettings, setShowDevSettings }: AppContentProps) {
           <Route path="payments" element={<Payments />} />
           <Route path="profile" element={<Profile showDevSettings={showDevSettings} />} />
           {/* Pass showDevSettings and setShowDevSettings as props */}
-          <Route path="settings" element={<Settings showDevSettings={showDevSettings} setShowDevSettings={setShowDevSettings} magnifierEnabled={magnifierEnabled} setMagnifierEnabled={setMagnifierEnabled} />} />
+          <Route path="settings" element={
+            <Settings
+              showDevSettings={showDevSettings}
+              setShowDevSettings={setShowDevSettings}
+              magnifierEnabled={magnifierEnabled}
+              setMagnifierEnabled={setMagnifierEnabled}
+              magnifierIntensity={localMagnifierIntensity} // Pass local state
+              setMagnifierIntensity={setLocalMagnifierIntensity} // Pass local setter
+            />}
+          />
         </Route>
 
         <Route path="/marketplace" element={
           <ProtectedRoute>
-            <AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled} />
+            <AppLayout
+              showDevSettings={showDevSettings}
+              magnifierEnabled={magnifierEnabled}
+              magnifierIntensity={localMagnifierIntensity}
+            />
           </ProtectedRoute>
         }>
+
           <Route index element={<Marketplace />} />
+          <Route path="vault-management" element={<VaultManagementPage />} />
           <Route path="chat" element={<MarketplaceChat />} />
           <Route path="my-listings" element={<MyListings />} />
           <Route path="favorites" element={<FavoritesMarketplace />} />
         </Route>
 
-        <Route path="/features-marketplace" element={<ProtectedRoute><AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled}><FeaturesMarketplace /></AppLayout></ProtectedRoute>} />
-        <Route path="/investments" element={<ProtectedRoute><AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled}><Investments /></AppLayout></ProtectedRoute>} />
-        <Route path="/darkhaxorz6557453555c3h2he1a6t8s" element={<AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled}><Cheats /></AppLayout>} />
+        <Route path="/features-marketplace" element={<ProtectedRoute><AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled} magnifierIntensity={localMagnifierIntensity}><FeaturesMarketplace /></AppLayout></ProtectedRoute>} />
+        <Route path="/investments" element={<ProtectedRoute><AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled} magnifierIntensity={localMagnifierIntensity}><Investments /></AppLayout></ProtectedRoute>} />
+        <Route path="/darkhaxorz6557453555c3h2he1a6t8s" element={<AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled} magnifierIntensity={localMagnifierIntensity}><Cheats /></AppLayout>} />
         <Route path="/games/tapping" element={<TappingGame />} />
-        <Route path="/games/flip" element={<AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled}><FlipGame /></AppLayout>} />
-        <Route path="/giveaways" element={<AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled}><GiveawayFunction /></AppLayout>} />
-        <Route path="/chat" element={<AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled}><GlobalChat /></AppLayout>} />
+        <Route path="/games/flip" element={<AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled} magnifierIntensity={localMagnifierIntensity}><FlipGame /></AppLayout>} />
+        <Route path="/giveaways" element={<AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled} magnifierIntensity={localMagnifierIntensity}><GiveawayFunction /></AppLayout>} />
+        <Route path="/chat" element={<AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled} magnifierIntensity={localMagnifierIntensity}><GlobalChat /></AppLayout>} />
         <Route path="/admin" element={user && user.user_metadata?.isAdmin ? <AdminPanel /> : <div style={{ padding: 32, textAlign: 'center' }}><h2>Not authorized</h2></div>} />
         <Route path="/admin/investments" element={<AppLayout><AdminInvestments /></AppLayout>} />
 
@@ -2069,20 +2035,20 @@ function App() {
   return (
     <ThemeProvider theme={currentTheme}>
       <CssBaseline />
-      <ThemeContextProvider 
-        themeMode={themeMode} 
+      <ThemeContextProvider
+        themeMode={themeMode}
         setThemeMode={setThemeMode}
         themeVariant={themeVariant}
         setThemeVariant={setThemeVariant}
       >
-      <AuthProvider>
-        <Router>
-          <AppContent 
-            showDevSettings={showDevSettings}
-            setShowDevSettings={setShowDevSettings}
-          />
-        </Router>
-      </AuthProvider>
+        <AuthProvider>
+          <Router>
+            <AppContent
+              showDevSettings={showDevSettings}
+              setShowDevSettings={setShowDevSettings}
+            />
+          </Router>
+        </AuthProvider>
       </ThemeContextProvider>
     </ThemeProvider>
   )

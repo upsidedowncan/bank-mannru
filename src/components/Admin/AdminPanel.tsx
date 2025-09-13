@@ -10,6 +10,7 @@ import { CheatSettings } from './CheatSettings';
 import { ManGPTManagement } from './ManGPTManagement';
 import AdminInvestments from './AdminInvestments';
 import PageHeader from '../Layout/PageHeader'
+import { BannerManagement } from './BannerManagement';
 
 interface UserRow {
   id: string;
@@ -345,6 +346,7 @@ export const AdminPanel: React.FC = () => {
           <Tab label="Читы" />
           <Tab label="ManGPT" />
           <Tab label="Инвестиции" />
+          <Tab label="Баннеры" />
         </Tabs>
         {tab === 0 && (
           <Box>
@@ -754,6 +756,9 @@ export const AdminPanel: React.FC = () => {
         )}
         {tab === 9 && (
           <AdminInvestments />
+        )}
+        {tab === 10 && (
+          <BannerManagement />
         )}
       </Box>
     </AppLayout>
