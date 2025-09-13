@@ -213,30 +213,13 @@ export const ItemDetailsDialog: React.FC<ItemDetailsDialogProps> = ({
         }
       }
 
-      // Deduct money from buyer's card
-      const { error: updateBuyerError } = await supabase
-        .from('bank_cards')
-        .update({ balance: card.balance - item.price })
-        .eq('id', card.id)
-      if (updateBuyerError) throw updateBuyerError
-      // Add money to seller's payout card
-      if (!item.payout_card_id) {
-        setError('У продавца не выбрана карта для получения оплаты. Покупка невозможна.')
-        return
-      }
-      const { data: payoutCard } = await supabase
-        .from('bank_cards')
-        .select('*')
-        .eq('id', item.payout_card_id)
-        .single()
-      if (!payoutCard) {
-        setError('Карта продавца для получения оплаты не найдена. Покупка невозможна.')
-        return
-      }
-      await supabase
-        .from('bank_cards')
-        .update({ balance: payoutCard.balance + item.price })
-        .eq('id', payoutCard.id)
+      // Transfer funds via server-side RPC (atomic on the DB side)
+      const { data: transferResult, error: transferError } = await supabase.rpc('handle_manpay_transaction', {
+        sender_id_in: user.id,
+        receiver_id_in: item.seller_id,
+        amount_in: item.price,
+      })
+      if (transferError) throw transferError
       // Create purchase transaction
       const { error: purchaseError } = await supabase
         .from('marketplace_purchases')
@@ -250,7 +233,7 @@ export const ItemDetailsDialog: React.FC<ItemDetailsDialogProps> = ({
         })
       if (purchaseError) throw purchaseError
 
-      // Check if we need to delete the item (purchase limit reached)
+      // Check if we need to delete the item (purchase limit reached) AFTER successful transfer and purchase record
       if (item.purchase_limit !== null && item.purchase_limit !== undefined) {
         const { data: allPurchases, error: countError } = await supabase
           .from('marketplace_purchases')
@@ -320,16 +303,16 @@ export const ItemDetailsDialog: React.FC<ItemDetailsDialogProps> = ({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>
+      <DialogTitle sx={{ pb: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="h6">{item.title}</Typography>
-          <IconButton onClick={onClose}>
+          <IconButton onClick={onClose} size="small">
             <Close />
           </IconButton>
         </Box>
       </DialogTitle>
 
-      <DialogContent>
+      <DialogContent sx={{ pt: 2 }}>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
@@ -342,7 +325,7 @@ export const ItemDetailsDialog: React.FC<ItemDetailsDialogProps> = ({
           </Alert>
         )}
 
-        <Box sx={{ display: 'grid', gap: 3 }}>
+        <Box sx={{ display: 'grid', gap: 2 }}>
           {/* Item Images */}
           <Box sx={{ maxWidth: '100%', flexGrow: 1 }}>
             {item.images && item.images.length > 1 ? (
@@ -351,41 +334,30 @@ export const ItemDetailsDialog: React.FC<ItemDetailsDialogProps> = ({
                   src={item.images[activeStep]}
                   alt={`${item.title} - фото ${activeStep + 1}`}
                   style={{
-                    height: 255,
+                    height: 220,
                     display: 'block',
                     maxWidth: '100%',
                     overflow: 'hidden',
                     width: '100%',
                     objectFit: 'cover',
-                    borderRadius: '8px',
+                    borderRadius: 8,
                   }}
                 />
                 <MobileStepper
                   steps={maxSteps}
                   position="static"
                   activeStep={activeStep}
+                  sx={{ mt: 1, background: 'transparent' }}
                   nextButton={
-                    <Button
-                      size="small"
-                      onClick={handleNext}
-                      disabled={activeStep === maxSteps - 1}
-                    >
-                      Next
-                      {theme.direction === 'rtl' ? (
-                        <KeyboardArrowLeft />
-                      ) : (
-                        <KeyboardArrowRight />
-                      )}
+                    <Button size="small" onClick={handleNext} disabled={activeStep === maxSteps - 1}>
+                      Далее
+                      {theme.direction === 'rtl' ? <KeyboardArrowLeft /> : <KeyboardArrowRight />}
                     </Button>
                   }
                   backButton={
                     <Button size="small" onClick={handleBack} disabled={activeStep === 0}>
-                      {theme.direction === 'rtl' ? (
-                        <KeyboardArrowRight />
-                      ) : (
-                        <KeyboardArrowLeft />
-                      )}
-                      Back
+                      {theme.direction === 'rtl' ? <KeyboardArrowRight /> : <KeyboardArrowLeft />}
+                      Назад
                     </Button>
                   }
                 />
@@ -394,53 +366,35 @@ export const ItemDetailsDialog: React.FC<ItemDetailsDialogProps> = ({
               <img
                 src={item.images[0]}
                 alt={item.title}
-                style={{
-                  width: '100%',
-                  maxHeight: '400px',
-                  objectFit: 'cover',
-                  borderRadius: '8px',
-                }}
+                style={{ width: '100%', maxHeight: 320, objectFit: 'cover', borderRadius: 8 }}
               />
             ) : (
               <Box sx={{ textAlign: 'center' }}>
-                <img
-                  src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2Y1ZjVmNSIvPjx0ZXh0IHg9IjIwMCIgeT0iMTUwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTYiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj7QndC10YIgbm90ZSDQv9GA0L7QuNC30L7QstCw0L3QuNC1PC90ZXh0Pjwvc3ZnPg=="
-                  alt={item.title}
-                  style={{
-                    maxWidth: '100%',
-                    maxHeight: '300px',
-                    objectFit: 'cover',
-                    borderRadius: '8px',
-                  }}
-                />
+                <Box sx={{ width: '100%', height: 200, bgcolor: 'grey.100', borderRadius: 1.5 }} />
               </Box>
             )}
           </Box>
 
           {/* Price and Condition */}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h4" color="primary">
+            <Typography variant="h5" color="primary">
               {formatCurrency(item.price, item.currency)}
             </Typography>
-            <Chip
-              label={conditions[item.condition]}
-              color={item.condition === 'new' ? 'success' : 'default'}
-              size="medium"
-            />
+            <Chip label={conditions[item.condition]} color={item.condition === 'new' ? 'success' : 'default'} size="small" />
           </Box>
 
           {/* Description */}
           <Box>
-            <Typography variant="h6" gutterBottom>
+            <Typography variant="subtitle1" gutterBottom>
               Описание
             </Typography>
-            <Typography variant="body1" color="text.secondary">
+            <Typography variant="body2" color="text.secondary">
               {item.description}
             </Typography>
           </Box>
 
           {/* Item Details */}
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Person color="action" />
               <Typography variant="body2" color="text.secondary">
@@ -472,7 +426,7 @@ export const ItemDetailsDialog: React.FC<ItemDetailsDialogProps> = ({
               <Typography variant="subtitle2" gutterBottom>
                 Теги
               </Typography>
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                 {item.tags.map((tag, index) => (
                   <Chip key={index} label={tag} size="small" />
                 ))}
@@ -485,7 +439,7 @@ export const ItemDetailsDialog: React.FC<ItemDetailsDialogProps> = ({
           {/* Contact Seller */}
           {!isOwnItem && (
             <Box>
-              <Typography variant="h6" gutterBottom>
+              <Typography variant="subtitle1" gutterBottom>
                 Связаться с продавцом
               </Typography>
               <TextField
@@ -495,14 +449,9 @@ export const ItemDetailsDialog: React.FC<ItemDetailsDialogProps> = ({
                 placeholder="Напишите сообщение продавцу..."
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                sx={{ mb: 2 }}
+                sx={{ mb: 1.5 }}
               />
-              <Button
-                variant="outlined"
-                startIcon={<Chat />}
-                onClick={handleContactSeller}
-                disabled={loading || !message.trim()}
-              >
+              <Button variant="outlined" onClick={handleContactSeller} disabled={loading || !message.trim()}>
                 Отправить сообщение
               </Button>
             </Box>
@@ -510,17 +459,10 @@ export const ItemDetailsDialog: React.FC<ItemDetailsDialogProps> = ({
         </Box>
       </DialogContent>
 
-      <DialogActions>
-        <Button onClick={onClose} disabled={loading}>
-          Закрыть
-        </Button>
+      <DialogActions sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
+        <Button onClick={onClose} disabled={loading}>Закрыть</Button>
         {!isOwnItem && (
-          <Button
-            variant="contained"
-            startIcon={<ShoppingCart />}
-            onClick={handleBuyClick}
-            disabled={loading}
-          >
+          <Button variant="contained" onClick={handleBuyClick} disabled={loading}>
             {loading ? 'Покупка...' : 'Купить товар'}
           </Button>
         )}

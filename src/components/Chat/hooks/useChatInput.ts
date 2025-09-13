@@ -45,7 +45,7 @@ export const useChatInput = (
   // const debouncedMessage = useDebounce(newMessage, 300);
   // const debouncedMessage = newMessage; // Direct assignment for immediate response
 
-  const sendMessage = useCallback(async () => {
+  const sendMessage = useCallback(async (messageType: string = 'text') => {
     const messageText = newMessage.trim();
     if (!user || !selectedChannel || !messageText) return;
 
@@ -73,7 +73,7 @@ export const useChatInput = (
           channel_id: selectedChannel.id,
           user_id: user.id,
           message: messageText,
-          message_type: 'text',
+          message_type: messageType,
           reply_to: replyingTo?.id || null,
         });
 

@@ -35,6 +35,15 @@ interface VirtualizedMessageListProps {
   loading?: boolean;
   onLoadMore?: () => void;
   hasMore?: boolean;
+  onMarketItemClick?: (marketItemData: {
+    id: string;
+    title: string;
+    description: string;
+    price: number;
+    currency: string;
+    images: string[];
+  }) => void;
+  onReplyPreviewClick?: (messageId: string) => void;
 }
 
 const VirtualizedMessageList: React.FC<VirtualizedMessageListProps> = ({
@@ -68,6 +77,8 @@ const VirtualizedMessageList: React.FC<VirtualizedMessageListProps> = ({
   loading = false,
   onLoadMore,
   hasMore = false,
+  onMarketItemClick,
+  onReplyPreviewClick,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
@@ -81,6 +92,35 @@ const VirtualizedMessageList: React.FC<VirtualizedMessageListProps> = ({
     const recentMessages = messages.slice(-displayedMessageCount);
     return recentMessages;
   }, [messages, displayedMessageCount]);
+
+  // Performance optimization: Limit rendered message types to prevent lag
+  const shouldRenderMessage = useCallback((message: ChatMessage) => {
+    // Always render text messages
+    if (message.message_type === 'text') return true;
+    
+    // Limit heavy widgets to prevent lag
+    const heavyWidgetTypes = ['money_gift', 'image', 'video', 'voice'];
+    if (heavyWidgetTypes.includes(message.message_type)) {
+      // Only render heavy widgets if they're in the visible area
+      return true; // For now, render all. In the future, we could add intersection observer
+    }
+    
+    return true;
+  }, []);
+
+  // Filter messages to only render necessary ones
+  const filteredMessages = useMemo(() => {
+    return messages.filter(shouldRenderMessage);
+  }, [messages, shouldRenderMessage]);
+
+  // Use filtered messages for rendering
+  const items = useMemo(() => {
+    return filteredMessages.map((message, index) => ({
+      id: message.id,
+      message,
+      index,
+    }));
+  }, [filteredMessages]);
 
   // Handle scroll events
   const handleScroll = useCallback(() => {
@@ -177,20 +217,32 @@ const VirtualizedMessageList: React.FC<VirtualizedMessageListProps> = ({
           position: 'sticky', 
           top: 0, 
           zIndex: 1000, 
-          p: 1, 
+          p: isMobile ? 1.5 : 1, 
           textAlign: 'center', 
-          bgcolor: 'background.paper',
           borderBottom: 1,
-          borderColor: 'divider'
+          borderColor: 'divider',
+          backdropFilter: 'blur(8px)',
+          bgcolor: 'rgba(255, 255, 255, 0.9)'
         }}>
           <Button
-            variant="outlined"
-            size="small"
+            variant="contained"
+            size={isMobile ? "medium" : "small"}
             onClick={handleLoadMore}
             startIcon={<LoadMoreIcon />}
             disabled={loading}
+            sx={{
+              borderRadius: isMobile ? 2 : 1,
+              px: isMobile ? 3 : 2,
+              py: isMobile ? 1 : 0.5,
+              fontWeight: 600,
+              boxShadow: 2,
+              '&:hover': {
+                boxShadow: 4,
+                transform: 'translateY(-1px)'
+              }
+            }}
           >
-            {loading ? 'Загрузка...' : `Загрузить еще сообщений (${messages.length - displayedMessageCount}+)`}
+            {loading ? 'Загрузка...' : `Загрузить еще (${messages.length - displayedMessageCount}+)`}
           </Button>
         </Box>
       )}
@@ -201,11 +253,27 @@ const VirtualizedMessageList: React.FC<VirtualizedMessageListProps> = ({
         sx={{
           height: '100%',
           overflowY: 'auto',
-          p: 2,
+          p: isMobile ? 1 : 2,
           scrollBehavior: 'smooth',
           // Performance optimizations
           willChange: 'scroll-position',
           WebkitOverflowScrolling: 'touch',
+          // Mobile-specific improvements
+          ...(isMobile && {
+            '&::-webkit-scrollbar': {
+              width: '4px',
+            },
+            '&::-webkit-scrollbar-track': {
+              background: 'transparent',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              background: 'rgba(0, 0, 0, 0.2)',
+              borderRadius: '2px',
+            },
+            '&::-webkit-scrollbar-thumb:hover': {
+              background: 'rgba(0, 0, 0, 0.3)',
+            },
+          }),
         }}
         onScroll={handleScroll}
       >
@@ -249,6 +317,8 @@ const VirtualizedMessageList: React.FC<VirtualizedMessageListProps> = ({
               onUnpinMessage={onUnpinMessage}
               showReadReceipts={showReadReceipts}
               readBy={readBy[message.id] || []}
+              onMarketItemClick={onMarketItemClick}
+              onReplyPreviewClick={onReplyPreviewClick}
             />
           </Box>
         ))}
@@ -257,13 +327,25 @@ const VirtualizedMessageList: React.FC<VirtualizedMessageListProps> = ({
       {/* Scroll to bottom button */}
       {!isAtBottom && (
         <Fab
-          size="small"
+          size={isMobile ? "medium" : "small"}
           onClick={scrollToBottom}
           sx={{
             position: 'absolute',
-            bottom: 16,
-            right: 16,
+            bottom: isMobile ? 20 : 16,
+            right: isMobile ? 20 : 16,
             zIndex: 1000,
+            bgcolor: 'primary.main',
+            color: 'white',
+            boxShadow: 4,
+            '&:hover': {
+              bgcolor: 'primary.dark',
+              transform: 'scale(1.1)',
+              boxShadow: 6,
+            },
+            '&:active': {
+              transform: 'scale(0.95)',
+            },
+            transition: 'all 0.2s ease',
           }}
         >
           <ScrollDownIcon />

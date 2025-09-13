@@ -32,6 +32,7 @@ import { useAuthContext } from '../../contexts/AuthContext'
 import { supabase } from '../../config/supabase'
 import { formatCurrency } from '../../utils/formatters'
 import { CreateListingDialog } from './CreateListingDialog'
+import PageHeader from '../Layout/PageHeader'
 
 interface MarketplaceItem {
   id: string
@@ -156,12 +157,11 @@ export const MyListings: React.FC = () => {
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h4">Мои товары</Typography>
+      <PageHeader title="Мои товары" actions={
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateDialogOpen(true)}>
           Добавить новый товар
         </Button>
-      </Box>
+      } />
       <Divider sx={{ mb: 2 }} />
 
       {error && (

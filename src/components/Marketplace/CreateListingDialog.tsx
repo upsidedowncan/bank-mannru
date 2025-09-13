@@ -17,8 +17,9 @@ import {
   Alert,
   Card,
   CardMedia,
+  InputAdornment,
 } from '@mui/material'
-import { Close, Add as AddIcon, CloudUpload, Delete } from '@mui/icons-material'
+import { Close, Add as AddIcon, CloudUpload, Delete, CreditCard, PhotoCamera, DescriptionOutlined, Flag, LabelOutlined } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -251,8 +252,16 @@ export const CreateListingDialog: React.FC<CreateListingDialogProps> = ({
   }
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ pb: 1 }}>
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 2,
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+          maxHeight: '90vh',
+        }
+      }}
+    >
+      <DialogTitle sx={{ pb: 1, borderBottom: '1px solid', borderColor: 'divider', bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : undefined }}>
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="h6">Разместить товар</Typography>
           <IconButton onClick={handleClose} size="small">
@@ -262,59 +271,168 @@ export const CreateListingDialog: React.FC<CreateListingDialogProps> = ({
       </DialogTitle>
 
       <form onSubmit={handleSubmit(onSubmit)}>
-        <DialogContent sx={{ pt: 0, pb: 2, maxHeight: '70vh', overflow: 'auto' }}>
+        <DialogContent sx={{ pt: 2, pb: 1, maxHeight: '70vh', overflow: 'auto', bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.01)' : undefined }}>
           {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
+            <Alert severity="error" sx={{ mb: 2, borderRadius: 1 }}>
               {error}
             </Alert>
           )}
 
           <Box sx={{ display: 'grid', gap: 2 }}>
+            {/* Payout Card Selection */}
+            <Box sx={{ 
+              p: 2, 
+              bgcolor: (theme) => theme.palette.mode === 'light' ? 'primary.50' : 'rgba(255,255,255,0.04)', 
+              borderRadius: 1.5,
+              border: '1px solid',
+              borderColor: (theme) => theme.palette.mode === 'light' ? 'primary.200' : 'rgba(255,255,255,0.12)'
+            }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                <CreditCard fontSize="small" color="primary" />
+                <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                  Карта для оплаты
+                </Typography>
+              </Box>
+              <FormControl fullWidth size="small">
+                <Select
+                  value={payoutCardId}
+                  onChange={handlePayoutCardChange}
+                  displayEmpty
+                  sx={{
+                    '& .MuiSelect-select': {
+                      py: 1,
+                    }
+                  }}
+                >
+                  <MenuItem value="" disabled>
+                    <Typography variant="body2" color="text.secondary">
+                      Выберите карту
+                    </Typography>
+                  </MenuItem>
+                  {cards.map(card => (
+                    <MenuItem key={card.id} value={card.id}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '100%' }}>
+                        <Box sx={{
+                          width: 28,
+                          height: 18,
+                          borderRadius: 1,
+                          background: 'linear-gradient(45deg, #667eea, #764ba2)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'white',
+                          fontSize: '0.65rem',
+                          fontWeight: 'bold'
+                        }}>
+                          {card.card_type === 'credit' ? 'CR' : 'DB'}
+                        </Box>
+                        <Box sx={{ flexGrow: 1 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.875rem' }}>
+                            {card.card_name}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            •••• {card.card_number.slice(-4)}
+                          </Typography>
+                        </Box>
+                        <Typography variant="body2" color="primary" sx={{ fontWeight: 600, fontSize: '0.875rem' }}>
+                          {card.balance} МР
+                        </Typography>
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </Select>
+                {cards.length === 0 && (
+                  <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
+                    Создайте карту в "Панель управления"
+                  </Typography>
+                )}
+              </FormControl>
+            </Box>
+
             {/* Image Upload Section */}
             <Box>
-              <Typography variant="subtitle2" gutterBottom>
-                Фотографии товара
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1, maxHeight: 100, overflow: 'auto' }}>
-                {images.map((image, index) => (
-                  <Card key={index} sx={{ width: 60, height: 60, position: 'relative', flexShrink: 0 }}>
-                    <CardMedia
-                      component="img"
-                      height="60"
-                      image={image}
-                      alt={`Фото ${index + 1}`}
-                      sx={{ objectFit: 'cover' }}
-                    />
-                    <IconButton
-                      size="small"
-                      sx={{
-                        position: 'absolute',
-                        top: 1,
-                        right: 1,
-                        backgroundColor: 'rgba(0,0,0,0.5)',
-                        color: 'white',
-                        width: 20,
-                        height: 20,
-                        '&:hover': {
-                          backgroundColor: 'rgba(0,0,0,0.7)',
-                        },
-                      }}
-                      onClick={() => handleRemoveImage(index)}
-                    >
-                      <Delete sx={{ fontSize: 12 }} />
-                    </IconButton>
-                  </Card>
-                ))}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                <PhotoCamera fontSize="small" color="action" />
+                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                  Фотографии
+                </Typography>
               </Box>
+              
+              {/* Image Preview Grid */}
+              {images.length > 0 && (
+                <Box sx={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(70px, 1fr))',
+                  gap: 1, 
+                  mb: 1.5,
+                  maxHeight: 150,
+                  overflow: 'auto'
+                }}>
+                  {images.map((image, index) => (
+                    <Card key={index} sx={{ 
+                      position: 'relative',
+                      aspectRatio: '1',
+                      borderRadius: 1.5,
+                      overflow: 'hidden',
+                      boxShadow: 1,
+                      '&:hover': {
+                        boxShadow: 2,
+                        transform: 'scale(1.02)',
+                        transition: 'all 0.2s ease'
+                      }
+                    }}>
+                      <CardMedia
+                        component="img"
+                        image={image}
+                        alt={`Фото ${index + 1}`}
+                        sx={{ 
+                          objectFit: 'cover',
+                          height: '100%',
+                          width: '100%'
+                        }}
+                      />
+                      <IconButton
+                        size="small"
+                        sx={{
+                          position: 'absolute',
+                          top: 2,
+                          right: 2,
+                          backgroundColor: 'rgba(0,0,0,0.7)',
+                          color: 'white',
+                          width: 20,
+                          height: 20,
+                          '&:hover': {
+                            backgroundColor: 'rgba(0,0,0,0.9)',
+                          },
+                        }}
+                        onClick={() => handleRemoveImage(index)}
+                      >
+                        <Delete sx={{ fontSize: 12 }} />
+                      </IconButton>
+                    </Card>
+                  ))}
+                </Box>
+              )}
+
+              {/* Upload Button */}
               <Button
                 variant="outlined"
                 component="label"
                 startIcon={<CloudUpload />}
                 size="small"
                 disabled={uploading}
-                sx={{ width: '100%' }}
+                sx={{ 
+                  width: '100%',
+                  py: 1,
+                  borderStyle: 'dashed',
+                  borderWidth: 1.5,
+                  '&:hover': {
+                    borderStyle: 'solid',
+                    borderWidth: 1.5,
+                  }
+                }}
               >
-                {uploading ? 'Загрузка...' : 'Добавить фото'}
+                {uploading ? 'Загрузка...' : images.length === 0 ? 'Добавить фото' : 'Добавить еще'}
                 <input
                   type="file"
                   hidden
@@ -323,130 +441,152 @@ export const CreateListingDialog: React.FC<CreateListingDialogProps> = ({
                   onChange={handleImageUpload}
                 />
               </Button>
-            </Box>
-
-            <FormControl fullWidth sx={{ mb: 2 }}>
-              <InputLabel id="payout-card-label">Карта для получения оплаты</InputLabel>
-              <Select
-                labelId="payout-card-label"
-                value={payoutCardId}
-                label="Карта для получения оплаты"
-                onChange={handlePayoutCardChange}
-                required
-              >
-                {cards.length === 0 && <MenuItem value="" disabled>Нет активных карт</MenuItem>}
-                {cards.map(card => (
-                  <MenuItem key={card.id} value={card.id}>
-                    {`"${card.card_name}" • ${card.card_number.slice(-4)} • Баланс: ${card.balance} МР`}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <Controller
-              name="title"
-              control={control}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  label="Название товара"
-                  fullWidth
-                  error={!!errors.title}
-                  helperText={errors.title?.message}
-                />
-              )}
-            />
-
-            <Controller
-              name="description"
-              control={control}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  label="Описание"
-                  fullWidth
-                  multiline
-                  rows={2}
-                  error={!!errors.description}
-                  helperText={errors.description?.message}
-                />
-              )}
-            />
-
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-              <Controller
-                name="price"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Цена (МР)"
-                    type="number"
-                    fullWidth
-                    error={!!errors.price}
-                    helperText={errors.price?.message}
-                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                  />
-                )}
-              />
-
-              <Controller
-                name="condition"
-                control={control}
-                render={({ field }) => (
-                  <FormControl fullWidth error={!!errors.condition}>
-                    <InputLabel>Состояние</InputLabel>
-                    <Select {...field} label="Состояние">
-                      {conditions.map((condition) => (
-                        <MenuItem key={condition.value} value={condition.value}>
-                          {condition.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                )}
-              />
-            </Box>
-
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-              <Controller
-                name="category"
-                control={control}
-                render={({ field }) => (
-                  <FormControl fullWidth error={!!errors.category}>
-                    <InputLabel>Категория</InputLabel>
-                    <Select {...field} label="Категория">
-                      {categories.map((category) => (
-                        <MenuItem key={category} value={category}>
-                          {category}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                )}
-              />
-
-              <Controller
-                name="location"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Местоположение"
-                    fullWidth
-                    error={!!errors.location}
-                    helperText={errors.location?.message}
-                  />
-                )}
-              />
-            </Box>
-
-            <Box>
-              <Typography variant="subtitle2" gutterBottom>
-                Лимит покупок
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
+                Макс. 5MB, JPG/PNG/GIF
               </Typography>
-              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 1 }}>
-                <FormControl fullWidth>
+            </Box>
+
+            {/* Basic Information Section */}
+            <Box sx={{ 
+              p: 2, 
+              bgcolor: (theme) => theme.palette.mode === 'light' ? 'grey.50' : 'rgba(255,255,255,0.04)', 
+              borderRadius: 1.5,
+              border: '1px solid',
+              borderColor: 'divider'
+            }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                <DescriptionOutlined fontSize="small" color="action" />
+                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                  Основная информация
+                </Typography>
+              </Box>
+              
+              <Box sx={{ display: 'grid', gap: 1.5 }}>
+                <Controller
+                  name="title"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      label="Название товара"
+                      fullWidth
+                      size="small"
+                      error={!!errors.title}
+                      helperText={errors.title?.message}
+                    />
+                  )}
+                />
+
+                <Controller
+                  name="description"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      label="Описание"
+                      fullWidth
+                      multiline
+                      rows={2}
+                      size="small"
+                      error={!!errors.description}
+                      helperText={errors.description?.message}
+                      placeholder="Опишите товар..."
+                    />
+                  )}
+                />
+
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+                  <Controller
+                    name="price"
+                    control={control}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        label="Цена"
+                        type="number"
+                        fullWidth
+                        size="small"
+                        error={!!errors.price}
+                        helperText={errors.price?.message}
+                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                        InputProps={{
+                          startAdornment: <InputAdornment position="start">MR</InputAdornment>,
+                        }}
+                      />
+                    )}
+                  />
+
+                  <Controller
+                    name="condition"
+                    control={control}
+                    render={({ field }) => (
+                      <FormControl fullWidth size="small" error={!!errors.condition}>
+                        <InputLabel>Состояние</InputLabel>
+                        <Select {...field} label="Состояние">
+                          {conditions.map((condition) => (
+                            <MenuItem key={condition.value} value={condition.value}>
+                              {condition.label}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    )}
+                  />
+                </Box>
+
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+                  <Controller
+                    name="category"
+                    control={control}
+                    render={({ field }) => (
+                      <FormControl fullWidth size="small" error={!!errors.category}>
+                        <InputLabel>Категория</InputLabel>
+                        <Select {...field} label="Категория">
+                          {categories.map((category) => (
+                            <MenuItem key={category} value={category}>
+                              {category}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    )}
+                  />
+
+                  <Controller
+                    name="location"
+                    control={control}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        label="Местоположение"
+                        fullWidth
+                        size="small"
+                        error={!!errors.location}
+                        helperText={errors.location?.message}
+                        placeholder="Город..."
+                      />
+                    )}
+                  />
+                </Box>
+              </Box>
+            </Box>
+
+            {/* Purchase Limit Section */}
+            <Box sx={{ 
+              p: 2, 
+              bgcolor: (theme) => theme.palette.mode === 'light' ? 'warning.50' : 'rgba(255,193,7,0.08)', 
+              borderRadius: 1.5,
+              border: '1px solid',
+              borderColor: (theme) => theme.palette.mode === 'light' ? 'warning.200' : 'rgba(255,193,7,0.24)'
+            }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                <Flag fontSize="small" color="warning" />
+                <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'warning.dark' }}>
+                  Лимит покупок
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+                <FormControl fullWidth size="small">
                   <InputLabel>Тип лимита</InputLabel>
                   <Select
                     value={purchaseLimitType}
@@ -454,7 +594,7 @@ export const CreateListingDialog: React.FC<CreateListingDialogProps> = ({
                     label="Тип лимита"
                   >
                     <MenuItem value="1">1 покупка</MenuItem>
-                    <MenuItem value="custom">Кастомное количество</MenuItem>
+                    <MenuItem value="custom">Кастомное</MenuItem>
                     <MenuItem value="infinite">Безлимитно</MenuItem>
                   </Select>
                 </FormControl>
@@ -465,48 +605,77 @@ export const CreateListingDialog: React.FC<CreateListingDialogProps> = ({
                     type="number"
                     value={purchaseLimitValue}
                     onChange={(e) => setPurchaseLimitValue(e.target.value)}
-                    sx={{ minWidth: 150 }}
+                    size="small"
+                    sx={{ minWidth: 120 }}
                     inputProps={{ min: 1 }}
                   />
                 )}
               </Box>
             </Box>
 
-            <Box>
-              <Typography variant="subtitle2" gutterBottom>
-                Теги
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                {watchedTags.map((tag, index) => (
-                  <Chip
-                    key={index}
-                    label={tag}
-                    onDelete={() => handleRemoveTag(tag)}
-                    color="primary"
-                    variant="outlined"
-                    size="small"
-                  />
-                ))}
+            {/* Tags Section */}
+            <Box sx={{ 
+              p: 2, 
+              bgcolor: (theme) => theme.palette.mode === 'light' ? 'success.50' : 'rgba(76,175,80,0.08)', 
+              borderRadius: 1.5,
+              border: '1px solid',
+              borderColor: (theme) => theme.palette.mode === 'light' ? 'success.200' : 'rgba(76,175,80,0.24)'
+            }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                <LabelOutlined fontSize="small" color="success" />
+                <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'success.dark' }}>
+                  Теги
+                </Typography>
               </Box>
+              
+              {/* Existing Tags */}
+              {watchedTags.length > 0 && (
+                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1.5 }}>
+                  {watchedTags.map((tag, index) => (
+                    <Chip
+                      key={index}
+                      label={tag}
+                      onDelete={() => handleRemoveTag(tag)}
+                      color="success"
+                      variant="outlined"
+                      size="small"
+                      sx={{
+                        fontSize: '0.7rem',
+                        '&:hover': {
+                          background: 'success.main',
+                          color: 'white',
+                        }
+                      }}
+                    />
+                  ))}
+                </Box>
+              )}
+
+              {/* Add New Tag */}
               <Box sx={{ display: 'flex', gap: 1 }}>
                 <TextField
                   value={newTag}
                   onChange={(e) => setNewTag(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Добавить тег"
+                  placeholder="Введите тег"
                   size="small"
                   sx={{ flexGrow: 1 }}
+                  InputProps={{
+                    endAdornment: (
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={handleAddTag}
+                        disabled={!newTag.trim()}
+                        sx={{ ml: 0.5 }}
+                      >
+                        Добавить
+                      </Button>
+                    ),
+                  }}
                 />
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={handleAddTag}
-                  disabled={!newTag.trim()}
-                  startIcon={<AddIcon />}
-                >
-                  Добавить
-                </Button>
               </Box>
+              
               {errors.tags && (
                 <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
                   {errors.tags.message}
@@ -516,12 +685,29 @@ export const CreateListingDialog: React.FC<CreateListingDialogProps> = ({
           </Box>
         </DialogContent>
 
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={handleClose} disabled={loading} size="small">
+        <DialogActions sx={{ 
+          px: 2, 
+          pb: 2, 
+          pt: 1.5,
+          gap: 1.5,
+          borderTop: '1px solid',
+          borderColor: 'divider',
+          background: (theme) => theme.palette.mode === 'light' ? 'rgba(0, 0, 0, 0.02)' : 'rgba(255,255,255,0.03)'
+        }}>
+          <Button 
+            onClick={handleClose} 
+            disabled={loading}
+            variant="outlined"
+          >
             Отмена
           </Button>
-          <Button type="submit" variant="contained" disabled={loading} size="small">
-            {loading ? 'Создание...' : 'Разместить товар'}
+          <Button 
+            type="submit" 
+            variant="contained" 
+            color="primary"
+            disabled={loading || !payoutCardId}
+          >
+            {loading ? 'Создание...' : 'Разместить'}
           </Button>
         </DialogActions>
       </form>
