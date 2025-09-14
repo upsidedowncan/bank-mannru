@@ -535,13 +535,15 @@ export const ChartRunnerGame: React.FC = () => {
       });
     }
     
-    // Enemy cannons (shoot at player)
-    if (Math.random() < 0.4) { // 40% chance for enemy cannon
+    // Enemy cannons - GUARANTEED to spawn at least 2 per round
+    const enemyCannonCount = Math.floor(Math.random() * 2) + 2; // 2-3 enemy cannons per segment
+    
+    for (let i = 0; i < enemyCannonCount; i++) {
       const cannonY = 50 + Math.random() * (GAME_HEIGHT - 100);
-      const cannonX = segmentStartX + 200 + Math.random() * 150;
+      const cannonX = segmentStartX + 200 + (i * 80) + Math.random() * 50;
       
       cannonsRef.current.push({
-        id: `enemy-cannon-${segmentStartX}-${Math.random()}`,
+        id: `enemy-cannon-${segmentStartX}-${i}-${Math.random()}`,
         x: cannonX,
         y: cannonY,
         width: CANNON_SIZE,
@@ -706,7 +708,10 @@ export const ChartRunnerGame: React.FC = () => {
         });
 
          // Remove obstacles that are off screen
-        obstaclesRef.current = obstaclesRef.current.filter((o) => o.x + o.width > 0);
+         obstaclesRef.current = obstaclesRef.current.filter((o) => o.x + o.width > 0);
+         
+         // Remove cannons that are off screen
+         cannonsRef.current = cannonsRef.current.filter((cannon) => cannon.x + cannon.width > -50);
 
          // Update and check coin collisions
          coinsRef.current = coinsRef.current.map(coin => {
@@ -1195,8 +1200,17 @@ export const ChartRunnerGame: React.FC = () => {
      });
 
      // Draw cannons
+     let enemyCannonCount = 0;
+     let playerCannonCount = 0;
+     
      cannonsRef.current.forEach(cannon => {
        if (cannon.isActive) {
+         if (cannon.isEnemy) {
+           enemyCannonCount++;
+         } else {
+           playerCannonCount++;
+         }
+         
          // Cannon body - different colors for enemy vs player cannons
          if (cannon.isEnemy) {
            ctx.fillStyle = theme.palette.error.main;
@@ -1228,6 +1242,12 @@ export const ChartRunnerGame: React.FC = () => {
          }
        }
      });
+     
+     // Debug info for cannons
+     ctx.fillStyle = theme.palette.text.primary;
+     ctx.font = '12px Arial';
+     ctx.fillText(`Enemy Cannons: ${enemyCannonCount}`, GAME_WIDTH - 150, GAME_HEIGHT - 40);
+     ctx.fillText(`Player Cannons: ${playerCannonCount}`, GAME_WIDTH - 150, GAME_HEIGHT - 20);
 
      // Draw bullets
      bulletsRef.current.forEach(bullet => {
