@@ -60,41 +60,41 @@ import {
   EmojiEvents as TrophyIcon,
   TrendingUp as TrendingUpIcon,
   Psychology as BrainIcon,
-  LocalFlorist as SeedIcon,
+  Park as SeedIcon,
   CalendarToday as CalendarIcon,
-  Star as StarIcon,
-  Diamond as DiamondIcon,
+  Star as AuroraIcon,
+  Brightness7 as DiamondIcon,
   AutoAwesome as SparkleIcon,
   Spa as MicroPlantIcon, // Icon for micro-plant
   // Garden modifier icons
   Expand as ExpandIcon,
-  Science as MutationIcon,
+  Biotech as MutationIcon,
   // Weather icons
   WbSunny as SunnyIcon,
   Thunderstorm as StormIcon,
   AcUnit as SnowIcon,
-  LocalFireDepartment as HeatIcon,
+  Whatshot as HeatIcon,
   // Plant combination icons
-  Psychology as SynergyIcon,
-  AutoAwesome as EvolutionIcon,
+  Group as SynergyIcon,
+  Timeline as EvolutionIcon,
   // Seasonal event icons
   Cake as BirthdayIcon,
-  Star as ChristmasIcon,
+  StarBorder as ChristmasIcon,
   LocalFireDepartment as HalloweenIcon,
-  WbSunny as SpringIcon,
+  FilterVintage as SpringIcon,
   BeachAccess as SummerIcon,
-  AcUnit as WinterIcon,
-  EmojiEvents as EventIcon,
+  Thermostat as WinterIcon,
+  Event as EventIcon,
   // Search icon
   Search as SearchIcon,
   // Additional icons for new content
-  AttachMoney as AttachMoneyIcon,
+  MonetizationOn as AttachMoneyIcon,
   Speed as SpeedIcon,
   Build as BuildIcon,
   Air as AirIcon,
-  WbSunny as WbSunnyIcon,
+  WbSunny as DroughtIcon,
   Assignment as AssignmentIcon,
-  EmojiEvents as EmojiEventsIcon,
+  MilitaryTech as EmojiEventsIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 
@@ -315,7 +315,7 @@ const ASSET_CONFIGS: { [key in GameAsset['type']]: AssetConfig } = {
   investment_flower: {
     label: 'Инвестиционный цветок',
     baseCost: 2000,
-    baseYield: 0.05, // 5% yield of in-game MR balance (complex yield)
+    baseYield: 50, // Fixed amount per cycle instead of percentage
     harvestItemType: undefined,
     harvestValue: 1, // Placeholder, as it's passive MR
     growthTimeMs: 60000,
@@ -375,7 +375,7 @@ const ASSET_CONFIGS: { [key in GameAsset['type']]: AssetConfig } = {
   bank_branch: {
     label: 'Филиал банка',
     baseCost: 8000,
-    baseYield: 0.1, // 10% passive MR per minute (e.g., 0.1 means 10% of game MR every minute)
+    baseYield: 200, // Fixed amount per cycle instead of percentage
     harvestItemType: undefined,
     harvestValue: 1,
     growthTimeMs: 60000,
@@ -390,7 +390,7 @@ const ASSET_CONFIGS: { [key in GameAsset['type']]: AssetConfig } = {
   digital_vault: {
     label: 'Цифровое хранилище',
     baseCost: 10000,
-    baseYield: 0.01, // 1% passive MR per minute of total in-game MR
+    baseYield: 100, // Fixed amount per cycle instead of percentage
     harvestItemType: undefined,
     harvestValue: 1,
     growthTimeMs: 60000,
@@ -498,7 +498,7 @@ const ASSET_CONFIGS: { [key in GameAsset['type']]: AssetConfig } = {
   quantum_flower: {
     label: 'Квантовый цветок',
     baseCost: 15000,
-    baseYield: 0.02, // 2% of total MR per cycle
+    baseYield: 300, // Fixed amount per cycle instead of percentage
     harvestItemType: undefined,
     harvestValue: 1,
     growthTimeMs: 30000, // 30 seconds
@@ -574,7 +574,7 @@ const ASSET_CONFIGS: { [key in GameAsset['type']]: AssetConfig } = {
   solar_panel: {
     label: 'Солнечная панель',
     baseCost: 15000,
-    baseYield: 0.03, // 3% of total MR per cycle
+    baseYield: 250, // Fixed amount per cycle instead of percentage
     harvestItemType: undefined,
     harvestValue: 1,
     growthTimeMs: 45000, // 45 seconds
@@ -589,7 +589,7 @@ const ASSET_CONFIGS: { [key in GameAsset['type']]: AssetConfig } = {
   wind_turbine: {
     label: 'Ветряная турбина',
     baseCost: 18000,
-    baseYield: 0.025, // 2.5% of total MR per cycle
+    baseYield: 180, // Fixed amount per cycle instead of percentage
     harvestItemType: undefined,
     harvestValue: 1,
     growthTimeMs: 60000, // 1 minute
@@ -685,7 +685,7 @@ const ASSET_CONFIGS: { [key in GameAsset['type']]: AssetConfig } = {
     harvestValue: 1500, // Each platinum sells for 1500 MR
     growthTimeMs: 180000, // 3 minutes
     maxLevel: 2,
-    icon: StarIcon,
+    icon: AuroraIcon,
     color: '#E0E0E0',
     description: 'Редкая роза из платины, которая ценится коллекционерами.',
     onPlantMessage: 'Вы посадили платиновую розу! Она будет цвести драгоценным металлом.',
@@ -740,7 +740,7 @@ const ASSET_CONFIGS: { [key in GameAsset['type']]: AssetConfig } = {
   mystic_orchid: {
     label: 'Мистическая орхидея',
     baseCost: 60000,
-    baseYield: 0.05, // 5% of total MR per cycle
+    baseYield: 800, // Fixed amount per cycle instead of percentage
     harvestItemType: undefined,
     harvestValue: 1,
     growthTimeMs: 600000, // 10 minutes
@@ -760,7 +760,7 @@ const ASSET_CONFIGS: { [key in GameAsset['type']]: AssetConfig } = {
     harvestValue: 1,
     growthTimeMs: 150000, // 2.5 minutes
     maxLevel: 3,
-    icon: StarIcon,
+    icon: AuroraIcon,
     color: '#673AB7',
     description: 'Папоротник из космоса, который приносит звездную энергию.',
     onPlantMessage: 'Вы посадили космический папоротник! Он будет светиться звездной энергией.',
@@ -785,12 +785,12 @@ const ASSET_CONFIGS: { [key in GameAsset['type']]: AssetConfig } = {
   lunar_lotus: {
     label: 'Лунный лотос',
     baseCost: 40000,
-    baseYield: 0.03, // 3% of total MR per cycle
+    baseYield: 600, // Fixed amount per cycle instead of percentage
     harvestItemType: undefined,
     harvestValue: 1,
     growthTimeMs: 480000, // 8 minutes
     maxLevel: 1,
-    icon: StarIcon,
+    icon: AuroraIcon,
     color: '#E1BEE7',
     description: 'Лотос, который цветет под лунным светом и приносит мистический доход.',
     onPlantMessage: 'Вы посадили лунный лотос! Он будет цвести в лунном свете.',
@@ -826,7 +826,7 @@ const PLANT_MUTATIONS: PlantMutation[] = [
       color: '#FFD700',
     },
     rarity: 'uncommon',
-    icon: StarIcon,
+    icon: AuroraIcon,
   },
   {
     id: 'speedy',
@@ -1258,7 +1258,7 @@ const WEATHER_EFFECTS: WeatherEffect[] = [
     id: 'aurora',
     name: 'Северное сияние',
     description: 'Магическое сияние дает растениям особую энергию!',
-    icon: StarIcon,
+    icon: AuroraIcon,
     color: '#E91E63',
     effect: {
       growthSpeedMultiplier: 2.5,
@@ -1273,7 +1273,7 @@ const WEATHER_EFFECTS: WeatherEffect[] = [
     id: 'drought',
     name: 'Засуха',
     description: 'Засуха замедляет рост, но растения становятся более выносливыми!',
-    icon: WbSunnyIcon,
+    icon: DroughtIcon,
     color: '#FF9800',
     effect: {
       growthSpeedMultiplier: 0.5,
@@ -1377,7 +1377,7 @@ const SEASONAL_EVENTS: SeasonalEvent[] = [
     id: 'moonlight_magic',
     name: 'Лунная магия',
     description: 'Лунный свет приносит мистические силы! Растения растут медленнее, но дают больше мутаций.',
-    icon: StarIcon,
+    icon: AuroraIcon,
     color: '#9C27B0',
     effect: {
       growthSpeedMultiplier: 0.8,
@@ -1512,7 +1512,7 @@ const SERVER_EVENTS: ServerEvent[] = [
       mr: 1000,
       specialPlants: ['diamond_mine', 'platinum_rose'],
     },
-    icon: StarIcon,
+    icon: AuroraIcon,
     color: '#FFD700',
     rarity: 'rare',
   },
@@ -1955,7 +1955,7 @@ const getMutationChance = (modifiers: GardenModifier[]): number => {
 
 // Helper function to check for nearby sprinklers and calculate speed bonus
 const getSprinklerSpeedBonus = (plots: (GameAsset | null)[][], x: number, y: number): number => {
-  let speedBonus = 1;
+  let speedBonus = 0;
   
   // Check all plots for sprinklers
   plots.forEach((row, rowY) => {
@@ -1964,18 +1964,19 @@ const getSprinklerSpeedBonus = (plots: (GameAsset | null)[][], x: number, y: num
         const sprinklerConfig = ASSET_CONFIGS.sprinkler;
         const radius = plotAsset.level; // Sprinkler level determines radius
         
-        // Calculate distance
+        // Calculate distance (Manhattan distance)
         const distance = Math.abs(x - colX) + Math.abs(y - rowY);
         
         if (distance <= radius) {
-          // Each sprinkler level adds 0.2x speed bonus
+          // Each sprinkler level adds 0.2x speed bonus (20% per level)
           speedBonus += 0.2 * plotAsset.level;
         }
       }
     });
   });
   
-  return speedBonus;
+  // Return 1 + bonus (so 1.0 = no bonus, 1.2 = 20% bonus, etc.)
+  return 1 + speedBonus;
 };
 
 // Helper function to check for plant combinations and calculate synergy bonus
@@ -2184,6 +2185,10 @@ export const BankGardenGame: React.FC = () => {
   ]);
   const [dailyQuestsDialogOpen, setDailyQuestsDialogOpen] = useState(false);
 
+  // Drag and drop selling system
+  const [draggedItem, setDraggedItem] = useState<{asset: GameAsset, x: number, y: number} | null>(null);
+  const [sellBoxHovered, setSellBoxHovered] = useState(false);
+
   // Garden modifiers state
   const [gardenModifiers, setGardenModifiers] = useState<GardenModifier[]>(GARDEN_MODIFIERS.map(m => ({ ...m })));
   const [modifiersDialogOpen, setModifiersDialogOpen] = useState(false);
@@ -2317,12 +2322,23 @@ export const BankGardenGame: React.FC = () => {
         const loadedPlots = data.garden_plots || [];
         let loadedInventoryItems = data.inventory_items || {};
         const loadedLastGrowthUpdate = new Date(data.last_growth_update).getTime();
+        
+        // Debug: Check what's in the loaded inventory
+        console.log('Loaded inventory from database:', loadedInventoryItems);
+        
+        // Cap loaded inventory to prevent insane amounts from previous bugs
+        Object.keys(loadedInventoryItems).forEach(itemType => {
+            if (loadedInventoryItems[itemType] > 1000) {
+                console.log(`Resetting ${itemType} from ${loadedInventoryItems[itemType]} to 1000 (was inflated from previous bugs)`);
+                loadedInventoryItems[itemType] = 1000;
+            }
+        });
         const loadedModifiers = data.garden_modifiers ? 
           data.garden_modifiers.map((modifier: any) => {
             const originalModifier = GARDEN_MODIFIERS.find(m => m.id === modifier.id);
             return {
               ...modifier,
-              icon: originalModifier?.icon || modifier.icon
+              icon: originalModifier?.icon || GARDEN_MODIFIERS[0]?.icon // Fallback to a valid icon
             };
           }) : 
           GARDEN_MODIFIERS.map(m => ({ ...m }));
@@ -2340,25 +2356,59 @@ export const BankGardenGame: React.FC = () => {
 
         const now = Date.now();
         const timeOffline = now - loadedLastGrowthUpdate;
+        
+        // Debug logging (can be removed in production)
+        console.log('Time offline calculation:', {
+            now: new Date(now).toLocaleString(),
+            lastGrowthUpdate: new Date(loadedLastGrowthUpdate).toLocaleString(),
+            timeOfflineMs: timeOffline,
+            timeOfflineMinutes: Math.round(timeOffline / (60 * 1000))
+        });
+        
+        // Only calculate offline rewards if you were actually offline for more than 5 minutes
+        // This prevents page refreshes from giving offline rewards
+        const minOfflineTime = 5 * 60 * 1000; // 5 minutes in milliseconds
+        const maxOfflineTime = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+        
+        let finalPlots = loadedPlots; // Default to original plots
+        
+        // ALWAYS update the lastGrowthUpdate timestamp to prevent future false offline calculations
+        setLastGrowthUpdate(now);
+        
+        if (timeOffline < minOfflineTime) {
+            // Not enough time offline, skip offline calculation
+            console.log('Not enough offline time, skipping offline rewards');
+        } else {
+            const cappedTimeOffline = Math.min(timeOffline, maxOfflineTime);
+        
         let totalOfflineYield = 0;
         let offlineItemsGenerated: { [key: string]: number } = {};
 
-        const updatedPlotsForOfflineGrowth = loadedPlots.map((row: (GameAsset | null)[]) => row.map((asset: GameAsset | null) => {
+            finalPlots = loadedPlots.map((row: (GameAsset | null)[]) => row.map((asset: GameAsset | null) => {
             if (!asset) return null;
             
             const config = ASSET_CONFIGS[asset.type as GameAsset['type']];
             if (!config || config.growthTimeMs <= 0) return asset;
 
-            const cyclesOffline = Math.floor(timeOffline / config.growthTimeMs);
+                const cyclesOffline = Math.floor(cappedTimeOffline / config.growthTimeMs);
             if (cyclesOffline > 0) {
                 if (config.isPassiveIncome) {
-                    totalOfflineYield += loadedInGameMR * config.baseYield * asset.level * cyclesOffline;
+                        // Fix passive income: use a reasonable base amount instead of multiplying by current MR
+                        const passiveIncomePerCycle = Math.max(1, Math.floor(config.baseYield * asset.level)); // Now use the fixed base yields directly
+                        totalOfflineYield += passiveIncomePerCycle * cyclesOffline;
                     return { ...asset, growthProgress: 100, isReadyToHarvest: false, lastGrowthTickTime: now };
                 } else if (asset.type === 'mr_tree') {
-                         totalOfflineYield += config.baseYield * asset.level * cyclesOffline;
+                        // Cap MR tree yield to prevent insane amounts
+                        const mrYieldPerCycle = Math.min(config.baseYield * asset.level, 1000); // Cap at 1000 MR per cycle
+                        totalOfflineYield += mrYieldPerCycle * cyclesOffline;
                          return { ...asset, growthProgress: 100, isReadyToHarvest: true, lastGrowthTickTime: now };
                 } else if (config.harvestItemType) {
-                    offlineItemsGenerated[config.harvestItemType!] = (offlineItemsGenerated[config.harvestItemType!] || 0) + (config.baseYield * asset.level * cyclesOffline);
+                        // Cap item generation to prevent insane amounts - much stricter caps
+                        const baseItemsPerCycle = config.baseYield * asset.level;
+                        const itemsPerCycle = Math.min(baseItemsPerCycle, 10); // Cap at 10 items per cycle (much stricter!)
+                        const totalItems = itemsPerCycle * cyclesOffline;
+                        const maxTotalItems = Math.min(totalItems, 1000); // Cap total offline items at 1000 per plant type
+                        offlineItemsGenerated[config.harvestItemType!] = (offlineItemsGenerated[config.harvestItemType!] || 0) + maxTotalItems;
                     return { ...asset, growthProgress: 100, isReadyToHarvest: true, lastGrowthTickTime: now };
                 } else if (config.isPermanentBonus) {
                     return { ...asset, growthProgress: 100, isReadyToHarvest: asset.level === config.maxLevel, lastGrowthTickTime: now };
@@ -2373,14 +2423,18 @@ export const BankGardenGame: React.FC = () => {
         }
         if (Object.keys(offlineItemsGenerated).length > 0) {
             Object.entries(offlineItemsGenerated).forEach(([type, amount]) => {
-                loadedInventoryItems[type] = (loadedInventoryItems[type] || 0) + amount;
+                    const currentAmount = loadedInventoryItems[type] || 0;
+                    const newAmount = currentAmount + amount;
+                    const cappedAmount = Math.min(newAmount, 10000); // Cap total inventory at 10,000 per item type
+                    loadedInventoryItems[type] = cappedAmount;
             });
             setFeedbackDialog(`Пока вас не было, вы собрали новые ресурсы!`, 'Offline Ресурсы');
+            }
         }
 
         // --- FIX: Update all state variables at once and update ref ---
         setInGameMR(loadedInGameMR);
-        setGardenPlots(updatedPlotsForOfflineGrowth);
+        setGardenPlots(finalPlots);
         setInventoryItems(loadedInventoryItems);
         setLastGrowthUpdate(now);
         setGardenModifiers(loadedModifiers);
@@ -2391,11 +2445,11 @@ export const BankGardenGame: React.FC = () => {
         
         gardenStateRef.current = { // Update ref with latest loaded & processed state
             inGameMR: loadedInGameMR, 
-            gardenPlots: updatedPlotsForOfflineGrowth, 
+            gardenPlots: finalPlots, 
             inventoryItems: loadedInventoryItems, 
             lastGrowthUpdate: now 
         };
-        saveGardenData(loadedInGameMR, updatedPlotsForOfflineGrowth, loadedInventoryItems, now, loadedModifiers, loadedAchievements, loadedStats, loadedWeather, loadedEvent); // Save this processed state
+        saveGardenData(loadedInGameMR, finalPlots, loadedInventoryItems, now, loadedModifiers, loadedAchievements, loadedStats, loadedWeather, loadedEvent); // Save this processed state
         // --- END FIX ---
 
         setGameState('playing');
@@ -2660,16 +2714,20 @@ export const BankGardenGame: React.FC = () => {
             const now = Date.now();
             let timeSinceLastGrowth = now - asset.lastGrowthTickTime;
 
-            // Apply growth speed mutations
+            // Apply growth speed mutations and sprinkler bonus
+            let effectiveGrowthTime = config.growthTimeMs;
+            
             if (asset.mutations) {
               const speedMultiplier = asset.mutations.reduce((mult, mutation) => 
                 mult * (mutation.effect.growthSpeedMultiplier || 1), 1);
-              timeSinceLastGrowth *= speedMultiplier;
+              effectiveGrowthTime = effectiveGrowthTime / speedMultiplier; // Divide time needed, not multiply time passed
             }
 
             // Apply sprinkler speed bonus
             const sprinklerBonus = getSprinklerSpeedBonus(prevPlots, asset.x, asset.y);
-            timeSinceLastGrowth *= sprinklerBonus;
+            if (sprinklerBonus > 1) {
+              effectiveGrowthTime = effectiveGrowthTime / sprinklerBonus; // Divide time needed by bonus multiplier
+            }
 
             // Apply weather effects
             if (currentWeather && currentWeather.active) {
@@ -2692,11 +2750,14 @@ export const BankGardenGame: React.FC = () => {
                     return asset; // Keep the crop as-is, don't process growth
                 }
                 
-                if (timeSinceLastGrowth >= config.growthTimeMs) {
-                    const cycles = Math.floor(timeSinceLastGrowth / config.growthTimeMs);
+                if (timeSinceLastGrowth >= effectiveGrowthTime) {
+                    const cycles = Math.floor(timeSinceLastGrowth / effectiveGrowthTime);
                     
                     if (config.isPassiveIncome) { // Passive income assets (Investment Flower, Bank Branch, Digital Vault)
-                        setInGameMR(prevMr => prevMr + (inGameMR * config.baseYield * asset.level * cycles));
+                        // Fix passive income: use reasonable base amount instead of multiplying by current MR
+                        const passiveIncomePerCycle = Math.max(1, Math.floor(config.baseYield * asset.level)); // Now use the fixed base yields directly
+                        const totalPassiveIncome = passiveIncomePerCycle * cycles;
+                        setInGameMR(prevMr => prevMr + totalPassiveIncome);
                         asset.growthProgress = 100; // Visual indicator it produced income
                         asset.lastGrowthTickTime = now; // Reset timer for next passive tick
                     } else { // Harvestable or Permanent Bonus (needs click)
@@ -2706,7 +2767,7 @@ export const BankGardenGame: React.FC = () => {
                         asset.lastGrowthTickTime = now; // Set to current time to prevent immediate reset
                     }
                 } else {
-                    asset.growthProgress = (timeSinceLastGrowth / config.growthTimeMs) * 100;
+                    asset.growthProgress = (timeSinceLastGrowth / effectiveGrowthTime) * 100;
                     asset.isReadyToHarvest = false; // Not yet ready
                 }
             } else { // Asset is max level and not passive, so it's fully mature
@@ -2787,6 +2848,11 @@ export const BankGardenGame: React.FC = () => {
             clearTimeout(debounceSaveTimerRef.current);
         }
         debounceSaveTimerRef.current = setTimeout(() => {
+            // Skip debounced save if an explicit save just happened
+            if (explicitSaveRef.current) {
+                console.log("Skipping debounced save - explicit save in progress");
+                return;
+            }
             console.log("Debounced save triggered!");
             // Use current values directly from state, as this effect runs when they change
             saveGardenData(inGameMR, gardenPlots, inventoryItems, lastGrowthUpdate, gardenModifiers, achievements, gameStats, currentWeather, currentEvent); 
@@ -2846,6 +2912,8 @@ export const BankGardenGame: React.FC = () => {
       if (currentEvent && currentEvent.active && Date.now() > currentEvent.endTime) {
         setCurrentEvent(null);
         setFeedbackDialog(`🎉 Событие "${currentEvent.name}" закончилось!`, 'Событие завершено');
+        // Save the event end to server
+        saveGardenData();
       }
 
       // Randomly start new seasonal event (2% chance every 5 minutes)
@@ -2859,6 +2927,8 @@ export const BankGardenGame: React.FC = () => {
           };
           setCurrentEvent(newEvent);
           setFeedbackDialog(`🎊 Началось событие "${newEvent.name}"! ${newEvent.description}`, 'Сезонное событие');
+          // Save the new event to server
+          saveGardenData();
         }
       }
     }, 300000); // Check every 5 minutes
@@ -3033,8 +3103,9 @@ export const BankGardenGame: React.FC = () => {
              setDialogOpen(true);
         } else if (config.harvestItemType) { // Gold Mine, Crypto Farm etc.
             console.log('Handling harvestable item crop');
-            // Show harvest options dialog for items
-            let fullItemsProduced = config.baseYield * asset.level;
+            // Show harvest options dialog for items - CAP THE AMOUNTS!
+            let baseItemsProduced = config.baseYield * asset.level;
+            let fullItemsProduced = Math.min(baseItemsProduced, 100); // Cap at 100 items per harvest
             let halfItemsProduced = Math.floor(fullItemsProduced / 2);
             let fullValue = fullItemsProduced * config.harvestValue;
             let halfValue = halfItemsProduced * config.harvestValue;
@@ -3080,10 +3151,15 @@ export const BankGardenGame: React.FC = () => {
                   color="secondary" 
                   onClick={() => {
                     // Half harvest - keep plant growing
-            setInventoryItems(prev => ({
+            setInventoryItems(prev => {
+                const currentAmount = prev[config.harvestItemType!] || 0;
+                const newAmount = currentAmount + halfItemsProduced;
+                const cappedAmount = Math.min(newAmount, 10000); // Cap total inventory at 10,000 per item type
+                return {
                 ...prev,
-                        [config.harvestItemType!]: (prev[config.harvestItemType!] || 0) + halfItemsProduced
-            }));
+                    [config.harvestItemType!]: cappedAmount
+                };
+            });
                     setFeedbackDialog(`Вы собрали половину урожая: ${halfItemsProduced} ед. ${config.harvestItemType} с "${config.label}"! Растение продолжает расти.`);
             setGardenPlots(prevPlots => {
                 const newPlots = prevPlots.map(row => [...row]);
@@ -3100,10 +3176,15 @@ export const BankGardenGame: React.FC = () => {
                   color="primary" 
                   onClick={() => {
                     // Full harvest - remove plant
-                    setInventoryItems(prev => ({
+                    setInventoryItems(prev => {
+                        const currentAmount = prev[config.harvestItemType!] || 0;
+                        const newAmount = currentAmount + fullItemsProduced;
+                        const cappedAmount = Math.min(newAmount, 10000); // Cap total inventory at 10,000 per item type
+                        return {
                         ...prev,
-                        [config.harvestItemType!]: (prev[config.harvestItemType!] || 0) + fullItemsProduced
-                    }));
+                            [config.harvestItemType!]: cappedAmount
+                        };
+                    });
                     setFeedbackDialog(`Вы собрали полный урожай: ${fullItemsProduced} ед. ${config.harvestItemType} с "${config.label}"!`);
                     setGardenPlots(prevPlots => {
                        const newPlots = prevPlots.map(row => [...row]);
@@ -3568,12 +3649,130 @@ export const BankGardenGame: React.FC = () => {
     });
 
     if (totalSaleValue > 0) {
-      setInGameMR(prevMr => prevMr + totalSaleValue);
+      const newMR = inGameMR + totalSaleValue;
+      setInGameMR(newMR);
       setInventoryItems(newInventory);
       setFeedbackDialog(`Вы продали все товары на сумму ${formatCurrency(totalSaleValue, 'MR')}!`);
-      // saveGardenData(); // Debounced save will handle this
+      // Update the lastGrowthUpdate timestamp to prevent false offline calculations
+      const now = Date.now();
+      setLastGrowthUpdate(now);
+      // Save immediately with the new inventory and MR values
+      saveGardenData(newMR, gardenPlots, newInventory, now, gardenModifiers, achievements, gameStats, currentWeather, currentEvent);
     } else {
       setFeedbackDialog('В вашем инвентаре нет товаров для продажи.');
+    }
+  };
+
+  // Flag to prevent debounced save from overwriting explicit saves
+  const explicitSaveRef = useRef(false);
+
+  // Drag and drop selling handlers
+  const handleDragStart = (e: React.DragEvent, asset: GameAsset, x: number, y: number) => {
+    setDraggedItem({ asset, x, y });
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragEnd = () => {
+    setDraggedItem(null);
+  };
+
+  const handleSellBoxDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setSellBoxHovered(true);
+  };
+
+  const handleSellBoxDragLeave = () => {
+    setSellBoxHovered(false);
+  };
+
+  const handleSellBoxDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setSellBoxHovered(false);
+    
+    if (!draggedItem) return;
+
+    const { asset, x, y } = draggedItem;
+    const config = ASSET_CONFIGS[asset.type as GameAsset['type']];
+    
+    if (!config) return;
+
+    // Calculate sell value based on asset type
+    let sellValue = 0;
+    
+    if (config.harvestItemType) {
+      // For harvestable items, sell based on current yield
+      const currentYield = config.baseYield * asset.level;
+      sellValue = currentYield * config.harvestValue;
+    } else if (config.isPassiveIncome) {
+      // For passive income assets, sell based on level and base cost
+      sellValue = config.baseCost * asset.level * 0.5; // 50% of base cost per level
+    } else {
+      // For regular plants, sell based on level and base cost
+      sellValue = config.baseCost * asset.level * 0.3; // 30% of base cost per level
+    }
+
+    // Apply mutation bonuses to sell value
+    if (asset.mutations) {
+      const mutationMultiplier = asset.mutations.reduce((mult, mutation) => 
+        mult * (mutation.effect.yieldMultiplier || 1), 1);
+      sellValue *= mutationMultiplier;
+    }
+
+    // Remove the asset from the garden and get updated plots
+    const updatedPlots = gardenPlots.map(row => [...row]);
+    updatedPlots[y][x] = null;
+
+    // Add MR from sale
+    const newMR = inGameMR + sellValue;
+    
+    // Update state
+    setGardenPlots(updatedPlots);
+    setInGameMR(newMR);
+    
+    // Show feedback
+    setFeedbackDialog(`Продано "${config.label}" за ${formatCurrency(sellValue, 'MR')}!`);
+    
+    // Save the changes with updated plots and MR immediately
+    const now = Date.now();
+    setLastGrowthUpdate(now);
+    
+    // Set flag to prevent debounced save from overwriting this explicit save
+    explicitSaveRef.current = true;
+    
+    console.log('Saving plant sale to database:', { 
+      newMR, 
+      updatedPlots: updatedPlots[y][x], 
+      x, y, 
+      gameState,
+      user: !!user 
+    });
+    
+    saveGardenData(newMR, updatedPlots, inventoryItems, now, gardenModifiers, achievements, gameStats, currentWeather, currentEvent).then(() => {
+      // Reset flag after save completes
+      setTimeout(() => {
+        explicitSaveRef.current = false;
+      }, 1000); // Wait 1 second to ensure debounced saves don't interfere
+    });
+    
+    setDraggedItem(null);
+  };
+
+  // Touch handlers for mobile
+  const handleTouchStart = (e: React.TouchEvent, asset: GameAsset, x: number, y: number) => {
+    e.preventDefault();
+    setDraggedItem({ asset, x, y });
+  };
+
+  const handleTouchEnd = () => {
+    setDraggedItem(null);
+  };
+
+  const handleSellBoxTouchStart = (e: React.TouchEvent) => {
+    e.preventDefault();
+    if (draggedItem) {
+      // Simulate drop on touch
+      handleSellBoxDrop(e as any);
     }
   };
 
@@ -3649,9 +3848,9 @@ export const BankGardenGame: React.FC = () => {
 
     setInGameMR(prevMr => prevMr - cost);
     const updatedModifiers = gardenModifiers.map(m => 
-      m.id === modifierId 
-        ? { ...m, level: nextLevel, purchased: true }
-        : m
+        m.id === modifierId 
+          ? { ...m, level: nextLevel, purchased: true }
+          : m
     );
     setGardenModifiers(updatedModifiers);
     
@@ -3760,7 +3959,7 @@ export const BankGardenGame: React.FC = () => {
                 </Typography>
                 {currentWeather && currentWeather.active && (
                   <Chip
-                    icon={<currentWeather.icon />}
+                    icon={currentWeather.icon && typeof currentWeather.icon === 'function' ? <currentWeather.icon /> : <Box>🌤️</Box>}
                     label={`${currentWeather.name} (${Math.ceil((currentWeather.endTime - Date.now()) / 60000)}м)`}
                     color="primary"
                     variant="outlined"
@@ -3773,7 +3972,7 @@ export const BankGardenGame: React.FC = () => {
                 )}
                 {currentEvent && currentEvent.active && (
                   <Chip
-                    icon={<currentEvent.icon />}
+                    icon={currentEvent.icon && typeof currentEvent.icon === 'function' ? <currentEvent.icon /> : <Box>🎊</Box>}
                     label={`${currentEvent.name} (${Math.ceil((currentEvent.endTime - Date.now()) / 3600000)}ч)`}
                     color="secondary"
                     variant="outlined"
@@ -3926,6 +4125,95 @@ export const BankGardenGame: React.FC = () => {
                   </Card>
               )}
 
+              {/* Drag and Drop Sell Box */}
+              <Box sx={{ 
+                display: 'flex', 
+                justifyContent: 'center', 
+                alignItems: 'center', 
+                mb: 2,
+                p: { xs: 1, sm: 2 },
+                width: '100%'
+              }}>
+                <Box
+                  onDragOver={handleSellBoxDragOver}
+                  onDragLeave={handleSellBoxDragLeave}
+                  onDrop={handleSellBoxDrop}
+                  onTouchStart={handleSellBoxTouchStart}
+                  sx={{
+                    width: { xs: 'min(100%, 350px)', sm: 'min(100%, 400px)' }, // Match garden width
+                    minHeight: { xs: 60, sm: 80 },
+                    border: `3px dashed ${sellBoxHovered ? theme.palette.error.main : theme.palette.divider}`,
+                    borderRadius: 2,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: sellBoxHovered ? theme.palette.error.light + '20' : theme.palette.action.hover,
+                    transition: 'all 0.2s ease',
+                    cursor: 'pointer',
+                    position: 'relative',
+                    overflow: 'visible', // Allow content to show
+                    touchAction: 'none', // Prevent scrolling on mobile drag
+                    userSelect: 'none', // Prevent text selection
+                    p: 1, // Add padding for text
+                  }}
+                >
+                  {!draggedItem && (
+                    <>
+                      <SellIcon sx={{ fontSize: { xs: 20, sm: 24 }, color: sellBoxHovered ? theme.palette.error.main : theme.palette.text.secondary, mb: 0.5 }} />
+                      <Typography variant="body2" color={sellBoxHovered ? 'error.main' : 'text.secondary'} textAlign="center" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem' }, lineHeight: 1.2 }}>
+                        {sellBoxHovered ? 'Отпустите для продажи' : 'Перетащите для продажи'}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" textAlign="center" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, lineHeight: 1.2 }}>
+                        Или нажмите на растение
+                      </Typography>
+                    </>
+                  )}
+                  {draggedItem && (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: theme.palette.error.main + '15',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 1,
+                        borderRadius: 2,
+                      }}
+                    >
+                      <Typography variant="h6" color="error.main" fontWeight="bold" sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, textAlign: 'center', lineHeight: 1.2 }}>
+                        Продать за {formatCurrency(
+                          (() => {
+                            const config = ASSET_CONFIGS[draggedItem.asset.type as GameAsset['type']];
+                            let sellValue = 0;
+                            if (config.harvestItemType) {
+                              sellValue = (config.baseYield * draggedItem.asset.level) * config.harvestValue;
+                            } else if (config.isPassiveIncome) {
+                              sellValue = config.baseCost * draggedItem.asset.level * 0.5;
+                            } else {
+                              sellValue = config.baseCost * draggedItem.asset.level * 0.3;
+                            }
+                            if (draggedItem.asset.mutations) {
+                              const mutationMultiplier = draggedItem.asset.mutations.reduce((mult, mutation) => 
+                                mult * (mutation.effect.yieldMultiplier || 1), 1);
+                              sellValue *= mutationMultiplier;
+                            }
+                            return sellValue;
+                          })(), 'MR'
+                        )}
+                      </Typography>
+                      <Typography variant="caption" color="error.main" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, mt: 0.5, textAlign: 'center' }}>
+                        Отпустите для продажи
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+              </Box>
 
               {/* Garden Grid */}
               <Box 
@@ -3949,6 +4237,16 @@ export const BankGardenGame: React.FC = () => {
                       whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.97 }}
                       onClick={() => handlePlotClick(y, x)}
+                      draggable={!!asset}
+                      onDragStart={(e) => {
+                        if (asset) {
+                          const dragEvent = e as any;
+                          handleDragStart(dragEvent, asset, x, y);
+                        }
+                      }}
+                      onDragEnd={handleDragEnd}
+                      onTouchStart={(e) => asset && handleTouchStart(e, asset, x, y)}
+                      onTouchEnd={handleTouchEnd}
                       style={{
                         position: 'relative',
                         width: '100%',
@@ -3959,9 +4257,10 @@ export const BankGardenGame: React.FC = () => {
                         flexDirection: 'column',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        cursor: 'pointer',
+                        cursor: asset ? 'grab' : 'pointer',
                         overflow: 'hidden',
                         borderRadius: '0px',
+                        opacity: draggedItem?.x === x && draggedItem?.y === y ? 0.5 : 1,
                       }}
                       className="sharp-corners"
                     >
@@ -4114,7 +4413,7 @@ export const BankGardenGame: React.FC = () => {
           <Dialog 
             open={plantSelectionDialogOpen} 
             onClose={() => {
-              setPlantSelectionDialogOpen(false);
+            setPlantSelectionDialogOpen(false);
               setSelectedPlantType(null);
               setSelectedPlot(null);
               setError(null);
@@ -4122,41 +4421,29 @@ export const BankGardenGame: React.FC = () => {
             maxWidth="lg" 
             fullWidth 
             fullScreen={false}
-            PaperProps={{ 
-              sx: { 
-                borderRadius: { xs: 0, sm: 3 },
-                background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
-                boxShadow: '0 20px 40px rgba(0,0,0,0.1)'
-              }
-            }}
           >
-            <DialogTitle sx={{ 
-              borderBottom: '2px solid', 
-              borderColor: 'divider', 
-              pb: 2, 
-              textAlign: 'center',
-              background: 'linear-gradient(45deg, #4CAF50, #8BC34A)',
-              color: 'white',
-              fontWeight: 'bold',
-              fontSize: '1.5rem'
-            }}>
-              🌱 Выберите растение для посадки
+            <DialogTitle>
+              Выберите растение для посадки
             </DialogTitle>
-            <DialogContent sx={{ pt: 3, pb: 2, px: { xs: 1, sm: 3 } }}>
+            <DialogContent sx={{ 
+              overflow: 'hidden', // Prevent dialog content from scrolling
+              display: 'flex',
+              flexDirection: 'column',
+            }}>
               {error && (
-                <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }} onClose={() => setError(null)}>
+                <Alert severity="error" onClose={() => setError(null)}>
                   {error}
                 </Alert>
               )}
               
               {/* Search and Filter Bar */}
-              <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
+              <Box sx={{ mb: 2, display: 'flex', gap: 2, alignItems: 'center' }}>
                 <TextField
                   placeholder="Поиск растений..."
                   size="small"
                   sx={{ flexGrow: 1 }}
                   InputProps={{
-                    startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                    startAdornment: <SearchIcon sx={{ mr: 1 }} />
                   }}
                 />
                 <FormControl size="small" sx={{ minWidth: 150 }}>
@@ -4171,28 +4458,20 @@ export const BankGardenGame: React.FC = () => {
                 </FormControl>
               </Box>
 
-              {/* Plant Grid */}
+              {/* Plant Grid - Garden Style */}
               <Box sx={{ 
                 display: 'grid', 
-                gridTemplateColumns: { xs: 'repeat(auto-fill, minmax(200px, 1fr))', sm: 'repeat(auto-fill, minmax(250px, 1fr))' }, 
-                gap: 3, 
-                maxHeight: '70vh', 
+                gridTemplateColumns: { xs: 'repeat(auto-fill, minmax(120px, 1fr))', sm: 'repeat(auto-fill, minmax(140px, 1fr))' }, 
+                gap: 1, 
+                flex: 1, // Take up remaining space
+                minHeight: 0, // Allow shrinking
+                maxHeight: '60vh', // Reduced height for mobile
                 overflowY: 'auto',
+                border: `2px solid ${theme.palette.divider}`,
+                borderRadius: 0,
                 p: 1,
-                '&::-webkit-scrollbar': {
-                  width: '8px',
-                },
-                '&::-webkit-scrollbar-track': {
-                  background: '#f1f1f1',
-                  borderRadius: '4px',
-                },
-                '&::-webkit-scrollbar-thumb': {
-                  background: '#c1c1c1',
-                  borderRadius: '4px',
-                },
-                '&::-webkit-scrollbar-thumb:hover': {
-                  background: '#a8a8a8',
-                },
+                WebkitOverflowScrolling: 'touch', // Smooth scrolling on iOS
+                touchAction: 'pan-y', // Allow vertical scrolling on touch devices
               }}>
                 {Object.entries(ASSET_CONFIGS).map(([type, config]) => {
                   const canAfford = inGameMR >= config.baseCost;
@@ -4204,256 +4483,195 @@ export const BankGardenGame: React.FC = () => {
                   return (
                     <motion.div
                       key={type}
-                      whileHover={canAfford ? { scale: 1.02 } : {}}
-                      whileTap={canAfford ? { scale: 0.98 } : {}}
+                      whileHover={canAfford ? { scale: 1.03 } : {}}
+                      whileTap={canAfford ? { scale: 0.97 } : {}}
+                      onClick={() => canAfford && setSelectedPlantType(type as GameAsset['type'])}
+                      style={{
+                        position: 'relative',
+                        width: '100%',
+                        height: '100%',
+                        minHeight: '120px',
+                        backgroundColor: isSelected ? config.color + '60' : config.color + '40',
+                        border: isSelected ? `2px solid ${theme.palette.primary.main}` : `1px solid ${theme.palette.divider}`,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: canAfford ? 'pointer' : 'not-allowed',
+                        overflow: 'hidden',
+                        borderRadius: '0px',
+                        opacity: canAfford ? 1 : 0.6,
+                      }}
+                      className="sharp-corners"
                     >
-                      <Card
-                        sx={{
-                          cursor: canAfford ? 'pointer' : 'not-allowed',
-                          opacity: canAfford ? 1 : 0.6,
-                          border: isSelected ? `3px solid ${theme.palette.primary.main}` : `2px solid ${theme.palette.divider}`,
-                          bgcolor: isSelected 
-                            ? `linear-gradient(135deg, ${theme.palette.primary.main}15, ${theme.palette.primary.main}05)` 
-                            : 'background.paper',
-                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                          borderRadius: 3,
-                          overflow: 'hidden',
-                          position: 'relative',
-                          '&:hover': canAfford ? {
-                            transform: 'translateY(-4px)',
-                            boxShadow: '0 12px 24px rgba(0,0,0,0.15)',
-                            borderColor: theme.palette.primary.main,
-                          } : {},
-                          '&::before': isSelected ? {
-                            content: '""',
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            height: '4px',
-                            background: `linear-gradient(90deg, ${config.color}, ${theme.palette.primary.main})`,
-                          } : {},
+                      {/* Plant Icon */}
+                      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 0.5 }}>
+                        {React.createElement(config.icon, { 
+                          sx: { 
+                            fontSize: { xs: 32, sm: 40 }, 
+                          color: config.color,
+                            opacity: canAfford ? 1 : 0.6,
+                          } 
+                        })}
+                        </Box>
+
+                      {/* Plant Name */}
+                      <Typography 
+                        variant="caption" 
+                        fontWeight={600} 
+                        sx={{ 
+                          color: theme.palette.text.primary,
+                          textAlign: 'center',
+                          fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                          lineHeight: 1.2,
+                          mb: 0.5,
                         }}
-                        onClick={() => canAfford && setSelectedPlantType(type as GameAsset['type'])}
                       >
-                        {/* Premium Badge */}
-                        {isPremium && (
-                          <Chip
-                            label="PREMIUM"
+                          {config.label}
+                        </Typography>
+
+                      {/* Cost */}
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          color: canAfford ? theme.palette.primary.main : theme.palette.error.main,
+                          fontWeight: 'bold',
+                          fontSize: { xs: '0.65rem', sm: '0.7rem' },
+                        }}
+                      >
+                            {formatCurrency(config.baseCost, 'MR')}
+                          </Typography>
+
+                      {/* Level Badge */}
+                      {config.maxLevel > 1 && (
+                          <Chip 
+                          label={`Lv ${config.maxLevel}`} 
                             size="small"
-                            sx={{
-                              position: 'absolute',
-                              top: 8,
-                              right: 8,
-                              background: 'linear-gradient(45deg, #FFD700, #FFA000)',
+                          sx={{ 
+                            position: 'absolute', 
+                            top: 2, 
+                            right: 2, 
+                            bgcolor: 'rgba(0,0,0,0.4)', 
+                            color: 'white',
+                            fontSize: '0.6rem',
+                            height: '16px',
+                            '& .MuiChip-label': { padding: '0 4px' }
+                          }} 
+                        />
+                      )}
+
+                      {/* Type Badges */}
+                      <Box sx={{ 
+                        position: 'absolute', 
+                        top: 2, 
+                        left: 2, 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        gap: 0.5 
+                      }}>
+                        {isPassive && (
+                          <Chip 
+                            label="P" 
+                            size="small" 
+                            sx={{ 
+                              bgcolor: 'success.main', 
                               color: 'white',
-                              fontWeight: 'bold',
-                              fontSize: '0.7rem',
-                              zIndex: 1,
-                            }}
+                              fontSize: '0.5rem',
+                              height: '14px',
+                              width: '14px',
+                              '& .MuiChip-label': { padding: 0 }
+                            }} 
                           />
                         )}
-
-                        <CardContent sx={{ p: { xs: 2, sm: 3 }, textAlign: 'center', position: 'relative' }}>
-                          {/* Plant Icon with Glow Effect */}
-                          <Box sx={{ 
-                            display: 'flex', 
-                            justifyContent: 'center', 
-                            mb: 2,
-                            position: 'relative',
-                          }}>
-                            <Box sx={{
-                              p: 2,
-                              borderRadius: '50%',
-                              background: `linear-gradient(135deg, ${config.color}20, ${config.color}10)`,
-                              border: `2px solid ${config.color}40`,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              boxShadow: isSelected ? `0 0 20px ${config.color}60` : 'none',
-                              transition: 'all 0.3s ease',
-                            }}>
-                              {React.createElement(config.icon, { 
-                                sx: { 
-                                  fontSize: { xs: 36, sm: 48 }, 
-                                  color: config.color,
-                                  filter: isSelected ? 'drop-shadow(0 0 8px rgba(255,255,255,0.8))' : 'none',
-                                } 
-                              })}
-                            </Box>
-                          </Box>
-
-                          {/* Plant Name */}
-                          <Typography variant="h6" sx={{ 
-                            mb: 1, 
-                            fontSize: '1.1rem',
-                            fontWeight: 'bold',
-                            color: isSelected ? theme.palette.primary.main : 'text.primary',
-                          }}>
-                            {config.label}
-                          </Typography>
-
-                          {/* Description */}
-                          <Typography variant="body2" color="text.secondary" sx={{ 
-                            mb: 2, 
-                            fontSize: '0.85rem',
-                            lineHeight: 1.4,
-                            minHeight: '2.8rem',
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden',
-                          }}>
-                            {config.description}
-                          </Typography>
-
-                          {/* Stats Grid */}
-                          <Box sx={{ 
-                            display: 'grid', 
-                            gridTemplateColumns: '1fr 1fr', 
-                            gap: 1, 
-                            mb: 2,
-                            p: 2,
-                            bgcolor: 'grey.50',
-                            borderRadius: 2,
-                          }}>
-                            <Box sx={{ textAlign: 'center' }}>
-                              <Typography variant="caption" color="text.secondary" display="block">
-                                Стоимость
-                              </Typography>
-                              <Typography variant="body2" fontWeight="bold" color="primary">
-                                {formatCurrency(config.baseCost, 'MR')}
-                              </Typography>
-                            </Box>
-                            <Box sx={{ textAlign: 'center' }}>
-                              <Typography variant="caption" color="text.secondary" display="block">
-                                Урожай
-                              </Typography>
-                              <Typography variant="body2" fontWeight="bold" color="success.main">
-                                {config.baseYield}{config.harvestItemType ? ` ${config.harvestItemType}` : ' MR'}
-                              </Typography>
-                            </Box>
-                            <Box sx={{ textAlign: 'center' }}>
-                              <Typography variant="caption" color="text.secondary" display="block">
-                                Время
-                              </Typography>
-                              <Typography variant="body2" fontWeight="bold">
-                                {Math.round(config.growthTimeMs / 1000)}с
-                              </Typography>
-                            </Box>
-                            <Box sx={{ textAlign: 'center' }}>
-                              <Typography variant="caption" color="text.secondary" display="block">
-                                Уровень
-                              </Typography>
-                              <Typography variant="body2" fontWeight="bold">
-                                {config.maxLevel}
-                              </Typography>
-                            </Box>
-                          </Box>
-
-                          {/* Type Badges */}
-                          <Stack direction="row" spacing={1} justifyContent="center" sx={{ mb: 2 }}>
-                            {isPassive && (
-                              <Chip 
-                                label="Пассивный" 
-                                size="small" 
-                                color="success"
-                                sx={{ fontSize: '0.7rem' }}
-                              />
-                            )}
-                            {isEquipment && (
-                              <Chip 
-                                label="Оборудование" 
-                                size="small" 
-                                color="info"
-                                sx={{ fontSize: '0.7rem' }}
-                              />
-                            )}
-                            {config.harvestItemType && (
-                              <Chip 
-                                label="Товар" 
-                                size="small" 
-                                color="warning"
-                                sx={{ fontSize: '0.7rem' }}
-                              />
-                            )}
-                          </Stack>
-
-                          {/* Error Message */}
-                          {!canAfford && (
-                            <Typography variant="caption" color="error" sx={{ 
-                              mt: 1, 
-                              display: 'block',
-                              fontWeight: 'bold',
-                              textAlign: 'center',
-                            }}>
-                              💰 Недостаточно средств
-                            </Typography>
-                          )}
-
-                          {/* Selected Indicator */}
-                          {isSelected && (
-                            <Box sx={{
-                              position: 'absolute',
-                              top: 8,
-                              left: 8,
-                              background: theme.palette.primary.main,
+                        {isEquipment && (
+                          <Chip 
+                            label="E" 
+                            size="small" 
+                            sx={{ 
+                              bgcolor: 'info.main', 
                               color: 'white',
-                              borderRadius: '50%',
-                              width: 24,
-                              height: 24,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: '0.8rem',
-                            }}>
-                              ✓
-                            </Box>
-                          )}
-                        </CardContent>
-                      </Card>
+                              fontSize: '0.5rem',
+                              height: '14px',
+                              width: '14px',
+                              '& .MuiChip-label': { padding: 0 }
+                            }} 
+                          />
+                        )}
+                        {config.harvestItemType && (
+                          <Chip 
+                            label="H" 
+                            size="small" 
+                            sx={{ 
+                              bgcolor: 'warning.main', 
+                              color: 'white',
+                              fontSize: '0.5rem',
+                              height: '14px',
+                              width: '14px',
+                              '& .MuiChip-label': { padding: 0 }
+                            }} 
+                          />
+                        )}
+                      </Box>
+
+                      {/* Selected Indicator */}
+                      {isSelected && (
+                        <Box sx={{
+                          position: 'absolute',
+                          bottom: 2,
+                          right: 2,
+                          background: theme.palette.primary.main,
+                          color: 'white',
+                          borderRadius: '50%',
+                          width: 20,
+                          height: 20,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '0.7rem',
+                        }}>
+                          ✓
+                        </Box>
+                      )}
+
+                      {/* Error Message */}
+                      {!canAfford && (
+                        <Typography 
+                          variant="caption" 
+                          color="error" 
+                          sx={{ 
+                            position: 'absolute',
+                            bottom: 2,
+                            left: 2,
+                            fontSize: '0.6rem',
+                            fontWeight: 'bold',
+                          }}
+                        >
+                          💰
+                        </Typography>
+                      )}
                     </motion.div>
                   );
                 })}
               </Box>
             </DialogContent>
-            <DialogActions sx={{ 
-              px: 4, 
-              pb: 3, 
-              justifyContent: 'space-between',
-              background: 'linear-gradient(45deg, #f5f7fa, #c3cfe2)',
-            }}>
+            <DialogActions>
               <Button 
                 onClick={() => {
-                  setPlantSelectionDialogOpen(false);
+                setPlantSelectionDialogOpen(false);
                   setSelectedPlantType(null);
                   setSelectedPlot(null);
                   setError(null);
                 }}
-                size="large"
-                sx={{ px: 3 }}
               >
                 Отмена
               </Button>
               <Button 
                 variant="contained" 
-                color="success" 
+                color="primary" 
                 onClick={handlePlantConfirm} 
                 disabled={!selectedPlantType || (selectedPlantType && inGameMR < ASSET_CONFIGS[selectedPlantType].baseCost)}
-                size="large"
-                sx={{ 
-                  px: 4,
-                  py: 1.5,
-                  background: 'linear-gradient(45deg, #4CAF50, #8BC34A)',
-                  '&:hover': {
-                    background: 'linear-gradient(45deg, #45a049, #7cb342)',
-                  },
-                  '&:disabled': {
-                    background: 'grey.300',
-                  }
-                }}
               >
-                🌱 Посадить
+                Посадить
               </Button>
             </DialogActions>
           </Dialog>
@@ -4609,7 +4827,7 @@ export const BankGardenGame: React.FC = () => {
                             {modifier.icon}
                           </Box>
                         ) : (
-                          <modifier.icon sx={{ fontSize: 32, color: modifier.purchased ? theme.palette.success.main : theme.palette.grey[600] }} />
+                        <modifier.icon sx={{ fontSize: 32, color: modifier.purchased ? theme.palette.success.main : theme.palette.grey[600] }} />
                         )}
                       </Box>
                       <Box sx={{ flex: 1 }}>
