@@ -253,6 +253,21 @@ export const ItemDetailsDialog: React.FC<ItemDetailsDialogProps> = ({
           if (deleteError) throw deleteError
         }
       }
+
+      // Send notification to seller about the sale
+      try {
+        const { NotificationService } = await import('../../services/notificationService')
+        await NotificationService.notifyItemSold(
+          item.seller_id,
+          item.title,
+          item.price,
+          item.currency,
+          user.user_metadata?.full_name || 'Покупатель'
+        )
+      } catch (notificationError) {
+        console.error('Error sending sale notification:', notificationError)
+      }
+
       setSuccess('Покупка успешно совершена!')
       setTimeout(() => {
         onPurchased()
@@ -290,6 +305,20 @@ export const ItemDetailsDialog: React.FC<ItemDetailsDialogProps> = ({
         })
 
       if (error) throw error
+
+      // Send notification to seller
+      try {
+        const { NotificationService } = await import('../../services/notificationService')
+        await NotificationService.notifyNewMessage(
+          item.seller_id,
+          user.user_metadata?.full_name || 'Пользователь',
+          message.trim(),
+          item.id,
+          user.id
+        )
+      } catch (notificationError) {
+        console.error('Error sending notification:', notificationError)
+      }
 
       setMessage('')
       setSuccess('Сообщение отправлено продавцу')

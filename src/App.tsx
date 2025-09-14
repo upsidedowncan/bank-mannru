@@ -8,6 +8,9 @@ import { LoginForm } from './components/Forms/LoginForm'
 import { RegisterForm } from './components/Forms/RegisterForm'
 import { AuthProvider, useAuthContext } from './contexts/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { NotificationProvider } from './components/Notifications/NotificationSystem'
+import { NotificationBell } from './components/Notifications/NotificationBell'
+import { NotificationToast } from './components/Notifications/NotificationToast'
 import { ChartRunnerGame } from './components/ChartRunnerGame'
 import { Dashboard } from './components/Dashboard/Dashboard'
 import { LandingPage } from './components/Landing/LandingPage'
@@ -27,8 +30,10 @@ import { AdminPanel } from './components/Admin/AdminPanel';
 import { FortuneWheelGame } from './components/FortuneWheelGame';
 import AdminInvestments from './components/Admin/AdminInvestments';
 import { MemoryGame } from './components/MemoryGame';
+import { MotherboardReactionGame } from './components/Games/MotherboardReactionGame';
 import { VaultManagementPage } from './components/VaultManagementPage';
 import { EventNotification } from './components/Notifications/EventNotification';
+import { MannShell } from './components/MannShell/MannShell';
 import { supabase } from './config/supabase';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, DialogProps, Box, Card, CardContent, Avatar, TextField, Divider, Chip, Snackbar, Alert, Switch, FormControl, FormControlLabel, Select, MenuItem, Container, Paper, Slider } from '@mui/material';
 import {
@@ -1872,10 +1877,12 @@ function AppContent({ showDevSettings, setShowDevSettings, magnifierIntensity = 
         </Route>
 
         <Route path="/features-marketplace" element={<ProtectedRoute><AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled} magnifierIntensity={localMagnifierIntensity}><FeaturesMarketplace /></AppLayout></ProtectedRoute>} />
+        <Route path="/mannshell" element={<MannShell />} />
         <Route path="/investments" element={<ProtectedRoute><AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled} magnifierIntensity={localMagnifierIntensity}><Investments /></AppLayout></ProtectedRoute>} />
         <Route path="/darkhaxorz6557453555c3h2he1a6t8s" element={<AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled} magnifierIntensity={localMagnifierIntensity}><Cheats /></AppLayout>} />
         <Route path="/games/tapping" element={<TappingGame />} />
         <Route path="/games/flip" element={<AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled} magnifierIntensity={localMagnifierIntensity}><FlipGame /></AppLayout>} />
+        <Route path="/games/motherboard" element={<AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled} magnifierIntensity={localMagnifierIntensity}><MotherboardReactionGame /></AppLayout>} />
         <Route path="/giveaways" element={<AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled} magnifierIntensity={localMagnifierIntensity}><GiveawayFunction /></AppLayout>} />
         <Route path="/chat" element={<AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled} magnifierIntensity={localMagnifierIntensity}><GlobalChat /></AppLayout>} />
         <Route path="/admin" element={user && user.user_metadata?.isAdmin ? <AdminPanel /> : <div style={{ padding: 32, textAlign: 'center' }}><h2>Not authorized</h2></div>} />
@@ -2042,12 +2049,14 @@ function App() {
         setThemeVariant={setThemeVariant}
       >
         <AuthProvider>
-          <Router>
-            <AppContent
-              showDevSettings={showDevSettings}
-              setShowDevSettings={setShowDevSettings}
-            />
-          </Router>
+          <NotificationProvider>
+            <Router>
+              <AppContent
+                showDevSettings={showDevSettings}
+                setShowDevSettings={setShowDevSettings}
+              />
+            </Router>
+          </NotificationProvider>
         </AuthProvider>
       </ThemeContextProvider>
     </ThemeProvider>

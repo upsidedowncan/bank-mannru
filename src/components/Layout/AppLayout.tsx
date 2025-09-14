@@ -17,6 +17,8 @@ import {
   Collapse,
   Divider, // Import Divider for visual separation
 } from '@mui/material';
+import { NotificationBell } from '../Notifications/NotificationBell';
+import { NotificationToast } from '../Notifications/NotificationToast';
 import {
   Menu as MenuIcon,
   Dashboard,
@@ -100,6 +102,7 @@ import {
   DirectionsCarFilled,
   ExpandLess,
   ExpandMore,
+  Terminal as TerminalIcon,
 } from '@mui/icons-material'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthContext } from '../../contexts/AuthContext'
@@ -624,6 +627,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             Банк Маннру
           </Typography>
+          <NotificationBell />
           {/* Theme toggle removed on mobile */}
         </Toolbar>
       </AppBar>
@@ -686,6 +690,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
       >
         <BannerDisplay />
         {children || <Outlet />}
+        <NotificationToast />
       </Box>
     </Box>
   )
@@ -714,6 +719,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             Банк Маннру
           </Typography>
+          <NotificationBell />
           {/* Theme toggle removed on mobile */}
         </Toolbar>
       </AppBar>
@@ -807,6 +813,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             Банк Маннру
           </Typography>
+          <NotificationBell />
           {/* Theme toggle removed on mobile */}
         </Toolbar>
       </AppBar>
@@ -868,6 +875,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
         }}
       >
         {children || <Outlet />}
+        <NotificationToast />
       </Box>
     </Box>
   )
@@ -897,6 +905,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             Банк Маннру
           </Typography>
+          <NotificationBell />
           {/* Theme toggle removed on mobile */}
         </Toolbar>
       </AppBar>
@@ -958,6 +967,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
         }}
       >
         {children || <Outlet />}
+        <NotificationToast />
       </Box>
     </Box>
   )

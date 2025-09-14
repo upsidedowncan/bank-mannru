@@ -11,6 +11,8 @@ import { ManGPTManagement } from './ManGPTManagement';
 import AdminInvestments from './AdminInvestments';
 import PageHeader from '../Layout/PageHeader'
 import { BannerManagement } from './BannerManagement';
+import { NotificationTest } from '../Notifications/NotificationTest';
+import { MannShell } from '../MannShell/MannShell';
 
 interface UserRow {
   id: string;
@@ -347,6 +349,8 @@ export const AdminPanel: React.FC = () => {
           <Tab label="ManGPT" />
           <Tab label="Инвестиции" />
           <Tab label="Баннеры" />
+          <Tab label="Уведомления" />
+          <Tab label="MannShell" />
         </Tabs>
         {tab === 0 && (
           <Box>
@@ -759,6 +763,12 @@ export const AdminPanel: React.FC = () => {
         )}
         {tab === 10 && (
           <BannerManagement />
+        )}
+        {tab === 11 && (
+          <NotificationTest />
+        )}
+        {tab === 12 && (
+          <MannShell />
         )}
       </Box>
     </AppLayout>
