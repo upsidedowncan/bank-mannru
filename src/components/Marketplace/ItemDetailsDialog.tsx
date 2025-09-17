@@ -233,6 +233,12 @@ export const ItemDetailsDialog: React.FC<ItemDetailsDialogProps> = ({
         })
       if (purchaseError) throw purchaseError
 
+      // Award social XP to buyer (seller XP could be handled elsewhere if desired)
+      try {
+        const { addSocialXpForAction } = await import('../../services/progressionService');
+        await addSocialXpForAction(user.id, 'market_purchase', Number(item.price || 0));
+      } catch {}
+
       // Check if we need to delete the item (purchase limit reached) AFTER successful transfer and purchase record
       if (item.purchase_limit !== null && item.purchase_limit !== undefined) {
         const { data: allPurchases, error: countError } = await supabase

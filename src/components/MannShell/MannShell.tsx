@@ -25,6 +25,7 @@ import {
 import { useAuthContext } from '../../contexts/AuthContext';
 import { supabase } from '../../config/supabase';
 import { MannShellLogin } from './MannShellLogin';
+import { getProgression, addXp as addXpProgress } from '../../services/progressionService';
 
 interface Command {
   name: string;
@@ -278,16 +279,20 @@ export const MannShell: React.FC = () => {
         return `Recipient has no MR card: ${recipientEmail}`;
       }
 
-      // Perform transfer
+      // Perform transfer (align to RPC signature)
       const { error: transferError } = await supabase.rpc('handle_manpay_transaction', {
-        sender_id: user.id,
-        recipient_id: recipient.id,
-        amount: amount,
-        currency: 'MR',
-        description: 'MannShell Transfer'
+        sender_id_in: user.id,
+        receiver_id_in: recipient.id,
+        amount_in: amount
       });
 
       if (transferError) throw transferError;
+
+      // Award social XP for transfer
+      try {
+        const { addSocialXpForAction } = await import('../../services/progressionService');
+        await addSocialXpForAction(user.id, 'manpay_transfer', Number(amount || 0));
+      } catch {}
 
       return `Transfer successful! Sent ${amount} MR to ${recipientEmail}`;
     } catch (error) {
@@ -314,6 +319,12 @@ export const MannShell: React.FC = () => {
       result += `Phone: ${profile?.phone || 'Not set'}\n`;
       result += `Created: ${new Date(user.created_at).toLocaleDateString()}\n`;
       result += `Last Login: ${user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString() : 'Never'}`;
+      try {
+        const prog = await getProgression(user.id);
+        if (prog) {
+          result += `\nLevel: ${prog.level} (${prog.currentLevelXp}/${prog.nextLevelXp} XP)`;
+        }
+      } catch {}
 
       return result;
     } catch (error) {
@@ -324,8 +335,8 @@ export const MannShell: React.FC = () => {
   const getUsers = async (): Promise<string> => {
     try {
       const { data: users, error } = await supabase
-        .from('profiles')
-        .select('id, email, full_name, phone, created_at')
+        .from('users')
+        .select('id, email, first_name, last_name, created_at')
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -343,10 +354,11 @@ export const MannShell: React.FC = () => {
       users.forEach(user => {
         const id = user.id.substring(0, 8);
         const email = (user.email || 'N/A').substring(0, 25);
-        const name = (user.full_name || 'N/A').substring(0, 20);
+        const name = user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : (user.first_name || user.last_name || 'N/A');
+        const nameDisplay = name.substring(0, 20);
         const created = new Date(user.created_at).toLocaleDateString();
         
-        result += `${id.padEnd(8)} | ${email.padEnd(25)} | ${name.padEnd(20)} | ${created}\n`;
+        result += `${id.padEnd(8)} | ${email.padEnd(25)} | ${nameDisplay.padEnd(20)} | ${created}\n`;
       });
 
       return result;
@@ -365,8 +377,8 @@ export const MannShell: React.FC = () => {
       let userId = userIdentifier;
       if (userIdentifier.includes('@')) {
         const { data: user, error: userError } = await supabase
-          .from('profiles')
-          .select('id, email, full_name')
+          .from('users')
+          .select('id, email, first_name, last_name')
           .eq('email', userIdentifier)
           .single();
 
@@ -421,8 +433,8 @@ export const MannShell: React.FC = () => {
       let userId = userIdentifier;
       if (userIdentifier.includes('@')) {
         const { data: user, error: userError } = await supabase
-          .from('profiles')
-          .select('id, email, full_name')
+          .from('users')
+          .select('id, email, first_name, last_name')
           .eq('email', userIdentifier)
           .single();
 
@@ -436,7 +448,7 @@ export const MannShell: React.FC = () => {
       const { data: transactions, error } = await supabase
         .from('transactions')
         .select('*')
-        .eq('user_id', userId)
+        .or(`sender_id.eq.${userId},recipient_id.eq.${userId}`)
         .order('created_at', { ascending: false })
         .limit(limit);
 
@@ -477,7 +489,7 @@ export const MannShell: React.FC = () => {
       let user;
       if (userIdentifier.includes('@')) {
         const { data: userData, error } = await supabase
-          .from('profiles')
+          .from('users')
           .select('*')
           .eq('email', userIdentifier)
           .single();
@@ -488,7 +500,7 @@ export const MannShell: React.FC = () => {
         user = userData;
       } else {
         const { data: userData, error } = await supabase
-          .from('profiles')
+          .from('users')
           .select('*')
           .eq('id', userIdentifier)
           .single();
@@ -503,10 +515,12 @@ export const MannShell: React.FC = () => {
       result += '─'.repeat(50) + '\n';
       result += `ID: ${user.id}\n`;
       result += `Email: ${user.email || 'N/A'}\n`;
-      result += `Full Name: ${user.full_name || 'Not set'}\n`;
-      result += `Phone: ${user.phone || 'Not set'}\n`;
+      result += `First Name: ${user.first_name || 'Not set'}\n`;
+      result += `Last Name: ${user.last_name || 'Not set'}\n`;
+      result += `Username: ${user.username || 'Not set'}\n`;
+      result += `Is Admin: ${user.is_admin ? 'Yes' : 'No'}\n`;
       result += `Created: ${new Date(user.created_at).toLocaleString()}\n`;
-      result += `Updated: ${new Date(user.updated_at).toLocaleString()}\n`;
+      result += `Last Seen: ${user.last_seen ? new Date(user.last_seen).toLocaleString() : 'Never'}\n`;
 
       return result;
     } catch (error) {
@@ -518,7 +532,7 @@ export const MannShell: React.FC = () => {
     try {
       // Get user count
       const { count: userCount, error: userError } = await supabase
-        .from('profiles')
+        .from('users')
         .select('*', { count: 'exact', head: true });
 
       if (userError) throw userError;
@@ -555,6 +569,301 @@ export const MannShell: React.FC = () => {
       return result;
     } catch (error) {
       throw new Error('Failed to fetch system statistics');
+    }
+  };
+
+  const giveMoney = async (args: string[]): Promise<string> => {
+    if (args.length < 2) return 'Usage: give <amount> <user_email_or_id> [description]';
+
+    const amount = parseFloat(args[0]);
+    const userIdentifier = args[1];
+    const description = args[2] || 'Admin Give';
+
+    if (isNaN(amount) || amount <= 0) {
+      return 'Invalid amount. Please enter a positive number.';
+    }
+
+    try {
+      // Find user by email or ID
+      let userId;
+      let userName;
+      if (userIdentifier.includes('@')) {
+        const { data: user, error: userError } = await supabase
+          .from('users')
+          .select('id, email, first_name, last_name')
+          .eq('email', userIdentifier)
+          .single();
+
+        if (userError || !user) {
+          return `User not found: ${userIdentifier}`;
+        }
+        userId = user.id;
+        userName = user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : user.email;
+      } else {
+        const { data: user, error: userError } = await supabase
+          .from('users')
+          .select('id, email, first_name, last_name')
+          .eq('id', userIdentifier)
+          .single();
+
+        if (userError || !user) {
+          return `User not found: ${userIdentifier}`;
+        }
+        userId = user.id;
+        userName = user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : user.email;
+      }
+
+      // Get user's active card
+      const { data: card, error: cardError } = await supabase
+        .from('bank_cards')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (cardError || !card) {
+        return `User has no active bank card: ${userIdentifier}`;
+      }
+
+      const oldBalance = card.balance || 0;
+      const newBalance = oldBalance + amount;
+
+      // Update card balance
+      const { error: updateError } = await supabase
+        .from('bank_cards')
+        .update({ balance: newBalance })
+        .eq('id', card.id);
+
+      if (updateError) throw updateError;
+
+      // Create transaction record (skip if transaction logging fails)
+      try {
+        const { error: transactionError } = await supabase
+          .from('transactions')
+          .insert({
+            sender_id: user?.id || null, // Use current admin user or null
+            recipient_id: userId,
+            amount: amount,
+            currency: 'MR',
+            description: description,
+            sender_name: 'Admin',
+            recipient_name: userName,
+            status: 'completed'
+          });
+
+        if (transactionError) {
+          console.warn('Transaction logging failed:', transactionError);
+          // Don't throw error, just log it
+        }
+      } catch (transactionError) {
+        console.warn('Transaction logging failed:', transactionError);
+        // Don't throw error, just log it
+      }
+
+      return `Successfully gave ${amount} MR to ${userName} (${userIdentifier})\nNew balance: ${newBalance} MR`;
+    } catch (error) {
+      throw new Error('Failed to give money. Please try again.');
+    }
+  };
+
+  const takeMoney = async (args: string[]): Promise<string> => {
+    if (args.length < 2) return 'Usage: take <amount> <user_email_or_id> [description]';
+
+    const amount = parseFloat(args[0]);
+    const userIdentifier = args[1];
+    const description = args[2] || 'Admin Take';
+
+    if (isNaN(amount) || amount <= 0) {
+      return 'Invalid amount. Please enter a positive number.';
+    }
+
+    try {
+      // Find user by email or ID
+      let userId;
+      let userName;
+      if (userIdentifier.includes('@')) {
+        const { data: user, error: userError } = await supabase
+          .from('users')
+          .select('id, email, first_name, last_name')
+          .eq('email', userIdentifier)
+          .single();
+
+        if (userError || !user) {
+          return `User not found: ${userIdentifier}`;
+        }
+        userId = user.id;
+        userName = user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : user.email;
+      } else {
+        const { data: user, error: userError } = await supabase
+          .from('users')
+          .select('id, email, first_name, last_name')
+          .eq('id', userIdentifier)
+          .single();
+
+        if (userError || !user) {
+          return `User not found: ${userIdentifier}`;
+        }
+        userId = user.id;
+        userName = user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : user.email;
+      }
+
+      // Get user's active card
+      const { data: card, error: cardError } = await supabase
+        .from('bank_cards')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (cardError || !card) {
+        return `User has no active bank card: ${userIdentifier}`;
+      }
+
+      const oldBalance = card.balance || 0;
+      
+      if (oldBalance < amount) {
+        return `Insufficient funds. User has ${oldBalance} MR, trying to take ${amount} MR`;
+      }
+
+      const newBalance = oldBalance - amount;
+
+      // Update card balance
+      const { error: updateError } = await supabase
+        .from('bank_cards')
+        .update({ balance: newBalance })
+        .eq('id', card.id);
+
+      if (updateError) throw updateError;
+
+      // Create transaction record (skip if transaction logging fails)
+      try {
+        const { error: transactionError } = await supabase
+          .from('transactions')
+          .insert({
+            sender_id: userId,
+            recipient_id: user?.id || userId, // Use current admin user or fallback to sender
+            amount: amount,
+            currency: 'MR',
+            description: description,
+            sender_name: userName,
+            recipient_name: 'Admin',
+            status: 'completed'
+          });
+
+        if (transactionError) {
+          console.warn('Transaction logging failed:', transactionError);
+          // Don't throw error, just log it
+        }
+      } catch (transactionError) {
+        console.warn('Transaction logging failed:', transactionError);
+        // Don't throw error, just log it
+      }
+
+      return `Successfully took ${amount} MR from ${userName} (${userIdentifier})\nNew balance: ${newBalance} MR`;
+    } catch (error) {
+      throw new Error('Failed to take money. Please try again.');
+    }
+  };
+
+  const setBalance = async (args: string[]): Promise<string> => {
+    if (args.length < 2) return 'Usage: setbalance <amount> <user_email_or_id> [description]';
+
+    const amount = parseFloat(args[0]);
+    const userIdentifier = args[1];
+    const description = args[2] || 'Admin Set Balance';
+
+    if (isNaN(amount) || amount < 0) {
+      return 'Invalid amount. Please enter a non-negative number.';
+    }
+
+    try {
+      // Find user by email or ID
+      let userId;
+      let userName;
+      if (userIdentifier.includes('@')) {
+        const { data: user, error: userError } = await supabase
+          .from('users')
+          .select('id, email, first_name, last_name')
+          .eq('email', userIdentifier)
+          .single();
+
+        if (userError || !user) {
+          return `User not found: ${userIdentifier}`;
+        }
+        userId = user.id;
+        userName = user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : user.email;
+      } else {
+        const { data: user, error: userError } = await supabase
+          .from('users')
+          .select('id, email, first_name, last_name')
+          .eq('id', userIdentifier)
+          .single();
+
+        if (userError || !user) {
+          return `User not found: ${userIdentifier}`;
+        }
+        userId = user.id;
+        userName = user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : user.email;
+      }
+
+      // Get user's active card
+      const { data: card, error: cardError } = await supabase
+        .from('bank_cards')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (cardError || !card) {
+        return `User has no active bank card: ${userIdentifier}`;
+      }
+
+      const oldBalance = card.balance || 0;
+      const difference = amount - oldBalance;
+
+      // Update card balance
+      const { error: updateError } = await supabase
+        .from('bank_cards')
+        .update({ balance: amount })
+        .eq('id', card.id);
+
+      if (updateError) throw updateError;
+
+      // Create transaction record if there's a difference (skip if transaction logging fails)
+      if (difference !== 0) {
+        try {
+          const { error: transactionError } = await supabase
+            .from('transactions')
+            .insert({
+              sender_id: difference > 0 ? (user?.id || null) : userId,
+              recipient_id: difference > 0 ? userId : (user?.id || userId),
+              amount: Math.abs(difference),
+              currency: 'MR',
+              description: description,
+              sender_name: difference > 0 ? 'Admin' : userName,
+              recipient_name: difference > 0 ? userName : 'Admin',
+              status: 'completed'
+            });
+
+          if (transactionError) {
+            console.warn('Transaction logging failed:', transactionError);
+            // Don't throw error, just log it
+          }
+        } catch (transactionError) {
+          console.warn('Transaction logging failed:', transactionError);
+          // Don't throw error, just log it
+        }
+      }
+
+      return `Successfully set balance to ${amount} MR for ${userName} (${userIdentifier})\nPrevious balance: ${oldBalance} MR\nNew balance: ${amount} MR`;
+    } catch (error) {
+      throw new Error('Failed to set balance. Please try again.');
     }
   };
 
@@ -598,6 +907,60 @@ export const MannShell: React.FC = () => {
       usage: 'help',
       category: 'system',
       execute: async () => getHelp()
+    },
+    {
+      name: 'xptop',
+      description: 'Show top users by XP',
+      usage: 'xptop [limit]',
+      category: 'admin',
+      execute: async (args) => {
+        const limit = Math.max(1, Math.min(50, parseInt(args[0]) || 10));
+        try {
+          const { data, error } = await supabase
+            .from('user_progression_leaderboard')
+            .select('user_id, total_xp, display_name, email')
+            .order('total_xp', { ascending: false })
+            .limit(limit);
+          if (error) throw error;
+          if (!data || data.length === 0) return 'No leaderboard data yet.';
+          let result = `Top ${limit} by XP:\n`;
+          result += '─'.repeat(60) + '\n';
+          data.forEach((row: any, idx: number) => {
+            const name = row.display_name || row.email || row.user_id?.slice(0, 8) || 'User';
+            result += `${String(idx + 1).padEnd(3)} ${name.padEnd(24)} ${String(row.total_xp).padStart(8)} XP\n`;
+          });
+          return result;
+        } catch (e: any) {
+          return `Failed to fetch leaderboard: ${e.message || 'Unknown error'}`;
+        }
+      }
+    },
+    {
+      name: 'xp',
+      description: 'Show your XP and level',
+      usage: 'xp',
+      category: 'account',
+      execute: async () => {
+        if (!user) return 'Not logged in';
+        const prog = await getProgression(user.id);
+        if (!prog) return 'Progression not available.';
+        return `Level ${prog.level}\nXP: ${prog.currentLevelXp}/${prog.nextLevelXp} (Total: ${prog.xp})\nTo next: ${prog.xpToNextLevel}`;
+      }
+    },
+    {
+      name: 'addxp',
+      description: 'Grant XP to a user (admin/local only)',
+      usage: 'addxp <amount> [user_id]',
+      category: 'admin',
+      execute: async (args) => {
+        const amount = parseInt(args[0]);
+        if (isNaN(amount) || amount <= 0) return 'Usage: addxp <positive_amount> [user_id]';
+        const targetId = args[1] || user?.id;
+        if (!targetId) return 'No target user.';
+        const prog = await addXpProgress(targetId, amount);
+        if (!prog) return 'Failed to add XP.';
+        return `Added ${amount} XP. Level ${prog.level} (${prog.currentLevelXp}/${prog.nextLevelXp}).`;
+      }
     },
     {
       name: 'clear',
@@ -748,9 +1111,9 @@ export const MannShell: React.FC = () => {
 
         try {
           const { data: users, error } = await supabase
-            .from('profiles')
-            .select('id, email, full_name, phone, created_at')
-            .or(`email.ilike.%${query}%,full_name.ilike.%${query}%`)
+            .from('users')
+            .select('id, email, first_name, last_name, created_at')
+            .or(`email.ilike.%${query}%,first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
             .order('created_at', { ascending: false })
             .limit(20);
 
@@ -768,10 +1131,11 @@ export const MannShell: React.FC = () => {
           users.forEach(user => {
             const id = user.id.substring(0, 8);
             const email = (user.email || 'N/A').substring(0, 25);
-            const name = (user.full_name || 'N/A').substring(0, 20);
+            const name = user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : (user.first_name || user.last_name || 'N/A');
+            const nameDisplay = name.substring(0, 20);
             const created = new Date(user.created_at).toLocaleDateString();
             
-            result += `${id.padEnd(8)} | ${email.padEnd(25)} | ${name.padEnd(20)} | ${created}\n`;
+            result += `${id.padEnd(8)} | ${email.padEnd(25)} | ${nameDisplay.padEnd(20)} | ${created}\n`;
           });
 
           return result;
@@ -779,6 +1143,27 @@ export const MannShell: React.FC = () => {
           throw new Error('Failed to search users');
         }
       }
+    },
+    {
+      name: 'give',
+      description: 'Give money to a user (admin only)',
+      usage: 'give <amount> <user_email_or_id> [description]',
+      category: 'admin',
+      execute: async (args) => giveMoney(args)
+    },
+    {
+      name: 'take',
+      description: 'Take money from a user (admin only)',
+      usage: 'take <amount> <user_email_or_id> [description]',
+      category: 'admin',
+      execute: async (args) => takeMoney(args)
+    },
+    {
+      name: 'setbalance',
+      description: 'Set exact balance for a user (admin only)',
+      usage: 'setbalance <amount> <user_email_or_id> [description]',
+      category: 'admin',
+      execute: async (args) => setBalance(args)
     }
   ];
 

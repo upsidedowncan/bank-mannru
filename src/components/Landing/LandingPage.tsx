@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import {
   Box,
   Container,
@@ -10,6 +10,7 @@ import {
   useTheme,
   useMediaQuery,
 } from '@mui/material'
+import { motion } from 'framer-motion'
 import {
   AccountBalance,
   Security,
@@ -28,6 +29,22 @@ export const LandingPage: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const navigate = useNavigate()
   const { user } = useAuthContext()
+  const isDark = theme.palette.mode === 'dark'
+
+  const heroVariants = useMemo(() => ({
+    hidden: { opacity: 0, y: 24 },
+    visible: { opacity: 1, y: 0 },
+  }), [])
+
+  const staggerContainer = useMemo(() => ({
+    hidden: {},
+    visible: { transition: { staggerChildren: 0.1 } },
+  }), [])
+
+  const item = useMemo(() => ({
+    hidden: { opacity: 0, y: 16 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
+  }), [])
 
   const features = [
     {
@@ -65,16 +82,19 @@ export const LandingPage: React.FC = () => {
       {/* Hero Section */}
       <Box
         sx={{
-          background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
+          background: isDark
+            ? `radial-gradient(1200px 800px at 10% -10%, rgba(255,255,255,0.06), transparent 60%), radial-gradient(1000px 700px at 110% 10%, rgba(255,255,255,0.04), transparent 60%), linear-gradient(135deg, #0f1318 0%, #0a0d11 100%)`
+            : `radial-gradient(1200px 800px at 10% -10%, ${theme.palette.primary.light}22, transparent 60%), radial-gradient(1000px 700px at 110% 10%, ${theme.palette.secondary.main}22, transparent 60%), linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
           color: 'white',
           py: { xs: 8, md: 12 },
           position: 'relative',
           overflow: 'hidden',
         }}
       >
-        <Container maxWidth="lg">
+        <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 } }}>
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 4, alignItems: 'center' }}>
-            <Box>
+            <motion.div variants={heroVariants} initial="hidden" animate="visible">
+              <Box>
               <Typography
                 variant={isMobile ? 'h3' : 'h2'}
                 component="h1"
@@ -120,29 +140,54 @@ export const LandingPage: React.FC = () => {
                   Узнать больше
                 </Button>
               </Box>
-            </Box>
-            <Box
-              sx={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                height: 300,
-              }}
-            >
-              <AccountBalance
+              </Box>
+            </motion.div>
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 0.9, scale: 1 }} transition={{ duration: 0.8 }}>
+              <Box
                 sx={{
-                  fontSize: 200,
-                  opacity: 0.3,
-                  color: 'white',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  height: 300,
+                  position: 'relative',
                 }}
-              />
-            </Box>
+              >
+                <motion.div
+                  animate={{ rotate: [0, 6, -6, 0] }}
+                  transition={{ duration: 8, repeat: Infinity }}
+                  style={{ position: 'absolute', filter: 'drop-shadow(0 12px 40px rgba(0,0,0,0.25))' }}
+                >
+                  <AccountBalance
+                    sx={{
+                      fontSize: 200,
+                      opacity: isDark ? 0.5 : 0.35,
+                      color: 'white',
+                    }}
+                  />
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: [0, 0.4, 0.15, 0.35] }}
+                  transition={{ duration: 6, repeat: Infinity }}
+                  style={{
+                    position: 'absolute',
+                    width: 220,
+                    height: 220,
+                    borderRadius: '50%',
+                    background: isDark
+                      ? 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.25), rgba(255,255,255,0) 60%)'
+                      : 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.35), rgba(255,255,255,0) 60%)',
+                    mixBlendMode: 'screen',
+                  }}
+                />
+              </Box>
+            </motion.div>
           </Box>
         </Container>
       </Box>
 
       {/* Features Section */}
-      <Container maxWidth="lg" sx={{ py: { xs: 6, md: 10 } }}>
+      <Container maxWidth="lg" sx={{ py: { xs: 6, md: 10 }, px: { xs: 2, sm: 3 } }}>
         <Box textAlign="center" sx={{ mb: 6 }}>
           <Typography variant="h3" component="h2" gutterBottom>
             Почему выбирают нас
@@ -152,38 +197,40 @@ export const LandingPage: React.FC = () => {
           </Typography>
         </Box>
 
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 4 }}>
-          {features.map((feature, index) => (
-            <Card
-              key={index}
-              sx={{
-                height: '100%',
-                textAlign: 'center',
-                p: 3,
-                transition: 'transform 0.2s',
-                '&:hover': {
-                  transform: 'translateY(-4px)',
-                },
-              }}
-            >
-              <CardContent>
-                <Box sx={{ mb: 2 }}>{feature.icon}</Box>
-                <Typography variant="h6" gutterBottom>
-                  {feature.title}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {feature.description}
-                </Typography>
-              </CardContent>
-            </Card>
-          ))}
-        </Box>
+        <motion.div variants={staggerContainer} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 4 }}>
+            {features.map((feature, index) => (
+              <motion.div key={index} variants={item} whileHover={{ y: -6 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }}>
+                <Card
+                  sx={{
+                    height: '100%',
+                    textAlign: 'center',
+                    p: 3,
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'background.paper',
+                    border: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.04)',
+                  }}
+                >
+                  <CardContent>
+                    <Box sx={{ mb: 2 }}>{feature.icon}</Box>
+                    <Typography variant="h6" gutterBottom>
+                      {feature.title}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {feature.description}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </Box>
+        </motion.div>
       </Container>
 
       {/* Stats Section */}
-      <Box sx={{ bgcolor: 'grey.50', py: { xs: 6, md: 10 } }}>
-        <Container maxWidth="lg">
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 4, textAlign: 'center' }}>
+      <Box sx={{ bgcolor: isDark ? 'rgba(255,255,255,0.03)' : 'grey.50', py: { xs: 6, md: 10 } }}>
+        <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 } }}>
+          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.3 }} transition={{ duration: 0.6 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 4, textAlign: 'center' }}>
             <Box>
               <Typography variant="h3" color="primary" gutterBottom>
                 50,000+
@@ -208,19 +255,23 @@ export const LandingPage: React.FC = () => {
                 Поддержка клиентов
               </Typography>
             </Box>
-          </Box>
+            </Box>
+          </motion.div>
         </Container>
       </Box>
 
       {/* CTA Section */}
-      <Container maxWidth="md" sx={{ py: { xs: 6, md: 10 }, textAlign: 'center' }}>
-        <Paper
-          sx={{
-            p: { xs: 4, md: 6 },
-            background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
-            color: 'white',
-          }}
-        >
+      <Container maxWidth="md" sx={{ py: { xs: 6, md: 10 }, textAlign: 'center', px: { xs: 2, sm: 3 } }}>
+        <motion.div initial={{ opacity: 0, scale: 0.96 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true, amount: 0.3 }} transition={{ duration: 0.5 }}>
+          <Paper
+            sx={{
+              p: { xs: 4, md: 6 },
+              background: isDark
+                ? `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.primary.main} 100%)`
+                : `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
+              color: 'white',
+            }}
+          >
           <Typography variant="h4" gutterBottom>
             Готовы начать?
           </Typography>
@@ -244,7 +295,8 @@ export const LandingPage: React.FC = () => {
           >
             {user ? 'Перейти в кабинет' : 'Создать аккаунт'}
           </Button>
-        </Paper>
+          </Paper>
+        </motion.div>
       </Container>
 
       {/* Footer */}

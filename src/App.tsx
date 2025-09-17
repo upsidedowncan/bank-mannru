@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { ThemeProvider, useTheme } from '@mui/material/styles' // Import useTheme here
 import { CssBaseline } from '@mui/material'
-import { theme, createAppTheme, ThemeMode, ThemeVariant, themeVariants } from './theme/theme'
+import { theme, createAppTheme, ThemeMode, ThemeVariant, themeVariants, experimentalThemeVariants } from './theme/theme'
 import { AppLayout } from './components/Layout/AppLayout'
 import { LoginForm } from './components/Forms/LoginForm'
 import { RegisterForm } from './components/Forms/RegisterForm'
@@ -30,7 +30,6 @@ import { AdminPanel } from './components/Admin/AdminPanel';
 import { FortuneWheelGame } from './components/FortuneWheelGame';
 import AdminInvestments from './components/Admin/AdminInvestments';
 import { MemoryGame } from './components/MemoryGame';
-import { MotherboardReactionGame } from './components/Games/MotherboardReactionGame';
 import { VaultManagementPage } from './components/VaultManagementPage';
 import { EventNotification } from './components/Notifications/EventNotification';
 import { MannShell } from './components/MannShell/MannShell';
@@ -1116,6 +1115,8 @@ interface SettingsProps {
   setMagnifierEnabled: React.Dispatch<React.SetStateAction<boolean>>;
   magnifierIntensity: number; // Controlled prop
   setMagnifierIntensity: React.Dispatch<React.SetStateAction<number>>; // Controlled prop setter
+  experimentalThemesEnabled: boolean;
+  setExperimentalThemesEnabled: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const Settings: React.FC<SettingsProps> = ({
@@ -1124,7 +1125,9 @@ const Settings: React.FC<SettingsProps> = ({
   magnifierEnabled,
   setMagnifierEnabled,
   magnifierIntensity, // Direct prop
-  setMagnifierIntensity // Direct prop setter
+  setMagnifierIntensity, // Direct prop setter
+  experimentalThemesEnabled,
+  setExperimentalThemesEnabled,
 }) => {
   const theme = useTheme(); // Use useTheme hook here
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({ open: false, message: '', severity: 'success' });
@@ -1280,7 +1283,11 @@ const Settings: React.FC<SettingsProps> = ({
                   value={themeVariant}
                   onChange={(e) => handleThemeVariantChange(e.target.value as ThemeVariant)}
                 >
-                  {themeVariants.map((variant) => (
+                  {(
+                    experimentalThemesEnabled
+                      ? [...themeVariants, ...experimentalThemeVariants]
+                      : themeVariants
+                  ).map((variant) => (
                     <MenuItem key={variant.value} value={variant.value}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Box
@@ -1331,6 +1338,28 @@ const Settings: React.FC<SettingsProps> = ({
                   Инвестиции
                 </Button>
               </Box>
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
+                  Экспериментальные темы
+                </Typography>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={experimentalThemesEnabled}
+                      onChange={(e) => {
+                        const next = e.target.checked;
+                        setExperimentalThemesEnabled(next);
+                        localStorage.setItem('experimentalThemes', String(next));
+                      }}
+                      color="primary"
+                    />
+                  }
+                  label="Включить экспериментальные темы (изменяет внешний вид всего сайта)"
+                />
+                <Typography variant="caption" color="text.secondary">
+                  Добавляет новые цветовые схемы и активирует продвинутые стили кнопок, карточек и диалогов.
+                </Typography>
+              </Box>
             </Box>
           </CardContent>
         </Card>
@@ -1350,9 +1379,11 @@ interface AppContentProps {
   setShowDevSettings: React.Dispatch<React.SetStateAction<boolean>>;
   magnifierIntensity?: number;
   setMagnifierIntensity?: React.Dispatch<React.SetStateAction<number>>;
+  experimentalThemesEnabled: boolean;
+  setExperimentalThemesEnabled: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-function AppContent({ showDevSettings, setShowDevSettings, magnifierIntensity = 1.5, setMagnifierIntensity }: AppContentProps) {
+function AppContent({ showDevSettings, setShowDevSettings, magnifierIntensity = 1.5, setMagnifierIntensity, experimentalThemesEnabled, setExperimentalThemesEnabled }: AppContentProps) {
   const [magnifierEnabled, setMagnifierEnabled] = useState(() => {
     const saved = localStorage.getItem('magnifierEnabled');
     return saved === 'true';
@@ -1855,6 +1886,8 @@ function AppContent({ showDevSettings, setShowDevSettings, magnifierIntensity = 
               setMagnifierEnabled={setMagnifierEnabled}
               magnifierIntensity={localMagnifierIntensity} // Pass local state
               setMagnifierIntensity={setLocalMagnifierIntensity} // Pass local setter
+              experimentalThemesEnabled={experimentalThemesEnabled}
+              setExperimentalThemesEnabled={setExperimentalThemesEnabled}
             />}
           />
         </Route>
@@ -1882,7 +1915,6 @@ function AppContent({ showDevSettings, setShowDevSettings, magnifierIntensity = 
         <Route path="/darkhaxorz6557453555c3h2he1a6t8s" element={<AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled} magnifierIntensity={localMagnifierIntensity}><Cheats /></AppLayout>} />
         <Route path="/games/tapping" element={<TappingGame />} />
         <Route path="/games/flip" element={<AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled} magnifierIntensity={localMagnifierIntensity}><FlipGame /></AppLayout>} />
-        <Route path="/games/motherboard" element={<AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled} magnifierIntensity={localMagnifierIntensity}><MotherboardReactionGame /></AppLayout>} />
         <Route path="/giveaways" element={<AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled} magnifierIntensity={localMagnifierIntensity}><GiveawayFunction /></AppLayout>} />
         <Route path="/chat" element={<AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled} magnifierIntensity={localMagnifierIntensity}><GlobalChat /></AppLayout>} />
         <Route path="/admin" element={user && user.user_metadata?.isAdmin ? <AdminPanel /> : <div style={{ padding: 32, textAlign: 'center' }}><h2>Not authorized</h2></div>} />
@@ -2036,8 +2068,12 @@ function App() {
   });
 
   const [showDevSettings, setShowDevSettings] = useState(false);
+  const [experimentalThemesEnabled, setExperimentalThemesEnabled] = useState<boolean>(() => {
+    const saved = localStorage.getItem('experimentalThemes');
+    return saved ? saved === 'true' : false;
+  });
 
-  const currentTheme = createAppTheme(themeMode, themeVariant);
+  const currentTheme = createAppTheme(themeMode, themeVariant, experimentalThemesEnabled);
 
   return (
     <ThemeProvider theme={currentTheme}>
@@ -2054,6 +2090,8 @@ function App() {
               <AppContent
                 showDevSettings={showDevSettings}
                 setShowDevSettings={setShowDevSettings}
+                experimentalThemesEnabled={experimentalThemesEnabled}
+                setExperimentalThemesEnabled={setExperimentalThemesEnabled}
               />
             </Router>
           </NotificationProvider>

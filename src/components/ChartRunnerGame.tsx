@@ -44,6 +44,7 @@ import PageHeader from '../components/Layout/PageHeader';
 import { supabase } from '../config/supabase';
 import { useAuthContext } from '../contexts/AuthContext';
 import { formatCurrency } from '../utils/formatters';
+import { addXp } from '../services/progressionService';
 
 interface BankCard {
   id: string;
@@ -1626,6 +1627,10 @@ export const ChartRunnerGame: React.FC = () => {
         .eq('id', selectedWinCardId);
 
       if (error) throw error;
+
+      // Award XP: base on difficulty and score
+      const xpAward = Math.max(50, Math.floor((currentReward / 100) + (scoreRef.current / 50)));
+      await addXp(user.id, xpAward);
 
       fetchCards();
       setResultDialogOpen(false);

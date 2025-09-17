@@ -2300,6 +2300,10 @@ export const GlobalChat: React.FC = () => {
         null, // No voice duration
         manpayData
       );
+      try {
+        const { addSocialXpForAction } = await import('../../services/progressionService');
+        await addSocialXpForAction(user.id, 'manpay_transfer', Number(amount || 0));
+      } catch {}
       showSnackbar('Перевод ManPay успешен!', 'success');
     } catch (error: any) {
       console.error('ManPay Error:', error);
@@ -2311,7 +2315,7 @@ export const GlobalChat: React.FC = () => {
 
   return (
     <>
-    <Box sx={{ display: 'flex', flex: 1, width: '100%', minHeight: 0 }}>
+    <Box sx={{ display: 'flex', flex: 1, width: '100%', minHeight: 0, height: '100%', overflow: 'hidden' }}>
       {/* Channels Sidebar */}
       {isMobile ? (
         <Drawer
@@ -2392,7 +2396,7 @@ export const GlobalChat: React.FC = () => {
           </Box>
         </Drawer>
       ) : (
-        <Box sx={{ width: 300, flexShrink: 0, borderRight: '1px solid', borderColor: 'divider', display: 'flex', flexDirection: 'column', bgcolor: 'background.paper' }}>
+        <Box sx={{ width: 300, flexShrink: 0, borderRight: '1px solid', borderColor: 'divider', display: 'flex', flexDirection: 'column', bgcolor: 'background.paper', height: '100%', minHeight: 0 }}>
           <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider', position: 'sticky', top: 0, zIndex: 2, backdropFilter: 'saturate(160%) blur(8px)', backgroundImage: (theme.palette.mode === 'light')
             ? `linear-gradient(180deg, ${theme.palette.background.paper} 0%, ${theme.palette.background.paper} 70%, rgba(0,0,0,0.02) 100%)`
             : 'linear-gradient(180deg, rgba(26,26,26,1) 0%, rgba(26,26,26,0.9) 70%, rgba(255,255,255,0.04) 100%)' }}>
@@ -2416,14 +2420,14 @@ export const GlobalChat: React.FC = () => {
               }}
             />
           </Box>
-          <Box sx={{ overflowY: 'auto', flex: 1, '&::-webkit-scrollbar': { width: 6 }, '&::-webkit-scrollbar-thumb': { backgroundColor: 'divider', borderRadius: 3 } }}>
+          <Box sx={{ overflowY: 'auto', flex: 1, minHeight: 0, '&::-webkit-scrollbar': { width: 6 }, '&::-webkit-scrollbar-thumb': { backgroundColor: 'divider', borderRadius: 3 } }}>
             {renderChannels()}
           </Box>
         </Box>
       )}
 
       {/* Main Chat Area */}
-      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
         {/* Header */}
         <Box sx={{ 
           p: isMobile ? 1.5 : 1, 
@@ -2518,9 +2522,11 @@ export const GlobalChat: React.FC = () => {
                 ref={chatContainerRef} 
                 sx={{ 
                   flex: 1, 
-                  overflowY: 'hidden', 
+                  overflowY: 'auto', 
                   position: 'relative',
-                  bgcolor: 'background.default'
+                  bgcolor: 'background.default',
+                  '&::-webkit-scrollbar': { width: 8 },
+                  '&::-webkit-scrollbar-thumb': { backgroundColor: 'divider', borderRadius: 4 }
                 }} 
                 onScroll={handleScroll}
               >

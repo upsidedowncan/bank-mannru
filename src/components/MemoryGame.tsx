@@ -45,6 +45,7 @@ import PageHeader from '../components/Layout/PageHeader';
 import { supabase } from '../config/supabase';
 import { useAuthContext } from '../contexts/AuthContext';
 import { formatCurrency } from '../utils/formatters';
+import { addXp } from '../services/progressionService';
 
 interface BankCard {
   id: string;
@@ -376,6 +377,10 @@ export const MemoryGame: React.FC = () => {
         .eq('id', selectedWinCardId);
 
       if (error) throw error;
+
+      // Award XP: scale with round and difficulty
+      const xpAward = Math.max(25, Math.floor((currentReward / 100) + currentRound * 10));
+      await addXp(user.id, xpAward);
 
       setFeedbackMessage(`+${currentReward} MR зачислено на "${cardToUpdate.card_name}"!`);
       fetchCards();

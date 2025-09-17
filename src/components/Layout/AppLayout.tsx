@@ -109,6 +109,8 @@ import { useAuthContext } from '../../contexts/AuthContext'
 import { useThemeContext } from '../../contexts/ThemeContext'
 import { supabase } from '../../config/supabase';
 import { BannerDisplay } from '../Common/BannerDisplay';
+import { getProgression } from '../../services/progressionService';
+import XPBar from '../Common/XPBar';
 
 // Icon mapping
 const iconMapping: { [key: string]: React.ComponentType } = {
@@ -210,6 +212,19 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
   const navigate = useNavigate()
   const location = useLocation()
   const { signOut, user } = useAuthContext()
+  const [progression, setProgression] = React.useState<{ level: number; currentLevelXp: number; nextLevelXp: number } | null>(null)
+  React.useEffect(() => {
+    let isMounted = true
+    const load = async () => {
+      if (!user) { setProgression(null); return }
+      const p = await getProgression(user.id)
+      if (isMounted) {
+        setProgression(p ? { level: p.level, currentLevelXp: p.currentLevelXp, nextLevelXp: p.nextLevelXp } : null)
+      }
+    }
+    load()
+    return () => { isMounted = false }
+  }, [user])
   const [dynamicFeatures, setDynamicFeatures] = React.useState<{ title: string; route: string; icon: string }[]>([])
   const [openMarketplace, setOpenMarketplace] = React.useState(true)
 
@@ -686,10 +701,24 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
           pt: { xs: '64px', sm: 0 },
           display: 'flex',
           flexDirection: 'column',
+          // Expand content to full width and remove side gutters
+          mx: 0,
+          maxWidth: '100vw',
+          height: '100%',
+          overflow: location.pathname.startsWith('/chat') ? 'hidden' : 'auto',
         }}
       >
-        <BannerDisplay />
-        {children || <Outlet />}
+        {!location.pathname.startsWith('/chat') && <BannerDisplay />}
+        {user && !location.pathname.startsWith('/chat') && <XPBar userId={user.id} />}
+        <Box sx={{
+          px: location.pathname.startsWith('/chat') ? 0 : { xs: 1, md: 1.5 },
+          width: '100%',
+          maxWidth: 'auto',
+          mx: 'auto',
+          ...(location.pathname.startsWith('/chat') ? { flex: 1, minHeight: 0, height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' } : {})
+        }}>
+          {children || <Outlet />}
+        </Box>
         <NotificationToast />
       </Box>
     </Box>
