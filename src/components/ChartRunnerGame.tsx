@@ -44,6 +44,7 @@ import PageHeader from '../components/Layout/PageHeader';
 import { supabase } from '../config/supabase';
 import { useAuthContext } from '../contexts/AuthContext';
 import { formatCurrency } from '../utils/formatters';
+import { addXp } from '../services/progressionService';
 
 interface BankCard {
   id: string;
@@ -130,7 +131,7 @@ const SHARP_MOVEMENT_DISTANCE = 25; // Sharp movement distance per input
 const MOVEMENT_COOLDOWN_MS = 100; // Cooldown between sharp movements
 const UPWARD_FORCE = -500; // Force applied when holding up (negative = upward) - balanced
 const GRAVITY = 600; // Gravity force pulling down - balanced
-const MAX_VELOCITY = 300; // Maximum vertical velocity - balanced
+const MAX_VELOCITY = 10000; // Maximum vertical velocity - balanced
 const BASE_REWARD = 5000;
 const BASE_PENALTY = 1000;
 const DISTANCE_TO_WIN = 10000;
@@ -708,7 +709,7 @@ export const ChartRunnerGame: React.FC = () => {
         });
 
          // Remove obstacles that are off screen
-         obstaclesRef.current = obstaclesRef.current.filter((o) => o.x + o.width > 0);
+        obstaclesRef.current = obstaclesRef.current.filter((o) => o.x + o.width > 0);
          
          // Remove cannons that are off screen
          cannonsRef.current = cannonsRef.current.filter((cannon) => cannon.x + cannon.width > -50);
@@ -1515,35 +1516,35 @@ export const ChartRunnerGame: React.FC = () => {
     }
   }, [gameState]);
 
-   // Keyboard controls
-   useEffect(() => {
-     const handleKeyDown = (event: KeyboardEvent) => {
-       if (event.code === 'Space' || event.code === 'ArrowUp') {
-         event.preventDefault();
-         if (!isInputPressedRef.current) {
-           handleInputDown();
-         }
+  // Keyboard controls
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.code === 'Space' || event.code === 'ArrowUp') {
+        event.preventDefault();
+        if (!isInputPressedRef.current) {
+            handleInputDown();
+        }
        } else if (event.code === 'KeyX' || event.code === 'ArrowRight') {
          event.preventDefault();
          if (gameState === 'playing' || gameState === 'grace-period') {
            shootBullet();
-         }
-       }
-     };
+        }
+      }
+    };
      
-     const handleKeyUp = (event: KeyboardEvent) => {
-       if (event.code === 'Space' || event.code === 'ArrowUp') {
-         event.preventDefault();
-         handleInputUp();
-       }
-     };
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.code === 'Space' || event.code === 'ArrowUp') {
+        event.preventDefault();
+        handleInputUp();
+      }
+    };
      
-     window.addEventListener('keydown', handleKeyDown);
-     window.addEventListener('keyup', handleKeyUp);
-     return () => {
-       window.removeEventListener('keydown', handleKeyDown);
-       window.removeEventListener('keyup', handleKeyUp);
-     };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
    }, [handleInputDown, handleInputUp, shootBullet, gameState]);
 
   // Mobile touch controls (on canvas) - optimized for mobile
@@ -1627,6 +1628,10 @@ export const ChartRunnerGame: React.FC = () => {
 
       if (error) throw error;
 
+      // Award XP: base on difficulty and score
+      const xpAward = Math.max(50, Math.floor((currentReward / 100) + (scoreRef.current / 50)));
+      await addXp(user.id, xpAward);
+
       fetchCards();
       setResultDialogOpen(false);
       setGameState('idle');
@@ -1684,7 +1689,7 @@ export const ChartRunnerGame: React.FC = () => {
           <Typography variant="h5" fontWeight={600} gutterBottom>
             Фондовый Бегун
           </Typography>
-           <Typography variant="body1" color="textSecondary" sx={{ mb: 3 }}>
+          <Typography variant="body1" color="textSecondary" sx={{ mb: 3 }}>
              Управляйте "курсом акций" удерживая или отпуская! Удерживайте ↑ или Space для подъема, отпустите для спуска.
              <br />
              На мобильных: касайтесь и удерживайте экран для подъема, отпустите для спуска.
@@ -1696,11 +1701,11 @@ export const ChartRunnerGame: React.FC = () => {
              🪙 Собирайте золотые монеты - они добавятся к призу!
              <br />
              ⚡ Подбирайте бонусы: Скорость, Щит, Магнит
-             <br />
-             Пройдите {DISTANCE_TO_WIN} пунктов дистанции, чтобы выиграть.
-             <br />
+            <br />
+            Пройдите {DISTANCE_TO_WIN} пунктов дистанции, чтобы выиграть.
+            <br />
              Приз: {currentReward} MR + ваши очки. Штраф: -{currentPenalty} MR.
-           </Typography>
+          </Typography>
 
           {gameState === 'idle' && (
             <Stack spacing={2} alignItems="center">
@@ -1888,9 +1893,9 @@ export const ChartRunnerGame: React.FC = () => {
                      {powerUpEffectType === 'speed' && '⚡ Скорость!'}
                      {powerUpEffectType === 'shield' && '🛡 Щит!'}
                      {powerUpEffectType === 'magnet' && '🧲 Магнит!'}
-                   </Typography>
-                 </motion.div>
-               )}
+                  </Typography>
+                </motion.div>
+              )}
             </AnimatePresence>
           </Box>
 

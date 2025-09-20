@@ -21,6 +21,7 @@ import {
   MenuItem,
   Divider,
 } from '@mui/material'
+import ReactMarkdown from 'react-markdown'
 import {
   Edit,
   Delete,
@@ -183,11 +184,17 @@ export const MyListings: React.FC = () => {
               <Typography variant="h6" gutterBottom noWrap>
                 {item.title}
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2, flexGrow: 1 }}>
-                {item.description.length > 100
-                  ? `${item.description.substring(0, 100)}...`
-                  : item.description}
-              </Typography>
+              <Box sx={{ mb: 2, flexGrow: 1, 
+                '& p': { margin: 0, marginBottom: 0.5 },
+                '& p:last-child': { marginBottom: 0 },
+                '& *': { fontSize: '0.875rem', color: 'text.secondary' }
+              }}>
+                <ReactMarkdown>
+                  {item.description.length > 100
+                    ? `${item.description.substring(0, 100)}...`
+                    : item.description}
+                </ReactMarkdown>
+              </Box>
               
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                 <Typography variant="h6" color="primary">

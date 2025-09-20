@@ -40,6 +40,7 @@ import {
   Skeleton,
 } from '@mui/material';
 import { styled, keyframes } from '@mui/material/styles';
+import ReactMarkdown from 'react-markdown';
 import {
   Send as SendIcon,
   Chat as ChatIcon,
@@ -97,6 +98,7 @@ import { useChatInput } from './hooks/useChatInput';
 import { useDirectMessages, Conversation, DirectMessage } from './hooks/useDirectMessages';
 import { useVoiceRecording } from './hooks/useVoiceRecording';
 import { NewDmDialog } from './molecules/NewDmDialog';
+import { ChatSuggestions } from './molecules/ChatSuggestions';
 import { ManPayDialog } from './molecules/ManPayDialog';
 import Message from './molecules/Message';
 import VirtualizedMessageList from './molecules/VirtualizedMessageList';
@@ -187,7 +189,11 @@ type MarketplaceItem = {
   purchase_limit?: number;
 };
 
-export const GlobalChat: React.FC = () => {
+interface GlobalChatProps {
+  aiChatEnabled?: boolean;
+}
+
+export const GlobalChat: React.FC<GlobalChatProps> = ({ aiChatEnabled = false }) => {
   const { user } = useAuthContext();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -252,7 +258,7 @@ export const GlobalChat: React.FC = () => {
   const [readBy, setReadBy] = useState<{[messageId: string]: string[]}>({});
 
   // Performance optimization: Limit rendered messages to prevent lag
-  const [renderedMessageCount, setRenderedMessageCount] = useState(50); // Start with 50 messages
+  const [renderedMessageCount, setRenderedMessageCount] = useState(30); // Start with 30 messages for better performance
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   
   // Performance optimization: Debounced message updates to prevent lag
@@ -382,8 +388,8 @@ export const GlobalChat: React.FC = () => {
     }
     
     // If user is near the bottom, decrease rendered message count for performance
-    if (scrollTop > scrollHeight - clientHeight - 100 && renderedMessageCount > 50) {
-      setRenderedMessageCount(prev => Math.max(prev - 10, 50));
+    if (scrollTop > scrollHeight - clientHeight - 100 && renderedMessageCount > 30) {
+      setRenderedMessageCount(prev => Math.max(prev - 10, 30));
     }
   }, [renderedMessageCount, messages.length]);
 
@@ -1127,13 +1133,21 @@ export const GlobalChat: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // This is a simplified scrolling logic. It will always scroll to the bottom
-    // when new messages are added. This fixes the primary bug of being stuck at
-    // the top when changing conversations. A more advanced implementation could
-    // conditionally scroll only if the user is already near the bottom, but this
-    // is a safe and correct default.
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    // Optimized scrolling: only scroll when necessary and use requestAnimationFrame for performance
+    const shouldAutoScroll = () => {
+      if (!chatContainerRef.current) return true;
+      const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+      const isNearBottom = scrollTop > scrollHeight - clientHeight - 200;
+      return isNearBottom || messages.length <= 1;
+    };
+
+    if (shouldAutoScroll()) {
+      // Use requestAnimationFrame for better performance
+      requestAnimationFrame(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      });
+    }
+  }, [messages.length]); // Changed dependency to prevent excessive re-renders
 
   const formatTime = useCallback((dateString: string) => {
     return new Date(dateString).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
@@ -1596,7 +1610,21 @@ export const GlobalChat: React.FC = () => {
     uploadProgress,
     handleDragOver,
     handleDrop,
-  } = useChatInput(user, isChannel(selectedChat) ? selectedChat : null, isUserAdmin, showSnackbar, replyingTo, setReplyingTo, forceScrollToBottom, handleCommand);
+    // AI Features
+    aiFeatures,
+    handleSuggestionClick,
+  } = useChatInput(
+    user, 
+    isChannel(selectedChat) ? selectedChat : null, 
+    isUserAdmin, 
+    showSnackbar, 
+    replyingTo, 
+    setReplyingTo, 
+    forceScrollToBottom, 
+    handleCommand,
+    aiChatEnabled,
+    messages.slice(-10).map(msg => msg.message) // Recent messages for AI context
+  );
 
   const handleRecordingComplete = (blob: Blob, duration: number) => {
     if (!selectedChat || !user) return;
@@ -2300,6 +2328,10 @@ export const GlobalChat: React.FC = () => {
         null, // No voice duration
         manpayData
       );
+      try {
+        const { addSocialXpForAction } = await import('../../services/progressionService');
+        await addSocialXpForAction(user.id, 'manpay_transfer', Number(amount || 0));
+      } catch {}
       showSnackbar('Перевод ManPay успешен!', 'success');
     } catch (error: any) {
       console.error('ManPay Error:', error);
@@ -2311,7 +2343,7 @@ export const GlobalChat: React.FC = () => {
 
   return (
     <>
-    <Box sx={{ display: 'flex', flex: 1, width: '100%', minHeight: 0 }}>
+    <Box sx={{ display: 'flex', flex: 1, width: '100%', minHeight: 0, height: '100%', overflow: 'hidden' }}>
       {/* Channels Sidebar */}
       {isMobile ? (
         <Drawer
@@ -2392,7 +2424,7 @@ export const GlobalChat: React.FC = () => {
           </Box>
         </Drawer>
       ) : (
-        <Box sx={{ width: 300, flexShrink: 0, borderRight: '1px solid', borderColor: 'divider', display: 'flex', flexDirection: 'column', bgcolor: 'background.paper' }}>
+        <Box sx={{ width: 300, flexShrink: 0, borderRight: '1px solid', borderColor: 'divider', display: 'flex', flexDirection: 'column', bgcolor: 'background.paper', height: '100%', minHeight: 0 }}>
           <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider', position: 'sticky', top: 0, zIndex: 2, backdropFilter: 'saturate(160%) blur(8px)', backgroundImage: (theme.palette.mode === 'light')
             ? `linear-gradient(180deg, ${theme.palette.background.paper} 0%, ${theme.palette.background.paper} 70%, rgba(0,0,0,0.02) 100%)`
             : 'linear-gradient(180deg, rgba(26,26,26,1) 0%, rgba(26,26,26,0.9) 70%, rgba(255,255,255,0.04) 100%)' }}>
@@ -2416,14 +2448,14 @@ export const GlobalChat: React.FC = () => {
               }}
             />
           </Box>
-          <Box sx={{ overflowY: 'auto', flex: 1, '&::-webkit-scrollbar': { width: 6 }, '&::-webkit-scrollbar-thumb': { backgroundColor: 'divider', borderRadius: 3 } }}>
+          <Box sx={{ overflowY: 'auto', flex: 1, minHeight: 0, '&::-webkit-scrollbar': { width: 6 }, '&::-webkit-scrollbar-thumb': { backgroundColor: 'divider', borderRadius: 3 } }}>
             {renderChannels()}
           </Box>
         </Box>
       )}
 
       {/* Main Chat Area */}
-      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
         {/* Header */}
         <Box sx={{ 
           p: isMobile ? 1.5 : 1, 
@@ -2518,9 +2550,11 @@ export const GlobalChat: React.FC = () => {
                 ref={chatContainerRef} 
                 sx={{ 
                   flex: 1, 
-                  overflowY: 'hidden', 
+                  overflowY: 'auto', 
                   position: 'relative',
-                  bgcolor: 'background.default'
+                  bgcolor: 'background.default',
+                  '&::-webkit-scrollbar': { width: 8 },
+                  '&::-webkit-scrollbar-thumb': { backgroundColor: 'divider', borderRadius: 4 }
                 }} 
                 onScroll={handleScroll}
               >
@@ -2794,6 +2828,7 @@ export const GlobalChat: React.FC = () => {
                       borderColor: 'divider',
                       boxShadow: theme.palette.mode === 'light' ? '0 4px 14px rgba(0,0,0,0.06)' : '0 6px 18px rgba(0,0,0,0.35)',
                       bgcolor: 'background.paper',
+                      position: 'relative', // Add relative positioning for AI suggestions
                       '& .MuiTextField-root': {
                         flex: 1,
                         '& .MuiOutlinedInput-root': {
@@ -2803,14 +2838,31 @@ export const GlobalChat: React.FC = () => {
                       }
                     }}
                   >
+                    {/* AI Chat Suggestions */}
+                    <ChatSuggestions
+                      suggestions={aiFeatures.suggestions}
+                      isGeneratingSuggestions={aiFeatures.isGeneratingSuggestions}
+                      contentModerationResult={aiFeatures.contentModerationResult}
+                      isModerating={aiFeatures.isModerating}
+                      onSuggestionClick={handleSuggestionClick}
+                      onClose={() => aiFeatures.clearSuggestions()}
+                      enabled={aiChatEnabled}
+                      currentMessage={newMessage}
+                    />
+                    
                     <TextField
                       fullWidth
-                      placeholder={isMobile ? "Сообщение..." : "Введите сообщение..."}
+                      placeholder={
+                        aiChatEnabled && aiFeatures.isModerating 
+                          ? "Проверка сообщения..." 
+                          : isMobile ? "Сообщение..." : "Введите сообщение..."
+                      }
                       value={newMessage}
                       onChange={handleInputChange}
                       onKeyPress={handleKeyPress}
                       multiline
                       maxRows={isMobile ? 3 : 1}
+                      disabled={aiChatEnabled && aiFeatures.isModerating}
                           sx={{
                             '& .MuiInputBase-root': {
                           fontSize: isMobile ? '0.9rem' : '0.95rem',
@@ -2922,7 +2974,13 @@ export const GlobalChat: React.FC = () => {
                     )}
                     <IconButton 
                       onClick={handleSend} 
-                      disabled={(!selectedFile && !newMessage.trim()) || sending || uploadingMedia}
+                      disabled={
+                        (!selectedFile && !newMessage.trim()) || 
+                        sending || 
+                        uploadingMedia || 
+                        (aiChatEnabled && aiFeatures.isModerating) ||
+                        (aiChatEnabled && aiFeatures.contentModerationResult && !aiFeatures.contentModerationResult.isAppropriate)
+                      }
                       sx={{
                         bgcolor: 'primary.main',
                         color: 'white',
@@ -2946,6 +3004,10 @@ export const GlobalChat: React.FC = () => {
                     >
                       {sending || uploadingMedia ? (
                         <CircularProgress size={isMobile ? 20 : 18} color="inherit" />
+                      ) : aiChatEnabled && aiFeatures.isModerating ? (
+                        <CircularProgress size={isMobile ? 20 : 18} color="inherit" />
+                      ) : aiChatEnabled && aiFeatures.contentModerationResult && !aiFeatures.contentModerationResult.isAppropriate ? (
+                        <CloseIcon sx={{ fontSize: isMobile ? 20 : 18 }} />
                       ) : (
                         <SendIcon sx={{ fontSize: isMobile ? 20 : 18 }} />
                       )}
@@ -3196,7 +3258,12 @@ export const GlobalChat: React.FC = () => {
                 </Box>
                 <Box sx={{ flex: 1 }}>
                   <Typography variant="subtitle1" fontWeight={500}>{item.title}</Typography>
-                  <Typography variant="body2" color="text.secondary" noWrap>{item.description}</Typography>
+                  <Box sx={{ 
+                    '& p': { margin: 0 },
+                    '& *': { fontSize: '0.875rem', color: 'text.secondary' }
+                  }}>
+                    <ReactMarkdown>{item.description}</ReactMarkdown>
+                  </Box>
                 </Box>
                 <Typography variant="subtitle2" color="primary.main" fontWeight={600}>
                   {item.price} {item.currency || 'MR'}

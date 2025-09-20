@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useMemo, useCallback } from 'react'
 import {
   AppBar,
   Box,
@@ -15,21 +15,26 @@ import {
   useTheme,
   Button,
   Collapse,
-  Divider, // Import Divider for visual separation
 } from '@mui/material';
+import { NotificationBell } from '../Notifications/NotificationBell';
+import { NotificationToast } from '../Notifications/NotificationToast';
 import {
   Menu as MenuIcon,
   Dashboard,
-  AccountBalance,
-  Payment,
   Settings,
   Person,
   Logout,
   Store as StoreIcon,
-  Chat as ChatIcon,
   Home,
-  Inventory as InventoryIcon,
   Extension as ExtensionIcon,
+  TrendingUp,
+  Security,
+  ExpandLess,
+  ExpandMore,
+  AccountBalance,
+  Payment,
+  Chat as ChatIcon,
+  Inventory as InventoryIcon,
   Games,
   School,
   Work,
@@ -48,11 +53,9 @@ import {
   ChildCare,
   Elderly,
   Accessibility,
-  Security,
   Speed,
   Star,
   Favorite,
-  TrendingUp,
   TrendingDown,
   Notifications,
   Email,
@@ -98,25 +101,32 @@ import {
   DirectionsRailway,
   DirectionsTransitFilled,
   DirectionsCarFilled,
-  ExpandLess,
-  ExpandMore,
+  Terminal as TerminalIcon,
 } from '@mui/icons-material'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthContext } from '../../contexts/AuthContext'
 import { useThemeContext } from '../../contexts/ThemeContext'
 import { supabase } from '../../config/supabase';
 import { BannerDisplay } from '../Common/BannerDisplay';
+import { getProgression } from '../../services/progressionService';
+import XPBar from '../Common/XPBar';
+import VaultRiddle from '../Secret/VaultRiddle';
 
-// Icon mapping
+// Comprehensive icon mapping for dynamic features
 const iconMapping: { [key: string]: React.ComponentType } = {
   Dashboard,
   StoreIcon,
-  ChatIcon,
   Person,
   Settings,
   Home,
-  InventoryIcon,
   ExtensionIcon,
+  TrendingUp,
+  Security,
+  // Add back all the icons that might be used by dynamic features
+  AccountBalance,
+  Payment,
+  ChatIcon,
+  InventoryIcon,
   Games,
   School,
   Work,
@@ -135,11 +145,9 @@ const iconMapping: { [key: string]: React.ComponentType } = {
   ChildCare,
   Elderly,
   Accessibility,
-  Security,
   Speed,
   Star,
   Favorite,
-  TrendingUp,
   TrendingDown,
   Notifications,
   Email,
@@ -147,8 +155,6 @@ const iconMapping: { [key: string]: React.ComponentType } = {
   LocationOn,
   Schedule,
   CalendarToday,
-  AccountBalance,
-  Payment,
   CreditCard,
   Receipt,
   ShoppingCart,
@@ -187,6 +193,7 @@ const iconMapping: { [key: string]: React.ComponentType } = {
   DirectionsRailway,
   DirectionsTransitFilled,
   DirectionsCarFilled,
+  TerminalIcon,
 };
 
 const drawerWidth = 280
@@ -200,44 +207,94 @@ interface AppLayoutProps {
 
 export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings = false, magnifierEnabled = false, magnifierIntensity = 1.5 }) => {
   const [hoveredIndex, setHoveredIndex] = React.useState<number | null>(null);
-
-
   const [mobileOpen, setMobileOpen] = React.useState(false)
+  const [progression, setProgression] = React.useState<{ level: number; currentLevelXp: number; nextLevelXp: number } | null>(null)
+  const [dynamicFeatures, setDynamicFeatures] = React.useState<{ title: string; route: string; icon: string }[]>([])
+  const [openMarketplace, setOpenMarketplace] = React.useState(true)
+  const [riddleOpen, setRiddleOpen] = React.useState(false)
+  
   const theme = useTheme()
   const navigate = useNavigate()
   const location = useLocation()
   const { signOut, user } = useAuthContext()
-  const [dynamicFeatures, setDynamicFeatures] = React.useState<{ title: string; route: string; icon: string }[]>([])
-  const [openMarketplace, setOpenMarketplace] = React.useState(true)
 
+  // Optimized progression loading
   React.useEffect(() => {
-    const fetchUserFeatures = async () => {
-      if (!user) return;
-      const { data, error } = await supabase
-        .from('user_features')
-        .select('feature_id, features_marketplace (title, route, icon)')
-        .eq('user_id', user.id)
-      if (!error && data) {
-        setDynamicFeatures(
-          data
-            .map((f: any) => f.features_marketplace)
-            .filter((f: any) => f && f.route && f.title)
-        )
-      }
+    if (!user) {
+      setProgression(null);
+      return;
     }
-    fetchUserFeatures()
-  }, [user])
+    
+    let isMounted = true;
+    const loadProgression = async () => {
+      try {
+        const p = await getProgression(user.id);
+        if (isMounted) {
+          setProgression(p ? { level: p.level, currentLevelXp: p.currentLevelXp, nextLevelXp: p.nextLevelXp } : null);
+        }
+      } catch (error) {
+        console.error('Error loading progression:', error);
+      }
+    };
+    
+    loadProgression();
+    return () => { isMounted = false };
+  }, [user?.id]);
 
-  const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen)
-  }
+  // Optimized dynamic features loading
+  React.useEffect(() => {
+    if (!user) {
+      setDynamicFeatures([]);
+      return;
+    }
+    
+    const fetchUserFeatures = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('user_features')
+          .select('feature_id, features_marketplace (title, route, icon)')
+          .eq('user_id', user.id);
+        
+        if (!error && data) {
+          setDynamicFeatures(
+            data
+              .map((f: any) => f.features_marketplace)
+              .filter((f: any) => f && f.route && f.title)
+          );
+        }
+      } catch (error) {
+        console.error('Error loading user features:', error);
+      }
+    };
+    
+    fetchUserFeatures();
+  }, [user?.id]);
 
-  const handleLogout = async () => {
-    await signOut()
-    navigate('/login')
-  }
+  // Easter egg: multi-click logo opens MannShell
+  const logoClicksRef = React.useRef({ count: 0, tm: 0 as any });
+  const handleLogoClick = useCallback(() => {
+    const now = Date.now();
+    const state = logoClicksRef.current;
+    if (state.tm) clearTimeout(state.tm);
+    state.count += 1;
+    state.tm = setTimeout(() => { state.count = 0; }, 1000);
+    if (state.count >= 7) {
+      state.count = 0;
+      setRiddleOpen(true);
+    }
+  }, []);
 
-  const menuItems = [
+  const handleDrawerToggle = useCallback(() => {
+    setMobileOpen(prev => !prev);
+  }, []);
+
+  const handleLogout = useCallback(async () => {
+    await signOut();
+    navigate('/login');
+  }, [signOut, navigate]);
+
+  // Memoized menu items to prevent unnecessary re-renders
+  const menuItems = useMemo(() => [
     { text: 'Главная', icon: <Home />, path: '/' },
     { text: 'Панель управления', icon: <Dashboard />, path: '/dashboard' },
     { text: 'Рынок', icon: <StoreIcon />, path: '/marketplace' },
@@ -255,20 +312,51 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
         path: f.route
       };
     }),
-  ]
+  ], [showDevSettings, dynamicFeatures]);
 
-  const drawer = (
+  // Memoized drawer header styles
+  const headerStyles = useMemo(() => ({
+    alignItems: 'center',
+    py: 2,
+    px: 2,
+    background: theme.palette.mode === 'light'
+      ? `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`
+      : `linear-gradient(135deg, ${theme.palette.grey[800]} 0%, ${theme.palette.grey[900]} 100%)`,
+    color: theme.palette.common.white,
+    borderBottom: `1px solid ${theme.palette.divider}`,
+  }), [theme]);
+
+  // Memoized drawer styles
+  const drawerStyles = useMemo(() => ({
+    display: { xs: 'none', sm: 'block' },
+    '& .MuiDrawer-paper': {
+      boxSizing: 'border-box',
+      width: drawerWidth,
+      backgroundImage: theme.palette.mode === 'light'
+        ? `linear-gradient(180deg, ${theme.palette.background.paper} 0%, ${theme.palette.background.paper} 60%, ${theme.palette.primary.light} 160%)`
+        : 'linear-gradient(180deg, #121212 0%, #121212 60%, rgba(255,255,255,0.04) 160%)',
+      backgroundColor: theme.palette.background.paper,
+      paddingTop: 0,
+    },
+  }), [theme]);
+
+  const mobileDrawerStyles = useMemo(() => ({
+    display: { xs: 'block', sm: 'none' },
+    '& .MuiDrawer-paper': {
+      boxSizing: 'border-box',
+      width: drawerWidth,
+      backgroundImage: theme.palette.mode === 'light'
+        ? `linear-gradient(180deg, ${theme.palette.background.paper} 0%, ${theme.palette.background.paper} 60%, ${theme.palette.primary.light} 160%)`
+        : 'linear-gradient(180deg, #121212 0%, #121212 60%, rgba(255,255,255,0.04) 160%)',
+      backgroundColor: theme.palette.background.paper,
+      paddingTop: 0,
+    },
+  }), [theme]);
+
+  // Memoized drawer content
+  const drawer = useMemo(() => (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Toolbar sx={{
-        alignItems: 'center',
-        py: 2,
-        px: 2,
-        background: theme.palette.mode === 'light'
-          ? `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`
-          : `linear-gradient(135deg, ${theme.palette.grey[800]} 0%, ${theme.palette.grey[900]} 100%)`, // Adjusted dark mode gradient
-        color: theme.palette.common.white,
-        borderBottom: `1px solid ${theme.palette.divider}`,
-      }}>
+      <Toolbar sx={headerStyles}>
         <Box
           component="img"
           src="/icon512.png"
@@ -279,12 +367,13 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
             mr: 1.5,
             borderRadius: 1,
             ml: -0.5,
-            transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+            cursor: 'pointer',
+            transition: 'transform 0.2s ease',
             '&:hover': {
-              transform: 'scale(1.1) rotate(5deg)',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+              transform: 'scale(1.05)',
             }
           }}
+          onClick={handleLogoClick}
         />
         <Typography
           variant="h6"
@@ -316,7 +405,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
         },
         scrollbarWidth: 'thin',
         msOverflowStyle: 'scrollbar',
-        background: theme.palette.background.paper, // Use paper background consistently for menu content
+        background: theme.palette.background.paper,
         borderRight: `1px solid ${theme.palette.divider}`,
       }}>
         <List sx={{ pt: 1 }}>
@@ -330,32 +419,21 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
                       sx={{
                         mx: 1.5,
                         my: 0.75,
-                        borderRadius: 2, // Slightly more rounded
-                        transition: 'all 0.3s ease-in-out', // Smoother transitions
+                        borderRadius: 2,
+                        transition: 'background-color 0.2s ease',
                         backgroundColor: (openMarketplace && location.pathname.startsWith('/marketplace'))
-                          ? theme.palette.mode === 'light' ? theme.palette.action.selected : theme.palette.primary.light + '20' // Brighter background in dark mode when active
+                          ? theme.palette.action.selected
                           : 'transparent',
                         '&:hover': {
-                          backgroundColor: theme.palette.mode === 'light'
-                            ? theme.palette.action.hover
-                            : theme.palette.action.hover, // Keep hover subtle
-                          transform: magnifierEnabled
-                            ? 'translateX(5px) scale(1.05)'
-                            : 'translateX(5px)'
+                          backgroundColor: theme.palette.action.hover,
                         },
                       }}
-                      onMouseEnter={() => setHoveredIndex(index)}
-                      onMouseLeave={() => setHoveredIndex(null)}
                     >
                       <ListItemIcon sx={{
                         color: (openMarketplace && location.pathname.startsWith('/marketplace'))
                           ? theme.palette.primary.main
                           : theme.palette.text.secondary,
                         minWidth: 40,
-                        transition: 'all 0.3s ease-in-out',
-                        transform: magnifierEnabled && hoveredIndex === index
-                          ? `scale(${1 + (magnifierIntensity * 0.1)})`
-                          : 'none',
                       }}>
                         {item.icon}
                       </ListItemIcon>
@@ -363,20 +441,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
                         primary={
                           <Typography
                             variant="body1"
-                            fontWeight={openMarketplace && location.pathname.startsWith('/marketplace') ? 600 : 500} // Slightly bolder for active
+                            fontWeight={openMarketplace && location.pathname.startsWith('/marketplace') ? 600 : 500}
                             color={(openMarketplace && location.pathname.startsWith('/marketplace'))
-                              ? theme.palette.primary.main // Primary color for active text
+                              ? theme.palette.primary.main
                               : theme.palette.text.primary}
                           >
                             {item.text}
                           </Typography>
                         }
-                        sx={{
-                          transform: magnifierEnabled && hoveredIndex === index
-                            ? `scale(${1 + (magnifierIntensity * 0.03)})`
-                            : 'none',
-                          transformOrigin: 'left center',
-                        }}
                       />
                       {openMarketplace ? <ExpandLess sx={{ color: theme.palette.text.secondary }} /> : <ExpandMore sx={{ color: theme.palette.text.secondary }} />}
                     </ListItemButton>
@@ -391,12 +463,12 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
                             mx: 1.5,
                             mr: 1.5,
                             my: 0.25,
-                            borderRadius: 1.5, // Slightly more rounded sub-items
+                            borderRadius: 1.5,
                             backgroundColor: location.pathname === '/marketplace'
-                              ? theme.palette.mode === 'light' ? theme.palette.primary.light + '40' : theme.palette.primary.dark + '30' // Brighter selected sub-item BG in dark mode
+                              ? theme.palette.action.selected
                               : 'transparent',
                             '&:hover': {
-                              backgroundColor: theme.palette.mode === 'light' ? theme.palette.action.hover : theme.palette.action.hover,
+                              backgroundColor: theme.palette.action.hover,
                             }
                           }}
                           onClick={() => navigate('/marketplace')}
@@ -424,10 +496,10 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
                             my: 0.25,
                             borderRadius: 1.5,
                             backgroundColor: location.pathname === '/marketplace/my-listings'
-                              ? theme.palette.mode === 'light' ? theme.palette.primary.light + '40' : theme.palette.primary.dark + '30'
+                              ? theme.palette.action.selected
                               : 'transparent',
                             '&:hover': {
-                              backgroundColor: theme.palette.mode === 'light' ? theme.palette.action.hover : theme.palette.action.hover,
+                              backgroundColor: theme.palette.action.hover,
                             }
                           }}
                           onClick={() => navigate('/marketplace/my-listings')}
@@ -455,10 +527,10 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
                             my: 0.25,
                             borderRadius: 1.5,
                             backgroundColor: location.pathname === '/marketplace/chat'
-                              ? theme.palette.mode === 'light' ? theme.palette.primary.light + '40' : theme.palette.primary.dark + '30'
+                              ? theme.palette.action.selected
                               : 'transparent',
                             '&:hover': {
-                              backgroundColor: theme.palette.mode === 'light' ? theme.palette.action.hover : theme.palette.action.hover,
+                              backgroundColor: theme.palette.action.hover,
                             }
                           }}
                           onClick={() => navigate('/marketplace/chat')}
@@ -486,10 +558,10 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
                             my: 0.25,
                             borderRadius: 1.5,
                             backgroundColor: location.pathname === '/marketplace/favorites'
-                              ? theme.palette.mode === 'light' ? theme.palette.primary.light + '40' : theme.palette.primary.dark + '30'
+                              ? theme.palette.action.selected
                               : 'transparent',
                             '&:hover': {
-                              backgroundColor: theme.palette.mode === 'light' ? theme.palette.action.hover : theme.palette.action.hover,
+                              backgroundColor: theme.palette.action.hover,
                             }
                           }}
                           onClick={() => navigate('/marketplace/favorites')}
@@ -507,8 +579,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
                           />
                         </ListItemButton>
                       </ListItem>
-                      {/* Optional: Add a Divider here if you want a stronger visual break after marketplace sub-items */}
-                      {/* <Divider sx={{ my: 1, mx: 2, borderColor: theme.palette.divider + '80' }} /> */}
                     </List>
                   </Collapse>
                 </>
@@ -520,36 +590,26 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
                     sx={{
                       mx: 1.5,
                       my: 0.75,
-                      borderRadius: 2, // Slightly more rounded
-                      transition: 'all 0.3s ease-in-out',
+                      borderRadius: 2,
+                      transition: 'background-color 0.2s ease',
                       '&:hover': {
-                        backgroundColor: theme.palette.mode === 'light' ? theme.palette.action.hover : theme.palette.action.hover,
-                        transform: magnifierEnabled
-                          ? 'translateX(5px) scale(1.05)'
-                          : 'translateX(5px)',
-                        zIndex: magnifierEnabled ? 1 : 'auto'
+                        backgroundColor: theme.palette.action.hover,
                       },
                       '&.Mui-selected': {
-                        backgroundColor: theme.palette.primary.main, // Always use primary.main for selected background (bright)
-                        color: theme.palette.primary.contrastText, // Text should always be high contrast
+                        backgroundColor: theme.palette.primary.main,
+                        color: theme.palette.primary.contrastText,
                         '& .MuiListItemIcon-root': {
-                          color: theme.palette.primary.contrastText, // Icon color for selected state
+                          color: theme.palette.primary.contrastText,
                         },
                         '&:hover': {
-                          backgroundColor: theme.palette.primary.dark, // Darker hover for selected state
+                          backgroundColor: theme.palette.primary.dark,
                         }
                       }
                     }}
-                    onMouseEnter={() => setHoveredIndex(index)}
-                    onMouseLeave={() => setHoveredIndex(null)}
                   >
                     <ListItemIcon sx={{
                       color: location.pathname === item.path ? theme.palette.primary.contrastText : theme.palette.text.secondary,
                       minWidth: 40,
-                      transition: 'all 0.3s ease-in-out',
-                      transform: magnifierEnabled && hoveredIndex === index
-                        ? `scale(${1 + (magnifierIntensity * 0.1)})`
-                        : 'none',
                     }}>
                       {item.icon}
                     </ListItemIcon>
@@ -557,18 +617,12 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
                       primary={
                         <Typography
                           variant="body1"
-                          fontWeight={location.pathname === item.path ? 600 : 500} // Slightly bolder for active
+                          fontWeight={location.pathname === item.path ? 600 : 500}
                           color={location.pathname === item.path ? theme.palette.primary.contrastText : theme.palette.text.primary}
                         >
                           {item.text}
                         </Typography>
                       }
-                      sx={{
-                        transform: magnifierEnabled && hoveredIndex === index
-                          ? `scale(${1 + (magnifierIntensity * 0.03)})`
-                          : 'none',
-                        transformOrigin: 'left center',
-                      }}
                     />
                   </ListItemButton>
                 </ListItem>
@@ -589,7 +643,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
             color: theme.palette.text.primary,
             borderColor: theme.palette.divider,
             '&:hover': {
-              backgroundColor: theme.palette.mode === 'light' ? theme.palette.action.hover : theme.palette.action.hover,
+              backgroundColor: theme.palette.action.hover,
               borderColor: theme.palette.text.primary,
             }
           }}
@@ -598,7 +652,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
         </Button>
       </Box>
     </Box>
-  )
+  ), [headerStyles, theme, handleLogoClick, menuItems, openMarketplace, location.pathname, navigate, handleLogout]);
 
   return (
     <Box sx={{ display: 'flex', height: '100%' }}>
@@ -624,7 +678,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             Банк Маннру
           </Typography>
-          {/* Theme toggle removed on mobile */}
+          <NotificationBell />
         </Toolbar>
       </AppBar>
       <Box
@@ -637,37 +691,15 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
           open={mobileOpen}
           onClose={handleDrawerToggle}
           ModalProps={{
-            keepMounted: true, // Better open performance on mobile.
+            keepMounted: true,
           }}
-          sx={{
-            display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
-              width: drawerWidth,
-              backgroundImage: theme.palette.mode === 'light'
-                ? `linear-gradient(180deg, ${theme.palette.background.paper} 0%, ${theme.palette.background.paper} 60%, ${theme.palette.primary.light} 160%)`
-                : 'linear-gradient(180deg, #121212 0%, #121212 60%, rgba(255,255,255,0.04) 160%)',
-              backgroundColor: theme.palette.background.paper,
-              paddingTop: 0,
-            },
-          }}
+          sx={mobileDrawerStyles}
         >
           {drawer}
         </Drawer>
         <Drawer
           variant="permanent"
-          sx={{
-            display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
-              width: drawerWidth,
-              backgroundImage: theme.palette.mode === 'light'
-                ? `linear-gradient(180deg, ${theme.palette.background.paper} 0%, ${theme.palette.background.paper} 60%, ${theme.palette.primary.light} 160%)`
-                : 'linear-gradient(180deg, #121212 0%, #121212 60%, rgba(255,255,255,0.04) 160%)',
-              backgroundColor: theme.palette.background.paper,
-              paddingTop: 0,
-            },
-          }}
+          sx={drawerStyles}
           open
         >
           {drawer}
@@ -682,283 +714,26 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
           pt: { xs: '64px', sm: 0 },
           display: 'flex',
           flexDirection: 'column',
+          mx: 0,
+          maxWidth: '100vw',
+          height: '100%',
+          overflow: location.pathname.startsWith('/chat') ? 'hidden' : 'auto',
         }}
       >
-        <BannerDisplay />
-        {children || <Outlet />}
-      </Box>
-    </Box>
-  )
-
-  return (
-    <Box sx={{ display: 'flex', height: '100%' }}>
-      <CssBaseline />
-      <AppBar
-        position="fixed"
-        sx={{
-          width: { xs: '100%', sm: 0 },
-          ml: { sm: 0 },
-          display: { xs: 'block', sm: 'none' },
-        }}
-      >
-        <Toolbar>
-          <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
-            onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { sm: 'none' } }}
-          >
-            <MenuIcon />
-          </IconButton>
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            Банк Маннру
-          </Typography>
-          {/* Theme toggle removed on mobile */}
-        </Toolbar>
-      </AppBar>
-      <Box
-        component="nav"
-        sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
-        aria-label="mailbox folders"
-      >
-        <Drawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={handleDrawerToggle}
-          ModalProps={{
-            keepMounted: true, // Better open performance on mobile.
-          }}
-          sx={{
-            display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
-              width: drawerWidth,
-              backgroundImage: theme.palette.mode === 'light'
-                ? `linear-gradient(180deg, ${theme.palette.background.paper} 0%, ${theme.palette.background.paper} 60%, ${theme.palette.primary.light} 160%)`
-                : 'linear-gradient(180deg, #121212 0%, #121212 60%, rgba(255,255,255,0.04) 160%)',
-              backgroundColor: theme.palette.background.paper,
-              paddingTop: 0,
-            },
-          }}
-        >
-          {drawer}
-        </Drawer>
-        <Drawer
-          variant="permanent"
-          sx={{
-            display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
-              width: drawerWidth,
-              backgroundImage: theme.palette.mode === 'light'
-                ? `linear-gradient(180deg, ${theme.palette.background.paper} 0%, ${theme.palette.background.paper} 60%, ${theme.palette.primary.light} 160%)`
-                : 'linear-gradient(180deg, #121212 0%, #121212 60%, rgba(255,255,255,0.04) 160%)',
-              backgroundColor: theme.palette.background.paper,
-              paddingTop: 0,
-            },
-          }}
-          open
-        >
-          {drawer}
-        </Drawer>
-      </Box>
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          p: 0,
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          pt: { xs: '64px', sm: 0 },
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
-        <BannerDisplay />
-        <Box sx={{ mt: '56px' }}>
+        {!location.pathname.startsWith('/chat') && <BannerDisplay />}
+        {user && !location.pathname.startsWith('/chat') && <XPBar userId={user.id} />}
+        <Box sx={{
+          px: location.pathname.startsWith('/chat') ? 0 : { xs: 1, md: 1.5 },
+          width: '100%',
+          maxWidth: 'auto',
+          mx: 'auto',
+          ...(location.pathname.startsWith('/chat') ? { flex: 1, minHeight: 0, height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' } : {})
+        }}>
           {children || <Outlet />}
         </Box>
+        <NotificationToast />
+        <VaultRiddle open={riddleOpen} onClose={() => setRiddleOpen(false)} rewardMr={5000} />
       </Box>
     </Box>
-  )
-
-
-  return (
-    <Box sx={{ display: 'flex', height: '100%' }}>
-      <CssBaseline />
-      <AppBar
-        position="fixed"
-        sx={{
-          width: { xs: '100%', sm: 0 },
-          ml: { sm: 0 },
-          display: { xs: 'block', sm: 'none' },
-        }}
-      >
-        <Toolbar>
-          <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
-            onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { sm: 'none' } }}
-          >
-            <MenuIcon />
-          </IconButton>
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            Банк Маннру
-          </Typography>
-          {/* Theme toggle removed on mobile */}
-        </Toolbar>
-      </AppBar>
-      <Box
-        component="nav"
-        sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
-        aria-label="mailbox folders"
-      >
-        <Drawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={handleDrawerToggle}
-          ModalProps={{
-            keepMounted: true, // Better open performance on mobile.
-          }}
-          sx={{
-            display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
-              width: drawerWidth,
-              backgroundImage: theme.palette.mode === 'light'
-                ? `linear-gradient(180deg, ${theme.palette.background.paper} 0%, ${theme.palette.background.paper} 60%, ${theme.palette.primary.light} 160%)`
-                : 'linear-gradient(180deg, #121212 0%, #121212 60%, rgba(255,255,255,0.04) 160%)',
-              backgroundColor: theme.palette.background.paper,
-              paddingTop: 0,
-            },
-          }}
-        >
-          {drawer}
-        </Drawer>
-        <Drawer
-          variant="permanent"
-          sx={{
-            display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
-              width: drawerWidth,
-              backgroundImage: theme.palette.mode === 'light'
-                ? `linear-gradient(180deg, ${theme.palette.background.paper} 0%, ${theme.palette.background.paper} 60%, ${theme.palette.primary.light} 160%)`
-                : 'linear-gradient(180deg, #121212 0%, #121212 60%, rgba(255,255,255,0.04) 160%)',
-              backgroundColor: theme.palette.background.paper,
-              paddingTop: 0,
-            },
-          }}
-          open
-        >
-          {drawer}
-        </Drawer>
-      </Box>
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          p: 0,
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          pt: { xs: '64px', sm: 0 },
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
-        {children || <Outlet />}
-      </Box>
-    </Box>
-  )
-
-
-  return (
-    <Box sx={{ display: 'flex', height: '100%' }}>
-      <CssBaseline />
-      <AppBar
-        position="fixed"
-        sx={{
-          width: { xs: '100%', sm: 0 },
-          ml: { sm: 0 },
-          display: { xs: 'block', sm: 'none' },
-        }}
-      >
-        <Toolbar>
-          <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
-            onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { sm: 'none' } }}
-          >
-            <MenuIcon />
-          </IconButton>
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            Банк Маннру
-          </Typography>
-          {/* Theme toggle removed on mobile */}
-        </Toolbar>
-      </AppBar>
-      <Box
-        component="nav"
-        sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
-        aria-label="mailbox folders"
-      >
-        <Drawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={handleDrawerToggle}
-          ModalProps={{
-            keepMounted: true, // Better open performance on mobile.
-          }}
-          sx={{
-            display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
-              width: drawerWidth,
-              backgroundImage: theme.palette.mode === 'light'
-                ? `linear-gradient(180deg, ${theme.palette.background.paper} 0%, ${theme.palette.background.paper} 60%, ${theme.palette.primary.light} 160%)`
-                : 'linear-gradient(180deg, #121212 0%, #121212 60%, rgba(255,255,255,0.04) 160%)',
-              backgroundColor: theme.palette.background.paper,
-              paddingTop: 0,
-            },
-          }}
-        >
-          {drawer}
-        </Drawer>
-        <Drawer
-          variant="permanent"
-          sx={{
-            display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
-              width: drawerWidth,
-              backgroundImage: theme.palette.mode === 'light'
-                ? `linear-gradient(180deg, ${theme.palette.background.paper} 0%, ${theme.palette.background.paper} 60%, ${theme.palette.primary.light} 160%)`
-                : 'linear-gradient(180deg, #121212 0%, #121212 60%, rgba(255,255,255,0.04) 160%)',
-              backgroundColor: theme.palette.background.paper,
-              paddingTop: 0,
-            },
-          }}
-          open
-        >
-          {drawer}
-        </Drawer>
-      </Box>
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          p: 0,
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          pt: { xs: '64px', sm: 0 },
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
-        {children || <Outlet />}
-      </Box>
-    </Box>
-  )
+  );
 } 

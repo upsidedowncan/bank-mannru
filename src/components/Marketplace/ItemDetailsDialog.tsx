@@ -39,6 +39,7 @@ import {
   KeyboardArrowRight,
 } from '@mui/icons-material'
 import { useTheme } from '@mui/material/styles';
+import ReactMarkdown from 'react-markdown';
 import MobileStepper from '@mui/material/MobileStepper';
 import { useAuthContext } from '../../contexts/AuthContext'
 import { supabase } from '../../config/supabase'
@@ -233,6 +234,12 @@ export const ItemDetailsDialog: React.FC<ItemDetailsDialogProps> = ({
         })
       if (purchaseError) throw purchaseError
 
+      // Award social XP to buyer (seller XP could be handled elsewhere if desired)
+      try {
+        const { addSocialXpForAction } = await import('../../services/progressionService');
+        await addSocialXpForAction(user.id, 'market_purchase', Number(item.price || 0));
+      } catch {}
+
       // Check if we need to delete the item (purchase limit reached) AFTER successful transfer and purchase record
       if (item.purchase_limit !== null && item.purchase_limit !== undefined) {
         const { data: allPurchases, error: countError } = await supabase
@@ -253,6 +260,21 @@ export const ItemDetailsDialog: React.FC<ItemDetailsDialogProps> = ({
           if (deleteError) throw deleteError
         }
       }
+
+      // Send notification to seller about the sale
+      try {
+        const { NotificationService } = await import('../../services/notificationService')
+        await NotificationService.notifyItemSold(
+          item.seller_id,
+          item.title,
+          item.price,
+          item.currency,
+          user.user_metadata?.full_name || 'Покупатель'
+        )
+      } catch (notificationError) {
+        console.error('Error sending sale notification:', notificationError)
+      }
+
       setSuccess('Покупка успешно совершена!')
       setTimeout(() => {
         onPurchased()
@@ -290,6 +312,20 @@ export const ItemDetailsDialog: React.FC<ItemDetailsDialogProps> = ({
         })
 
       if (error) throw error
+
+      // Send notification to seller
+      try {
+        const { NotificationService } = await import('../../services/notificationService')
+        await NotificationService.notifyNewMessage(
+          item.seller_id,
+          user.user_metadata?.full_name || 'Пользователь',
+          message.trim(),
+          item.id,
+          user.id
+        )
+      } catch (notificationError) {
+        console.error('Error sending notification:', notificationError)
+      }
 
       setMessage('')
       setSuccess('Сообщение отправлено продавцу')
@@ -388,9 +424,13 @@ export const ItemDetailsDialog: React.FC<ItemDetailsDialogProps> = ({
             <Typography variant="subtitle1" gutterBottom>
               Описание
             </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {item.description}
-            </Typography>
+            <Box sx={{ 
+              '& p': { margin: 0, marginBottom: 1 },
+              '& p:last-child': { marginBottom: 0 },
+              '& *': { fontSize: '0.875rem', color: 'text.secondary' }
+            }}>
+              <ReactMarkdown>{item.description}</ReactMarkdown>
+            </Box>
           </Box>
 
           {/* Item Details */}

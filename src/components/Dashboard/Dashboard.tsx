@@ -44,15 +44,14 @@ import {
   Block as BlockIcon,
   CheckCircleOutline as UnblockIcon,
   Search as SearchIcon,
-  Brightness4 as DarkModeIcon,
-  Brightness7 as LightModeIcon,
   AccountBalanceWallet as VaultIcon,
-  ArrowUpward, // For vault quick action
+  ArrowUpward,
 } from '@mui/icons-material';
 import { supabase } from '../../config/supabase';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { formatCurrency } from '../../utils/formatters';
 import { motion } from 'framer-motion'; // Import motion for animation
+import Leaderboard from '../Common/Leaderboard';
 
 interface BankCard {
   id: string;
@@ -80,6 +79,15 @@ const initialDashSettings = {
   showStats: true,
   showQuick: true,
   showCards: true,
+  showLeaderboard: true,
+  cardStyle: 'gradient' as 'gradient' | 'solid',
+  cardSize: 'comfortable' as 'compact' | 'comfortable' | 'spacious',
+  columnsDesktop: 3 as 2 | 3 | 4,
+  showBackgroundPattern: false,
+  privacyMode: false,
+  cardHoverEffect: true,
+  borderRadiusLevel: 'md' as 'sm' | 'md' | 'lg',
+  accentColor: 'primary' as 'primary' | 'secondary' | 'success',
   sortCardsBy: 'name-asc',
   filterCardsActive: 'all',
 };
@@ -505,6 +513,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ toggleColorMode }) => {
       await fetchCards();
       await fetchAllCards();
 
+      // Award social XP for successful transfer
+      try {
+        const { addSocialXpForAction } = await import('../../services/progressionService');
+        await addSocialXpForAction(user?.id || null, 'manpay_transfer', Number(amount || 0));
+      } catch {}
+
       setTransferDialogOpen(false);
       setTransferStep(1);
       setTransferFromCard(null);
@@ -583,7 +597,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ toggleColorMode }) => {
 
   if (loading) {
     return (
-      <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Box sx={{ py: 4, px: { xs: 2, md: 3 } }}>
         <Typography variant="h4" gutterBottom>
           Загрузка...
         </Typography>
@@ -604,14 +618,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ toggleColorMode }) => {
             <Skeleton key={item} variant="rectangular" height={200} sx={{ borderRadius: 2 }} />
           ))}
         </Box>
-      </Container>
+      </Box>
     );
   }
 
   const primaryColor = theme.palette.primary.main;
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Box sx={{ py: 4, px: { xs: 2, md: 3 } }}>
       {isHacker && (
         <Box sx={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 1300 }}>
           {hackerPopups.map((p) => (
@@ -643,15 +657,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ toggleColorMode }) => {
         title="Панель управления"
         actions={
           <Stack direction="row" spacing={1} alignItems="center">
-            {/* Theme toggle button: Calls the prop passed from parent */}
-            <IconButton
-              onClick={toggleColorMode} // Use the prop for toggling theme
-              color="inherit"
-              sx={{ borderRadius: 2 }}
-              aria-label="toggle light/dark mode"
-            >
-              {theme.palette.mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
-            </IconButton>
+            {/* Removed theme toggle button */}
             <Button startIcon={<SettingsIcon />} variant="outlined" onClick={() => setSettingsOpen(true)} sx={{ borderRadius: 2 }}>
               Настроить
             </Button>
@@ -879,6 +885,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ toggleColorMode }) => {
           </Box>
         </Box>
       )}
+      {/* Leaderboard */}
+      {dashSettings.showLeaderboard && (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h5" fontWeight={600} sx={{ mb: 2 }}>
+            Сообщество
+          </Typography>
+          <Leaderboard limit={10} />
+        </Box>
+      )}
+
       {dashSettings.showCards && (
         <Box sx={{ mb: 3 }}>
           <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
@@ -948,19 +964,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ toggleColorMode }) => {
           <Box
             sx={{
               display: 'grid',
-              gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' },
-              gap: 3,
+              gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: `repeat(${dashSettings.columnsDesktop}, 1fr)` },
+              gap: dashSettings.cardSize === 'compact' ? 2 : dashSettings.cardSize === 'spacious' ? 4 : 3,
               position: 'relative',
             }}
           >
-            {isHacker && (
+            {dashSettings.showBackgroundPattern && (
               <Box
                 sx={{
                   pointerEvents: 'none',
                   position: 'absolute',
                   inset: 0,
                   zIndex: 0,
-                  backgroundImage: `repeating-linear-gradient(45deg, rgba(244,67,54,0.06) 0, rgba(244,67,54,0.06) 10px, transparent 10px, transparent 20px)`,
+                  backgroundImage: `repeating-linear-gradient(45deg, rgba(125,125,125,0.05) 0, rgba(125,125,125,0.05) 10px, transparent 10px, transparent 20px)`,
                 }}
               />
             )}
@@ -971,19 +987,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ toggleColorMode }) => {
                 sx={{
                   position: 'relative',
                   overflow: 'hidden',
-                  borderRadius: 3,
-                  background: card.is_active
-                    ? card.card_type === 'credit'
-                      ? `linear-gradient(135deg, ${theme.palette.error.dark} 0%, ${theme.palette.error.main} 100%)`
-                      : `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.primary.main} 100%)`
-                    : `linear-gradient(135deg, ${theme.palette.grey[700]} 0%, ${theme.palette.grey[500]} 100%)`, // Greyed out for inactive
-                  color: 'white',
+                  borderRadius: dashSettings.borderRadiusLevel === 'sm' ? 1 : dashSettings.borderRadiusLevel === 'lg' ? 4 : 3,
+                  background: dashSettings.cardStyle === 'gradient'
+                    ? (card.is_active
+                        ? card.card_type === 'credit'
+                          ? `linear-gradient(135deg, ${theme.palette.error.dark} 0%, ${theme.palette.error.main} 100%)`
+                          : `linear-gradient(135deg, ${theme.palette[dashSettings.accentColor].dark} 0%, ${theme.palette[dashSettings.accentColor].main} 100%)`
+                        : `linear-gradient(135deg, ${theme.palette.grey[700]} 0%, ${theme.palette.grey[500]} 100%)`)
+                    : (card.is_active ? theme.palette.background.paper : theme.palette.grey[800]),
+                  color: dashSettings.cardStyle === 'gradient' ? 'white' : 'text.primary',
+                  border: dashSettings.cardStyle === 'solid' ? `1px solid ${theme.palette.divider}` : 'none',
                   transition: 'transform 0.2s',
-                  '&:hover': {
-                    transform: 'translateY(-5px)',
-                    boxShadow: 8,
-                  },
-                  opacity: card.is_active ? 1 : 0.7, // Dim inactive cards
+                  ...(dashSettings.cardHoverEffect ? {
+                    '&:hover': {
+                      transform: 'translateY(-5px)',
+                      boxShadow: 8,
+                    },
+                  } : {}),
+                  opacity: card.is_active ? 1 : 0.7,
                 }}
               >
                 <CardContent
@@ -992,7 +1013,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ toggleColorMode }) => {
                     flexDirection: 'column',
                     justifyContent: 'space-between',
                     height: '100%',
-                    p: 3,
+                    p: dashSettings.cardSize === 'compact' ? 2 : dashSettings.cardSize === 'spacious' ? 4 : 3,
                   }}
                 >
                   {isHacker && (
@@ -1055,7 +1076,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ toggleColorMode }) => {
                                 color: 'error.light',
                                 textShadow: '0 0 10px rgba(244,67,54,0.7)',
                               }
-                            : {}
+                            : (dashSettings.privacyMode ? { filter: 'blur(4px)' } : {})
                         }
                       >
                         {formatCurrency(card.balance, card.currency)}
@@ -1573,7 +1594,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ toggleColorMode }) => {
       <Dialog open={settingsOpen} onClose={() => setSettingsOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 2 } }}>
         <DialogTitle sx={{ borderBottom: '1px solid', borderColor: 'divider', pb: 1.5 }}>Настройки панели</DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
-          <Stack spacing={2} mt={1}>
+          <Stack spacing={2}>
             <TextField
               select
               label="Плотность"
@@ -1585,28 +1606,119 @@ export const Dashboard: React.FC<DashboardProps> = ({ toggleColorMode }) => {
               <MenuItem value="comfortable">Обычная</MenuItem>
               <MenuItem value="compact">Компактная</MenuItem>
             </TextField>
+
+            <TextField
+              select
+              label="Стиль карт"
+              value={dashSettings.cardStyle}
+              onChange={(e) => persistSettings({ ...dashSettings, cardStyle: e.target.value as any })}
+              size="small"
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1 } }}
+            >
+              <MenuItem value="gradient">Градиент</MenuItem>
+              <MenuItem value="solid">Плоский</MenuItem>
+            </TextField>
+
+            <TextField
+              select
+              label="Размер карточек"
+              value={dashSettings.cardSize}
+              onChange={(e) => persistSettings({ ...dashSettings, cardSize: e.target.value as any })}
+              size="small"
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1 } }}
+            >
+              <MenuItem value="compact">Компактный</MenuItem>
+              <MenuItem value="comfortable">Обычный</MenuItem>
+              <MenuItem value="spacious">Просторный</MenuItem>
+            </TextField>
+
+            <TextField
+              select
+              label="Колонок на десктопе"
+              value={dashSettings.columnsDesktop}
+              onChange={(e) => persistSettings({ ...dashSettings, columnsDesktop: Number(e.target.value) as any })}
+              size="small"
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1 } }}
+            >
+              <MenuItem value={2}>2</MenuItem>
+              <MenuItem value={3}>3</MenuItem>
+              <MenuItem value={4}>4</MenuItem>
+            </TextField>
+
             <Stack spacing={1}>
               <Button
                 variant={dashSettings.showStats ? 'contained' : 'outlined'}
                 onClick={() => persistSettings({ ...dashSettings, showStats: !dashSettings.showStats })}
                 sx={{ borderRadius: 1 }}
               >
-                Показывать статистику
+                Показать статистику: {dashSettings.showStats ? 'Вкл' : 'Выкл'}
               </Button>
               <Button
                 variant={dashSettings.showQuick ? 'contained' : 'outlined'}
                 onClick={() => persistSettings({ ...dashSettings, showQuick: !dashSettings.showQuick })}
                 sx={{ borderRadius: 1 }}
               >
-                Показывать быстрые действия
+                Быстрые действия: {dashSettings.showQuick ? 'Вкл' : 'Выкл'}
               </Button>
               <Button
                 variant={dashSettings.showCards ? 'contained' : 'outlined'}
                 onClick={() => persistSettings({ ...dashSettings, showCards: !dashSettings.showCards })}
                 sx={{ borderRadius: 1 }}
               >
-                Показывать карты
+                Список карт: {dashSettings.showCards ? 'Вкл' : 'Выкл'}
               </Button>
+              <Button
+                variant={dashSettings.showLeaderboard ? 'contained' : 'outlined'}
+                onClick={() => persistSettings({ ...dashSettings, showLeaderboard: !dashSettings.showLeaderboard })}
+                sx={{ borderRadius: 1 }}
+              >
+                Таблица лидеров: {dashSettings.showLeaderboard ? 'Вкл' : 'Выкл'}
+              </Button>
+              <Button
+                variant={dashSettings.showBackgroundPattern ? 'contained' : 'outlined'}
+                onClick={() => persistSettings({ ...dashSettings, showBackgroundPattern: !dashSettings.showBackgroundPattern })}
+                sx={{ borderRadius: 1 }}
+              >
+                Фоновый узор: {dashSettings.showBackgroundPattern ? 'Вкл' : 'Выкл'}
+              </Button>
+              <Button
+                variant={dashSettings.privacyMode ? 'contained' : 'outlined'}
+                onClick={() => persistSettings({ ...dashSettings, privacyMode: !dashSettings.privacyMode })}
+                sx={{ borderRadius: 1 }}
+              >
+                Приватный режим баланса: {dashSettings.privacyMode ? 'Вкл' : 'Выкл'}
+              </Button>
+              <Button
+                variant={dashSettings.cardHoverEffect ? 'contained' : 'outlined'}
+                onClick={() => persistSettings({ ...dashSettings, cardHoverEffect: !dashSettings.cardHoverEffect })}
+                sx={{ borderRadius: 1 }}
+              >
+                Эффект наведения: {dashSettings.cardHoverEffect ? 'Вкл' : 'Выкл'}
+              </Button>
+              <TextField
+                select
+                label="Скругление карточек"
+                value={dashSettings.borderRadiusLevel}
+                onChange={(e) => persistSettings({ ...dashSettings, borderRadiusLevel: e.target.value as any })}
+                size="small"
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1 } }}
+              >
+                <MenuItem value="sm">Маленькое</MenuItem>
+                <MenuItem value="md">Среднее</MenuItem>
+                <MenuItem value="lg">Большое</MenuItem>
+              </TextField>
+              <TextField
+                select
+                label="Акцентный цвет"
+                value={dashSettings.accentColor}
+                onChange={(e) => persistSettings({ ...dashSettings, accentColor: e.target.value as any })}
+                size="small"
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1 } }}
+              >
+                <MenuItem value="primary">Основной</MenuItem>
+                <MenuItem value="secondary">Вторичный</MenuItem>
+                <MenuItem value="success">Успех</MenuItem>
+              </TextField>
             </Stack>
           </Stack>
         </DialogContent>
@@ -1616,6 +1728,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ toggleColorMode }) => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </Box>
   );
 };

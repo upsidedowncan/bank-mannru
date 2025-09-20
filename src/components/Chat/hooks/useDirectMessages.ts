@@ -232,7 +232,9 @@ export const useDirectMessages = (user: User | null) => {
 
       if (dbError) throw dbError;
 
-      // Step 4: Refresh conversations to show the new message
+      // Note: Notifications are handled by real-time subscription in NotificationSystem
+
+      // Step 5: Refresh conversations to show the new message
       fetchConversations();
 
     } catch (error) {

@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { supabase } from '../../../config/supabase';
 import { ChatMessage, ChatChannel } from '../types';
 import { User } from '@supabase/supabase-js';
+import { useAIChatFeatures } from './useAIChatFeatures';
 
 // Debounce utility
 const useDebounce = (value: string, delay: number) => {
@@ -28,7 +29,9 @@ export const useChatInput = (
   replyingTo: ChatMessage | null,
   setReplyingTo: (message: ChatMessage | null) => void,
   onMessageSent: () => void,
-  handleCommand: (command: string) => void
+  handleCommand: (command: string) => void,
+  aiChatEnabled: boolean = false,
+  recentMessages: string[] = []
 ) => {
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
@@ -40,6 +43,15 @@ export const useChatInput = (
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+
+  // AI Chat Features
+  const aiFeatures = useAIChatFeatures(
+    aiChatEnabled,
+    newMessage,
+    selectedChannel?.name || '',
+    recentMessages,
+    user?.user_metadata?.isAdmin ? 'admin' : 'user'
+  );
 
   // Typing indicators disabled for better performance
   // const debouncedMessage = useDebounce(newMessage, 300);
@@ -56,6 +68,19 @@ export const useChatInput = (
     }
 
     if (sending) return;
+
+    // Check for inappropriate content if AI moderation is enabled
+    if (aiChatEnabled) {
+      // Don't send if AI is still moderating
+      if (aiFeatures.isModerating) {
+        return; // Just return without snackbar - button will be disabled
+      }
+      
+      // Block if content is inappropriate
+      if (aiFeatures.contentModerationResult && !aiFeatures.contentModerationResult.isAppropriate) {
+        return; // Just return without snackbar - button will be disabled
+      }
+    }
 
     if (selectedChannel.admin_only) {
       const isAdmin = await isUserAdmin();
@@ -83,6 +108,9 @@ export const useChatInput = (
       setNewMessage('');
       setReplyingTo(null);
       
+      // Clear AI suggestions when message is sent
+      aiFeatures.clearSuggestions();
+      
       // Clear typing indicator immediately after sending
       setIsTyping(false);
       if (selectedChannel) {
@@ -98,7 +126,7 @@ export const useChatInput = (
     } finally {
       setSending(false);
     }
-  }, [user, selectedChannel, newMessage, showSnackbar, sending, isUserAdmin, replyingTo, setReplyingTo, onMessageSent, handleCommand]);
+  }, [user, selectedChannel, newMessage, showSnackbar, sending, isUserAdmin, replyingTo, setReplyingTo, onMessageSent, handleCommand, aiFeatures]);
 
   const sendMediaMessage = useCallback(async () => {
     if (!selectedFile || !user || !selectedChannel) return;
@@ -276,6 +304,12 @@ export const useChatInput = (
     };
   }, []);
 
+  // Handle suggestion click
+  const handleSuggestionClick = useCallback((suggestion: string) => {
+    setNewMessage(suggestion);
+    aiFeatures.clearSuggestions();
+  }, [aiFeatures]);
+
   return {
     newMessage,
     sending,
@@ -292,5 +326,8 @@ export const useChatInput = (
     uploadProgress,
     handleDragOver,
     handleDrop,
+    // AI Features
+    aiFeatures,
+    handleSuggestionClick,
   };
 };

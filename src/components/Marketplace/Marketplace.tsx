@@ -15,6 +15,7 @@ import {
   Fab,
   IconButton,
 } from '@mui/material';
+import ReactMarkdown from 'react-markdown';
 import {
   Search,
   Add as AddIcon,
@@ -59,7 +60,11 @@ const categories = [
   'Другое',
 ];
 
-export const Marketplace: React.FC = () => {
+interface MarketplaceProps {
+  aiTextGenerationEnabled?: boolean;
+}
+
+export const Marketplace: React.FC<MarketplaceProps> = ({ aiTextGenerationEnabled = false }) => {
   const { user } = useAuthContext();
   const [items, setItems] = useState<MarketplaceItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -339,19 +344,19 @@ export const Marketplace: React.FC = () => {
                 >
                   {item.title}
                 </Typography>
-                <Typography 
-                  variant="body2" 
-                  color="text.secondary" 
+                <Box
                   sx={{
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     display: '-webkit-box',
                     WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical'
+                    WebkitBoxOrient: 'vertical',
+                    '& p': { margin: 0 },
+                    '& *': { fontSize: '0.875rem', color: 'text.secondary' }
                   }}
                 >
-                  {item.description}
-                </Typography>
+                  <ReactMarkdown>{item.description}</ReactMarkdown>
+                </Box>
 
                 <Box sx={{ mt: 0.5, mb: 0.5, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                   <Chip label={item.category} size="small" variant="outlined" />
@@ -371,7 +376,7 @@ export const Marketplace: React.FC = () => {
           ))}
         </Box>
       )}
-      <CreateListingDialog open={createDialogOpen} onClose={handleCreateDialogClose} onCreated={handleCreated} />
+      <CreateListingDialog open={createDialogOpen} onClose={handleCreateDialogClose} onCreated={handleCreated} aiTextGenerationEnabled={aiTextGenerationEnabled} />
       {selectedItem && (
         <ItemDetailsDialog
           item={selectedItem}

@@ -1,36 +1,51 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, Suspense, lazy } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { ThemeProvider, useTheme } from '@mui/material/styles' // Import useTheme here
-import { CssBaseline } from '@mui/material'
-import { theme, createAppTheme, ThemeMode, ThemeVariant, themeVariants } from './theme/theme'
+import { CssBaseline } from '@mui/material';
+import { theme, createAppTheme, ThemeMode, ThemeVariant, themeVariants, experimentalThemeVariants } from './theme/theme'
 import { AppLayout } from './components/Layout/AppLayout'
 import { LoginForm } from './components/Forms/LoginForm'
 import { RegisterForm } from './components/Forms/RegisterForm'
 import { AuthProvider, useAuthContext } from './contexts/AuthContext'
+import { RandomAIProvider, useRandomAI } from './contexts/RandomAIContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
-import { ChartRunnerGame } from './components/ChartRunnerGame'
-import { Dashboard } from './components/Dashboard/Dashboard'
-import { LandingPage } from './components/Landing/LandingPage'
-import { Marketplace } from './components/Marketplace/Marketplace'
-import { MarketplaceChat } from './components/Marketplace/MarketplaceChat'
-import { MyListings } from './components/Marketplace/MyListings'
-import { FeaturesMarketplace } from './components/Marketplace/FeaturesMarketplace'
-import { FavoritesMarketplace } from './components/Marketplace/FavoritesMarketplace'
-import Investments from './components/Investments/Investments'
-import { Cheats } from './components/Cheats';
-import { BankGardenGame } from './components/BankGardenGame';
-import { TappingGame } from './components/Games/TappingGame';
-import { FlipGame } from './components/Games/FlipGame';
-import { GiveawayFunction } from './components/Games/GiveawayFunction';
-import { GlobalChat } from './components/Chat/GlobalChat';
-import { AdminPanel } from './components/Admin/AdminPanel';
-import { FortuneWheelGame } from './components/FortuneWheelGame';
-import AdminInvestments from './components/Admin/AdminInvestments';
-import { MemoryGame } from './components/MemoryGame';
-import { VaultManagementPage } from './components/VaultManagementPage';
-import { EventNotification } from './components/Notifications/EventNotification';
+import { NotificationProvider } from './components/Notifications/NotificationSystem'
+import { NotificationBell } from './components/Notifications/NotificationBell'
+import { NotificationToast } from './components/Notifications/NotificationToast'
+import RandomAINotifications from './components/RandomAINotifications'
+const ChartRunnerGame = lazy(() => import('./components/ChartRunnerGame').then(m => ({ default: m.ChartRunnerGame })));
+const Dashboard = lazy(() => import('./components/Dashboard/Dashboard').then(m => ({ default: m.Dashboard })));
+const LandingPage = lazy(() => import('./components/Landing/LandingPage').then(m => ({ default: m.LandingPage })));
+const Marketplace = lazy(() => import('./components/Marketplace/Marketplace').then(m => ({ default: m.Marketplace })));
+const MarketplaceChat = lazy(() => import('./components/Marketplace/MarketplaceChat').then(m => ({ default: m.MarketplaceChat })));
+const MyListings = lazy(() => import('./components/Marketplace/MyListings').then(m => ({ default: m.MyListings })));
+const FeaturesMarketplace = lazy(() => import('./components/Marketplace/FeaturesMarketplace').then(m => ({ default: m.FeaturesMarketplace })));
+const FavoritesMarketplace = lazy(() => import('./components/Marketplace/FavoritesMarketplace').then(m => ({ default: m.FavoritesMarketplace })));
+const Investments = lazy(() => import('./components/Investments/Investments').then(m => ({ default: m.default })));
+const Cheats = lazy(() => import('./components/Cheats').then(m => ({ default: m.Cheats })));
+const BankGardenGame = lazy(() => import('./components/BankGardenGame').then(m => ({ default: m.BankGardenGame })));
+const TappingGame = lazy(() => import('./components/Games/TappingGame').then(m => ({ default: m.TappingGame })));
+const FlipGame = lazy(() => import('./components/Games/FlipGame').then(m => ({ default: m.FlipGame })));
+const GiveawayFunction = lazy(() => import('./components/Games/GiveawayFunction').then(m => ({ default: m.GiveawayFunction })));
+const GlobalChat = lazy(() => import('./components/Chat/GlobalChat').then(m => ({ default: m.GlobalChat })));
+const AdminPanel = lazy(() => import('./components/Admin/AdminPanel').then(m => ({ default: m.AdminPanel })));
+const FortuneWheelGame = lazy(() => import('./components/FortuneWheelGame').then(m => ({ default: m.FortuneWheelGame })));
+const AdminInvestments = lazy(() => import('./components/Admin/AdminInvestments').then(m => ({ default: m.default })));
+const MemoryGame = lazy(() => import('./components/MemoryGame').then(m => ({ default: m.MemoryGame })));
+const VaultManagementPage = lazy(() => import('./components/VaultManagementPage').then(m => ({ default: m.VaultManagementPage })));
+const EventNotification = lazy(() => import('./components/Notifications/EventNotification').then(m => ({ default: m.EventNotification })));
+const MannShell = lazy(() => import('./components/MannShell/MannShell').then(m => ({ default: m.MannShell })));
+const OpenMannApps = lazy(() => import('./components/OpenMannApps/OpenMannApps').then(m => ({ default: m.default })));
+const RunOpenMannApp = lazy(() => import('./components/OpenMannApps/RunOpenMannApp').then(m => ({ default: m.default })));
+const ReactionGame = lazy(() => import('./components/Games/ReactionGame').then(m => ({ default: m.default })));
+const SimonGame = lazy(() => import('./components/Games/SimonGame').then(m => ({ default: m.default })));
+const WhackAMole = lazy(() => import('./components/Games/WhackAMole').then(m => ({ default: m.default })));
+const HeistRush = lazy(() => import('./components/Games/HeistRush').then(m => ({ default: m.default })));
+const ManGPT = lazy(() => import('./components/ManGPT/ManGPT').then(m => ({ default: m.default })));
+const FloatingManGPT = lazy(() => import('./components/ManGPT/FloatingManGPT').then(m => ({ default: m.default })));
 import { supabase } from './config/supabase';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, DialogProps, Box, Card, CardContent, Avatar, TextField, Divider, Chip, Snackbar, Alert, Switch, FormControl, FormControlLabel, Select, MenuItem, Container, Paper, Slider } from '@mui/material';
+// Import only essential icons to reduce bundle size
 import {
   Person,
   Email,
@@ -38,86 +53,17 @@ import {
   Edit,
   Save,
   Cancel,
-  Logout,
   Chat,
   Palette,
   Face,
   AccountCircle,
-  SportsEsports,
-  School,
-  Work,
-  Home,
-  Favorite,
-  Star,
-  Diamond,
-  ChildCare,
   Code as DevIcon,
-  Pets,
-  MusicNote,
-  Movie,
-  Restaurant,
-  FitnessCenter,
-  Flight,
-  Cake,
-  Fastfood,
-  DirectionsBike,
-  Security,
-  Games,
-  TheaterComedy,
-  DirectionsCar,
-  DirectionsBus,
-  DirectionsSubway,
-  DirectionsWalk,
-  DirectionsRun,
-  DirectionsBoat,
-  DirectionsTransit,
-  DirectionsRailway,
-  LocalTaxi,
-  Hotel,
-  Business,
-  LocalHospital,
-  LocalPharmacy,
-  LocalGasStation,
-  LocalCarWash,
-  LocalLaundryService,
-  LocalPrintshop,
-  LocalPostOffice,
-  LocalLibrary,
-  LocalMall,
-  LocalParking,
-  ShoppingCart,
-  LocalGroceryStore,
-  LocalConvenienceStore,
-  LocalOffer,
-  Loyalty,
-  Redeem,
-  CardGiftcard,
-  AccountBalance,
-  Payment,
-  CreditCard,
-  Receipt,
-  LocalShipping,
-  Notifications,
-  Phone,
-  LocationOn,
-  Schedule,
-  Celebration,
-  Event,
-  TrendingUp,
-  TrendingDown,
-  Speed,
   Accessibility,
-  Elderly,
-  Spa,
-  LocalBar,
-  LocalCafe,
-  LocalPizza,
-  LocalDining,
-  Settings as SettingsIcon, // Renamed to avoid conflict
-  ZoomIn, // For magnifier
-  SupervisedUserCircle, // For admin
-  MonetizationOn, // For investments
-  ColorLens, // For color scheme
+  Settings as SettingsIcon,
+  ZoomIn,
+  SupervisedUserCircle,
+  MonetizationOn,
+  ColorLens,
 } from '@mui/icons-material';
 import { createClient } from '@supabase/supabase-js';
 import { ThemeProvider as ThemeContextProvider } from './contexts/ThemeContext';
@@ -240,104 +186,12 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
     '#ffeb3b', '#ffc107', '#ff9800', '#ff5722', '#795548'
   ];
 
-  // Enhanced profile picture icons with categories
+  // Simplified profile picture icons to reduce memory usage
   const pfpIcons = [
-    // Basic
     { value: 'Person', label: 'Пользователь', icon: Person, category: 'basic' },
     { value: 'Face', label: 'Лицо', icon: Face, category: 'basic' },
     { value: 'AccountCircle', label: 'Аккаунт', icon: AccountCircle, category: 'basic' },
-
-    // Activities
-    { value: 'SportsEsports', label: 'Игры', icon: SportsEsports, category: 'activities' },
-    { value: 'School', label: 'Образование', icon: School, category: 'activities' },
-    { value: 'Work', label: 'Работа', icon: Work, category: 'activities' },
-    { value: 'Home', label: 'Дом', icon: Home, category: 'activities' },
-    { value: 'FitnessCenter', label: 'Спорт', icon: FitnessCenter, category: 'activities' },
-    { value: 'DirectionsBike', label: 'Велосипед', icon: DirectionsBike, category: 'activities' },
-    { value: 'DirectionsRun', label: 'Бег', icon: DirectionsRun, category: 'activities' },
-    { value: 'DirectionsWalk', label: 'Прогулка', icon: DirectionsWalk, category: 'activities' },
-
-    // Lifestyle
-    { value: 'ChildCare', label: 'Дети', icon: ChildCare, category: 'lifestyle' },
-    { value: 'Pets', label: 'Питомцы', icon: Pets, category: 'lifestyle' },
-    { value: 'Cake', label: 'Торт', icon: Cake, category: 'lifestyle' },
-    { value: 'Fastfood', label: 'Еда', icon: Fastfood, category: 'lifestyle' },
-    { value: 'Restaurant', label: 'Ресторан', icon: Restaurant, category: 'lifestyle' },
-    { value: 'LocalBar', label: 'Бар', icon: LocalBar, category: 'lifestyle' },
-    { value: 'LocalCafe', label: 'Кафе', icon: LocalCafe, category: 'lifestyle' },
-    { value: 'LocalPizza', label: 'Пицца', icon: LocalPizza, category: 'lifestyle' },
-    { value: 'LocalDining', label: 'Ресторан', icon: LocalDining, category: 'lifestyle' },
-
-    // Entertainment
-    { value: 'MusicNote', label: 'Музыка', icon: MusicNote, category: 'entertainment' },
-    { value: 'Movie', label: 'Кино', icon: Movie, category: 'entertainment' },
-    { value: 'Games', label: 'Игры', icon: Games, category: 'entertainment' },
-    { value: 'TheaterComedy', label: 'Театр', icon: TheaterComedy, category: 'entertainment' },
-
-    // Travel & Transport
-    { value: 'Flight', label: 'Путешествия', icon: Flight, category: 'travel' },
-    { value: 'DirectionsCar', label: 'Автомобиль', icon: DirectionsCar, category: 'travel' },
-    { value: 'DirectionsBus', label: 'Автобус', icon: DirectionsBus, category: 'travel' },
-    { value: 'DirectionsSubway', label: 'Метро', icon: DirectionsSubway, category: 'travel' },
-    { value: 'DirectionsBoat', label: 'Лодка', icon: DirectionsBoat, category: 'travel' },
-    { value: 'DirectionsTransit', label: 'Транспорт', icon: DirectionsTransit, category: 'travel' },
-    { value: 'DirectionsRailway', label: 'Поезд', icon: DirectionsRailway, category: 'travel' },
-    { value: 'LocalTaxi', label: 'Такси', icon: LocalTaxi, category: 'travel' },
-    { value: 'Hotel', label: 'Отель', icon: Hotel, category: 'travel' },
-
-    // Business & Services
-    { value: 'Business', label: 'Бизнес', icon: Business, category: 'business' },
-    { value: 'Security', label: 'Безопасность', icon: Security, category: 'business' },
-    { value: 'LocalHospital', label: 'Медицина', icon: LocalHospital, category: 'business' },
-    { value: 'LocalPharmacy', label: 'Аптека', icon: LocalPharmacy, category: 'business' },
-    { value: 'LocalGasStation', label: 'АЗС', icon: LocalGasStation, category: 'business' },
-    { value: 'LocalCarWash', label: 'Мойка', icon: LocalCarWash, category: 'business' },
-    { value: 'LocalLaundryService', label: 'Прачечная', icon: LocalLaundryService, category: 'business' },
-    { value: 'LocalPrintshop', label: 'Печать', icon: LocalPrintshop, category: 'business' },
-    { value: 'LocalPostOffice', label: 'Почта', icon: LocalPostOffice, category: 'business' },
-    { value: 'LocalLibrary', label: 'Библиотека', icon: LocalLibrary, category: 'business' },
-    { value: 'LocalMall', label: 'Торговый центр', icon: LocalMall, category: 'business' },
-    { value: 'LocalParking', label: 'Парковка', icon: LocalParking, category: 'business' },
-
-    // Shopping & Commerce
-    { value: 'ShoppingCart', label: 'Корзина', icon: ShoppingCart, category: 'shopping' },
-    { value: 'LocalGroceryStore', label: 'Продукты', icon: LocalGroceryStore, category: 'shopping' },
-    { value: 'LocalConvenienceStore', label: 'Магазин', icon: LocalConvenienceStore, category: 'shopping' },
-    { value: 'LocalOffer', label: 'Скидка', icon: LocalOffer, category: 'shopping' },
-    { value: 'Loyalty', label: 'Лояльность', icon: Loyalty, category: 'shopping' },
-    { value: 'Redeem', label: 'Погашение', icon: Redeem, category: 'shopping' },
-    { value: 'CardGiftcard', label: 'Подарочная карта', icon: CardGiftcard, category: 'shopping' },
-
-    // Finance & Payments
-    { value: 'AccountBalance', label: 'Баланс', icon: AccountBalance, category: 'finance' },
-    { value: 'Payment', label: 'Платеж', icon: Payment, category: 'finance' },
-    { value: 'CreditCard', label: 'Кредитная карта', icon: CreditCard, category: 'finance' },
-    { value: 'Receipt', label: 'Чек', icon: Receipt, category: 'finance' },
-    { value: 'LocalShipping', label: 'Доставка', icon: LocalShipping, category: 'finance' },
-
-    // Communication
-    { value: 'Email', label: 'Email', icon: Email, category: 'communication' },
-    { value: 'Phone', label: 'Телефон', icon: Phone, category: 'communication' },
-    { value: 'Notifications', label: 'Уведомления', icon: Notifications, category: 'communication' },
-    { value: 'LocationOn', label: 'Местоположение', icon: LocationOn, category: 'communication' },
-    { value: 'Schedule', label: 'Расписание', icon: Schedule, category: 'communication' },
-    { value: 'CalendarToday', label: 'Календарь', icon: CalendarToday, category: 'communication' },
-
-    // Special & Premium
-    { value: 'Favorite', label: 'Избранное', icon: Favorite, category: 'special' },
-    { value: 'Star', label: 'Звезда', icon: Star, category: 'special' },
-    { value: 'Diamond', label: 'Алмаз', icon: Diamond, category: 'special' },
-    { value: 'Celebration', label: 'Праздник', icon: Celebration, category: 'special' },
-    { value: 'Event', label: 'Событие', icon: Event, category: 'special' },
-    { value: 'TrendingUp', label: 'Тренд вверх', icon: TrendingUp, category: 'special' },
-    { value: 'TrendingDown', label: 'Тренд вниз', icon: TrendingDown, category: 'special' },
-    { value: 'Speed', label: 'Скорость', icon: Speed, category: 'special' },
-    { value: 'Accessibility', label: 'Доступность', icon: Accessibility, category: 'special' },
-    { value: 'Elderly', label: 'Пожилые', icon: Elderly, category: 'special' },
-    { value: 'Spa', label: 'Спа', icon: Spa, category: 'special' },
-
-    // Secret/Developer
-    { value: 'Dev', label: 'Разработчик (секретная)', icon: DevIcon, category: 'secret' },
+    { value: 'Dev', label: 'Разработчик', icon: DevIcon, category: 'special' },
   ];
 
   const handleSave = async () => {
@@ -948,9 +802,9 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
                   Иконка аватара
                 </Typography>
 
-                {/* Category Tabs */}
+                {/* Simplified category tabs */}
                 <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-                  {['basic', 'activities', 'lifestyle', 'entertainment', 'travel', 'business', 'shopping', 'finance', 'communication', 'special'].map((category) => (
+                  {['basic', 'special'].map((category) => (
                     <Button
                       key={category}
                       variant="outlined"
@@ -962,16 +816,7 @@ const Profile = ({ showDevSettings }: ProfileProps) => {
                         py: 0.5
                       }}
                     >
-                      {category === 'basic' ? 'Основные' :
-                        category === 'activities' ? 'Активности' :
-                          category === 'lifestyle' ? 'Образ жизни' :
-                            category === 'entertainment' ? 'Развлечения' :
-                              category === 'travel' ? 'Путешествия' :
-                                category === 'business' ? 'Бизнес' :
-                                  category === 'shopping' ? 'Покупки' :
-                                    category === 'finance' ? 'Финансы' :
-                                      category === 'communication' ? 'Общение' :
-                                        category === 'special' ? 'Особые' : category}
+                      {category === 'basic' ? 'Основные' : 'Особые'}
                     </Button>
                   ))}
                 </Box>
@@ -1111,6 +956,14 @@ interface SettingsProps {
   setMagnifierEnabled: React.Dispatch<React.SetStateAction<boolean>>;
   magnifierIntensity: number; // Controlled prop
   setMagnifierIntensity: React.Dispatch<React.SetStateAction<number>>; // Controlled prop setter
+  experimentalThemesEnabled: boolean;
+  setExperimentalThemesEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+  floatingManGPTEnabled: boolean;
+  setFloatingManGPTEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+  aiTextGenerationEnabled: boolean;
+  setAiTextGenerationEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+  aiChatEnabled: boolean;
+  setAiChatEnabled: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const Settings: React.FC<SettingsProps> = ({
@@ -1119,7 +972,15 @@ const Settings: React.FC<SettingsProps> = ({
   magnifierEnabled,
   setMagnifierEnabled,
   magnifierIntensity, // Direct prop
-  setMagnifierIntensity // Direct prop setter
+  setMagnifierIntensity, // Direct prop setter
+  experimentalThemesEnabled,
+  setExperimentalThemesEnabled,
+  floatingManGPTEnabled,
+  setFloatingManGPTEnabled,
+  aiTextGenerationEnabled,
+  setAiTextGenerationEnabled,
+  aiChatEnabled,
+  setAiChatEnabled,
 }) => {
   const theme = useTheme(); // Use useTheme hook here
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({ open: false, message: '', severity: 'success' });
@@ -1275,7 +1136,11 @@ const Settings: React.FC<SettingsProps> = ({
                   value={themeVariant}
                   onChange={(e) => handleThemeVariantChange(e.target.value as ThemeVariant)}
                 >
-                  {themeVariants.map((variant) => (
+                  {(
+                    experimentalThemesEnabled
+                      ? [...themeVariants, ...experimentalThemeVariants]
+                      : themeVariants
+                  ).map((variant) => (
                     <MenuItem key={variant.value} value={variant.value}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Box
@@ -1326,6 +1191,127 @@ const Settings: React.FC<SettingsProps> = ({
                   Инвестиции
                 </Button>
               </Box>
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
+                  Экспериментальные темы
+                </Typography>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={experimentalThemesEnabled}
+                      onChange={(e) => {
+                        const next = e.target.checked;
+                        setExperimentalThemesEnabled(next);
+                        localStorage.setItem('experimentalThemes', String(next));
+                      }}
+                      color="primary"
+                    />
+                  }
+                  label="Включить экспериментальные темы (изменяет внешний вид всего сайта)"
+                />
+                <Typography variant="caption" color="text.secondary">
+                  Добавляет новые цветовые схемы и активирует продвинутые стили кнопок, карточек и диалогов.
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
+                  ManGPT Assistant
+                </Typography>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={floatingManGPTEnabled}
+                      onChange={(e) => {
+                        const next = e.target.checked;
+                        setFloatingManGPTEnabled(next);
+                        localStorage.setItem('floatingManGPTEnabled', String(next));
+                      }}
+                      color="primary"
+                    />
+                  }
+                  label="Плавающий ManGPT (кнопка в левом нижнем углу на всех страницах)"
+                />
+                <Typography variant="caption" color="text.secondary">
+                  Добавляет плавающую кнопку ManGPT, которая позволяет быстро получить доступ к AI-ассистенту с любой страницы.
+                </Typography>
+              </Box>
+              
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
+                  AI Генерация Текста
+                </Typography>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={aiTextGenerationEnabled}
+                      onChange={(e) => {
+                        const next = e.target.checked;
+                        setAiTextGenerationEnabled(next);
+                        localStorage.setItem('aiTextGenerationEnabled', String(next));
+                      }}
+                      color="primary"
+                    />
+                  }
+                  label="AI генерация названия и описания товаров на основе изображений"
+                />
+                <Typography variant="caption" color="text.secondary">
+                  При загрузке изображений AI автоматически генерирует название, описание, категорию и теги для товара.
+                </Typography>
+              </Box>
+
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
+                  AI Помощник для Чата
+                </Typography>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={aiChatEnabled}
+                      onChange={(e) => {
+                        const next = e.target.checked;
+                        setAiChatEnabled(next);
+                        localStorage.setItem('aiChatEnabled', String(next));
+                      }}
+                      color="primary"
+                    />
+                  }
+                  label="Включить AI помощника для чата"
+                />
+                <Typography variant="caption" color="text.secondary">
+                  Добавляет AI-предложения сообщений, модерацию контента и умные подсказки в чате.
+                </Typography>
+              </Box>
+            </Box>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Random AI Settings */}
+      {showDevSettings && (
+        <Card sx={{ mb: 2 }}>
+          <CardContent>
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
+                Случайные взаимодействия AI
+              </Typography>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={useRandomAI().randomInteractionEnabled}
+                    onChange={(e) => {
+                      const next = e.target.checked;
+                      useRandomAI().setRandomInteractionEnabled(next);
+                    }}
+                    color="secondary"
+                  />
+                }
+                label="🎭 Случайные взаимодействия AI (сообщения, пранки, автономные функции)"
+              />
+                       <Typography variant="caption" color="text.secondary">
+                         AI будет случайно отправлять сообщения, играть пранки и вызывать функции на всех страницах.
+                         <br />
+                         <strong>Горячая клавиша:</strong> Ctrl+Enter для принудительного запуска взаимодействия
+                       </Typography>
             </Box>
           </CardContent>
         </Card>
@@ -1345,9 +1331,17 @@ interface AppContentProps {
   setShowDevSettings: React.Dispatch<React.SetStateAction<boolean>>;
   magnifierIntensity?: number;
   setMagnifierIntensity?: React.Dispatch<React.SetStateAction<number>>;
+  experimentalThemesEnabled: boolean;
+  setExperimentalThemesEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+  floatingManGPTEnabled: boolean;
+  setFloatingManGPTEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+  aiTextGenerationEnabled: boolean;
+  setAiTextGenerationEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+  aiChatEnabled: boolean;
+  setAiChatEnabled: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-function AppContent({ showDevSettings, setShowDevSettings, magnifierIntensity = 1.5, setMagnifierIntensity }: AppContentProps) {
+function AppContent({ showDevSettings, setShowDevSettings, magnifierIntensity = 1.5, setMagnifierIntensity, experimentalThemesEnabled, setExperimentalThemesEnabled, floatingManGPTEnabled, setFloatingManGPTEnabled, aiTextGenerationEnabled, setAiTextGenerationEnabled, aiChatEnabled, setAiChatEnabled }: AppContentProps) {
   const [magnifierEnabled, setMagnifierEnabled] = useState(() => {
     const saved = localStorage.getItem('magnifierEnabled');
     return saved === 'true';
@@ -1730,8 +1724,9 @@ function AppContent({ showDevSettings, setShowDevSettings, magnifierIntensity = 
 
   return (
     <>
+      <Suspense fallback={<div />}> 
       {/* System event notifications - will only show when triggered */}
-      {user && <EventNotification />}
+      {user && process.env.NODE_ENV === 'production' && <EventNotification />}
 
       <Routes>
         <Route
@@ -1850,6 +1845,14 @@ function AppContent({ showDevSettings, setShowDevSettings, magnifierIntensity = 
               setMagnifierEnabled={setMagnifierEnabled}
               magnifierIntensity={localMagnifierIntensity} // Pass local state
               setMagnifierIntensity={setLocalMagnifierIntensity} // Pass local setter
+              experimentalThemesEnabled={experimentalThemesEnabled}
+              setExperimentalThemesEnabled={setExperimentalThemesEnabled}
+              floatingManGPTEnabled={floatingManGPTEnabled}
+              setFloatingManGPTEnabled={setFloatingManGPTEnabled}
+              aiTextGenerationEnabled={aiTextGenerationEnabled}
+              setAiTextGenerationEnabled={setAiTextGenerationEnabled}
+              aiChatEnabled={aiChatEnabled}
+              setAiChatEnabled={setAiChatEnabled}
             />}
           />
         </Route>
@@ -1864,7 +1867,7 @@ function AppContent({ showDevSettings, setShowDevSettings, magnifierIntensity = 
           </ProtectedRoute>
         }>
 
-          <Route index element={<Marketplace />} />
+          <Route index element={<Marketplace aiTextGenerationEnabled={aiTextGenerationEnabled} />} />
           <Route path="vault-management" element={<VaultManagementPage />} />
           <Route path="chat" element={<MarketplaceChat />} />
           <Route path="my-listings" element={<MyListings />} />
@@ -1872,12 +1875,18 @@ function AppContent({ showDevSettings, setShowDevSettings, magnifierIntensity = 
         </Route>
 
         <Route path="/features-marketplace" element={<ProtectedRoute><AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled} magnifierIntensity={localMagnifierIntensity}><FeaturesMarketplace /></AppLayout></ProtectedRoute>} />
+        <Route path="/open-mann-apps" element={<ProtectedRoute><OpenMannApps /></ProtectedRoute>} />
+        <Route path="/apps/:slug" element={<ProtectedRoute><RunOpenMannApp /></ProtectedRoute>} />
+        <Route path="/mannshell" element={<MannShell />} />
         <Route path="/investments" element={<ProtectedRoute><AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled} magnifierIntensity={localMagnifierIntensity}><Investments /></AppLayout></ProtectedRoute>} />
         <Route path="/darkhaxorz6557453555c3h2he1a6t8s" element={<AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled} magnifierIntensity={localMagnifierIntensity}><Cheats /></AppLayout>} />
         <Route path="/games/tapping" element={<TappingGame />} />
-        <Route path="/games/flip" element={<AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled} magnifierIntensity={localMagnifierIntensity}><FlipGame /></AppLayout>} />
-        <Route path="/giveaways" element={<AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled} magnifierIntensity={localMagnifierIntensity}><GiveawayFunction /></AppLayout>} />
-        <Route path="/chat" element={<AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled} magnifierIntensity={localMagnifierIntensity}><GlobalChat /></AppLayout>} />
+        <Route path="/games/reaction" element={<ProtectedRoute><ReactionGame /></ProtectedRoute>} />
+        <Route path="/games/simon" element={<ProtectedRoute><SimonGame /></ProtectedRoute>} />
+        <Route path="/games/whack-a-mole" element={<ProtectedRoute><WhackAMole /></ProtectedRoute>} />
+        <Route path="/games/heist" element={<ProtectedRoute><HeistRush /></ProtectedRoute>} />
+        <Route path="/mangpt" element={<ProtectedRoute><ManGPT /></ProtectedRoute>} />
+        <Route path="/chat" element={<AppLayout showDevSettings={showDevSettings} magnifierEnabled={magnifierEnabled} magnifierIntensity={localMagnifierIntensity}><GlobalChat aiChatEnabled={aiChatEnabled} /></AppLayout>} />
         <Route path="/admin" element={user && user.user_metadata?.isAdmin ? <AdminPanel /> : <div style={{ padding: 32, textAlign: 'center' }}><h2>Not authorized</h2></div>} />
         <Route path="/admin/investments" element={<AppLayout><AdminInvestments /></AppLayout>} />
 
@@ -1885,6 +1894,7 @@ function AppContent({ showDevSettings, setShowDevSettings, magnifierIntensity = 
         <Route path="/" element={<LandingPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
       {/* User message dialog */}
       <Dialog
         open={msgDialogOpen}
@@ -2012,6 +2022,12 @@ function AppContent({ showDevSettings, setShowDevSettings, magnifierIntensity = 
           </div>
         </div>
       )}
+
+      {/* Floating ManGPT Widget */}
+      <FloatingManGPT enabled={floatingManGPTEnabled} />
+      
+      {/* Random AI Notifications */}
+      <RandomAINotifications />
     </>
 
   );
@@ -2029,8 +2045,25 @@ function App() {
   });
 
   const [showDevSettings, setShowDevSettings] = useState(false);
+  const [experimentalThemesEnabled, setExperimentalThemesEnabled] = useState<boolean>(() => {
+    const saved = localStorage.getItem('experimentalThemes');
+    return saved ? saved === 'true' : false;
+  });
+  const [floatingManGPTEnabled, setFloatingManGPTEnabled] = useState<boolean>(() => {
+    const saved = localStorage.getItem('floatingManGPTEnabled');
+    return saved ? saved === 'true' : false;
+  });
+  const [aiTextGenerationEnabled, setAiTextGenerationEnabled] = useState<boolean>(() => {
+    const saved = localStorage.getItem('aiTextGenerationEnabled');
+    return saved ? saved === 'true' : false;
+  });
 
-  const currentTheme = createAppTheme(themeMode, themeVariant);
+  const [aiChatEnabled, setAiChatEnabled] = useState<boolean>(() => {
+    const saved = localStorage.getItem('aiChatEnabled');
+    return saved ? saved === 'true' : true; // Default to true
+  });
+
+  const currentTheme = createAppTheme(themeMode, themeVariant, experimentalThemesEnabled);
 
   return (
     <ThemeProvider theme={currentTheme}>
@@ -2042,12 +2075,24 @@ function App() {
         setThemeVariant={setThemeVariant}
       >
         <AuthProvider>
-          <Router>
-            <AppContent
-              showDevSettings={showDevSettings}
-              setShowDevSettings={setShowDevSettings}
-            />
-          </Router>
+          <RandomAIProvider>
+          <NotificationProvider>
+            <Router>
+              <AppContent
+                showDevSettings={showDevSettings}
+                setShowDevSettings={setShowDevSettings}
+                experimentalThemesEnabled={experimentalThemesEnabled}
+                setExperimentalThemesEnabled={setExperimentalThemesEnabled}
+                floatingManGPTEnabled={floatingManGPTEnabled}
+                setFloatingManGPTEnabled={setFloatingManGPTEnabled}
+                aiTextGenerationEnabled={aiTextGenerationEnabled}
+                setAiTextGenerationEnabled={setAiTextGenerationEnabled}
+                aiChatEnabled={aiChatEnabled}
+                setAiChatEnabled={setAiChatEnabled}
+              />
+            </Router>
+          </NotificationProvider>
+            </RandomAIProvider>
         </AuthProvider>
       </ThemeContextProvider>
     </ThemeProvider>

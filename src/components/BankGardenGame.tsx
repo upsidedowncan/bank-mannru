@@ -2687,7 +2687,7 @@ export const BankGardenGame: React.FC = () => {
       const interval = setInterval(() => {
         checkServerEvents();
         fetchServerModifiers();
-      }, 30000); // Check every 30 seconds
+      }, 120000); // Check every 2 minutes to reduce memory pressure
 
       return () => clearInterval(interval);
     }
@@ -2831,7 +2831,7 @@ export const BankGardenGame: React.FC = () => {
       });
     };
 
-    gameLoopIntervalRef.current = setInterval(growthTick, 1000); // Check for growth every second
+    gameLoopIntervalRef.current = setInterval(growthTick, 10000); // Check for growth every 10 seconds to reduce memory pressure
 
     return () => {
       if (gameLoopIntervalRef.current) clearInterval(gameLoopIntervalRef.current);
@@ -2898,7 +2898,7 @@ export const BankGardenGame: React.FC = () => {
           setFeedbackDialog(`🌤️ Началась "${newWeather.name}"! ${newWeather.description}`, 'Погода изменилась');
         }
       }
-    }, 30000); // Check every 30 seconds
+    }, 120000); // Check every 2 minutes to reduce memory pressure
 
     return () => clearInterval(weatherInterval);
   }, [gameState, currentWeather, weatherEffects]);

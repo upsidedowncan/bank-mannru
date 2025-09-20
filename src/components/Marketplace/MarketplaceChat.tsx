@@ -236,6 +236,20 @@ export const MarketplaceChat: React.FC = () => {
 
       if (error) throw error
 
+      // Send notification to receiver
+      try {
+        const { NotificationService } = await import('../../services/notificationService')
+        await NotificationService.notifyNewMessage(
+          conversation.other_user_id,
+          user.user_metadata?.full_name || 'Пользователь',
+          messageText,
+          selectedConversation,
+          user.id
+        )
+      } catch (notificationError) {
+        console.error('Error sending notification:', notificationError)
+      }
+
       // Replace temporary message with real one
       setMessages(prev => prev.map(msg => 
         msg.id === tempMessageId ? { ...data, sender_name: 'Вы', receiver_name: conversation.other_user_name } : msg
