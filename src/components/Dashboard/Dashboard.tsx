@@ -184,6 +184,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ toggleColorMode }) => {
     }
   }, [user, fetchVaultBalance]);
 
+  // Listen for FAB actions from DynamicBottomAppBar
+  useEffect(() => {
+    const handleNewAccount = () => {
+      setOpenDialog(true);
+    };
+
+    const handleTransfer = () => {
+      setTransferDialogOpen(true);
+    };
+
+    window.addEventListener('dashboard-new-account', handleNewAccount);
+    window.addEventListener('dashboard-transfer', handleTransfer);
+
+    return () => {
+      window.removeEventListener('dashboard-new-account', handleNewAccount);
+      window.removeEventListener('dashboard-transfer', handleTransfer);
+    };
+  }, []);
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem('dashboardSettings');

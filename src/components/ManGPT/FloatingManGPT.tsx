@@ -649,7 +649,7 @@ NICHE FEATURES:
       <Box
         sx={{
           position: 'fixed',
-          bottom: { xs: 16, sm: 24 },
+          bottom: { xs: 80, sm: 24 }, // Account for mobile bottom bar
           left: { xs: 16, sm: 24 },
           right: { xs: 16, sm: 'auto' },
           zIndex: 1300,
@@ -932,12 +932,13 @@ NICHE FEATURES:
         </Paper>
       </Slide>
 
-      {/* Floating Action Button */}
+      {/* Floating Action Button - Hidden on mobile */}
       <Fab
         color="primary"
         aria-label="ManGPT"
         onClick={handleToggle}
         sx={{
+          display: { xs: 'none', sm: 'flex' }, // Hide on mobile
           background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
           boxShadow: '0 8px 32px rgba(33, 150, 243, 0.3)',
           width: { xs: 56, sm: 64 },

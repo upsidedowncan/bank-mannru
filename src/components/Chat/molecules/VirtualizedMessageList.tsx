@@ -324,15 +324,15 @@ const VirtualizedMessageList: React.FC<VirtualizedMessageListProps> = ({
         ))}
       </Box>
       
-      {/* Scroll to bottom button */}
-      {!isAtBottom && (
+      {/* Scroll to bottom button - completely hidden on mobile */}
+      {!isAtBottom && !isMobile && (
         <Fab
-          size={isMobile ? "medium" : "small"}
+          size="small"
           onClick={scrollToBottom}
           sx={{
             position: 'absolute',
-            bottom: isMobile ? 20 : 16,
-            right: isMobile ? 20 : 16,
+            bottom: 16,
+            right: 16,
             zIndex: 1000,
             bgcolor: 'primary.main',
             color: 'white',

@@ -91,6 +91,36 @@ export const Marketplace: React.FC<MarketplaceProps> = ({ aiTextGenerationEnable
     fetchItems();
   }, []);
 
+  // Listen for FAB actions from DynamicBottomAppBar
+  useEffect(() => {
+    const handleAddItem = () => {
+      setCreateDialogOpen(true);
+    };
+
+    const handleSearch = () => {
+      // Focus on search input
+      const searchInput = document.querySelector('input[placeholder*="Поиск"]') as HTMLInputElement;
+      if (searchInput) {
+        searchInput.focus();
+      }
+    };
+
+    const handleFilter = () => {
+      // Toggle filter visibility or open filter dialog
+      console.log('Filter clicked');
+    };
+
+    window.addEventListener('marketplace-add-item', handleAddItem);
+    window.addEventListener('marketplace-search', handleSearch);
+    window.addEventListener('marketplace-filter', handleFilter);
+
+    return () => {
+      window.removeEventListener('marketplace-add-item', handleAddItem);
+      window.removeEventListener('marketplace-search', handleSearch);
+      window.removeEventListener('marketplace-filter', handleFilter);
+    };
+  }, []);
+
   useEffect(() => {
     let filtered = items;
     if (searchTerm) {
@@ -201,21 +231,7 @@ export const Marketplace: React.FC<MarketplaceProps> = ({ aiTextGenerationEnable
         </Button>
       } />
       <Divider sx={{ mb: 2 }} />
-      {/* Mobile FAB to publish items */}
-      <Fab
-        color="primary"
-        aria-label="add"
-        onClick={handleCreateDialogOpen}
-        sx={{
-          position: 'fixed',
-          bottom: 16,
-          right: 16,
-          display: { xs: 'flex', sm: 'none' },
-          boxShadow: 3
-        }}
-      >
-        <AddIcon />
-      </Fab>
+      {/* Mobile FAB removed - now handled by DynamicBottomAppBar */}
       <Box 
         display="flex" 
         flexDirection={{ xs: 'column', sm: 'row' }} 

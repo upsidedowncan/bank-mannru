@@ -41,6 +41,29 @@ export const Investments: React.FC = () => {
     return +(amt / currentPrice).toFixed(6)
   }, [amount, currentPrice])
 
+  // Listen for FAB actions from DynamicBottomAppBar
+  useEffect(() => {
+    const handleInvest = () => {
+      // Focus on the amount input field
+      const amountInput = document.querySelector('input[placeholder*="Сумма"]') as HTMLInputElement;
+      if (amountInput) {
+        amountInput.focus();
+      }
+    };
+
+    const handleRefresh = () => {
+      refresh();
+    };
+
+    window.addEventListener('investments-invest', handleInvest);
+    window.addEventListener('investments-refresh', handleRefresh);
+
+    return () => {
+      window.removeEventListener('investments-invest', handleInvest);
+      window.removeEventListener('investments-refresh', handleRefresh);
+    };
+  }, []);
+
   useEffect(() => {
     const init = async () => {
       try {

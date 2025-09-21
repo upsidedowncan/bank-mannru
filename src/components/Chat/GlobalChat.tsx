@@ -685,6 +685,36 @@ export const GlobalChat: React.FC<GlobalChatProps> = ({ aiChatEnabled = false })
   //   return () => clearInterval(interval);
   // }, []);
 
+  // Listen for FAB actions from DynamicBottomAppBar
+  useEffect(() => {
+    const handleNewMessage = () => {
+      // Focus on message input
+      const messageInput = document.querySelector('textarea[placeholder*="сообщение"]') as HTMLTextAreaElement;
+      if (messageInput) {
+        messageInput.focus();
+      }
+    };
+
+    const handleSearchMessages = () => {
+      // Focus on search input or open search dialog
+      const searchInput = document.querySelector('input[placeholder*="Поиск"]') as HTMLInputElement;
+      if (searchInput) {
+        searchInput.focus();
+      } else {
+        // If no search input visible, you could open a search dialog here
+        console.log('Search messages clicked');
+      }
+    };
+
+    window.addEventListener('chat-new-message', handleNewMessage);
+    window.addEventListener('chat-search', handleSearchMessages);
+
+    return () => {
+      window.removeEventListener('chat-new-message', handleNewMessage);
+      window.removeEventListener('chat-search', handleSearchMessages);
+    };
+  }, []);
+
   // This is the new central useEffect for fetching and subscriptions
   useEffect(() => {
     if (!selectedChat) {
@@ -2343,7 +2373,22 @@ export const GlobalChat: React.FC<GlobalChatProps> = ({ aiChatEnabled = false })
 
   return (
     <>
-    <Box sx={{ display: 'flex', flex: 1, width: '100%', minHeight: 0, height: '100%', overflow: 'hidden' }}>
+    <Box sx={{ 
+      display: 'flex', 
+      flex: 1, 
+      width: '100%', 
+      minHeight: 0, 
+      height: '100%', 
+      overflow: 'hidden',
+      // Mobile-specific styling
+      ...(isMobile && {
+        flexDirection: 'column',
+        height: '100vh',
+        maxHeight: '100vh',
+        overflow: 'hidden',
+        bgcolor: 'background.default'
+      })
+    }}>
       {/* Channels Sidebar */}
       {isMobile ? (
         <Drawer
@@ -2352,36 +2397,54 @@ export const GlobalChat: React.FC<GlobalChatProps> = ({ aiChatEnabled = false })
           onClose={() => setMobileDrawerOpen(false)}
           sx={{ 
             '& .MuiDrawer-paper': { 
-              width: '85%', 
-              maxWidth: 320,
+              width: '100%', 
+              maxWidth: '100%',
               boxSizing: 'border-box',
-              bgcolor: 'background.paper'
+              bgcolor: 'background.paper',
+              height: '100vh',
+              // Mobile-optimized drawer
+              ...(isMobile && {
+                borderRadius: 0,
+                boxShadow: 'none',
+                border: 'none'
+              })
             } 
           }}
           ModalProps={{
             keepMounted: true // Better mobile performance
           }}
         >
+          {/* Mobile-optimized header */}
           <Box sx={{ 
-            p: isMobile ? 2.5 : 2, 
-                        display: 'flex',
+            display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            bgcolor: 'background.paper',
             position: 'sticky',
             top: 0,
             zIndex: 1,
-            backdropFilter: 'blur(8px)',
-            borderBottom: '2px solid',
-            borderColor: 'primary.main',
-            opacity: 0.95
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+            // Mobile-specific styling
+            ...(isMobile ? {
+              p: 2,
+              minHeight: 64,
+              bgcolor: 'background.paper',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+            } : {
+              p: 2,
+              bgcolor: 'background.paper'
+            })
           }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <ChatIcon color="primary" sx={{ fontSize: isMobile ? 28 : 24 }} />
-              <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <ChatIcon color="primary" sx={{ fontSize: isMobile ? 24 : 24 }} />
+              <Typography variant="h6" sx={{ 
+                fontWeight: 600, 
+                color: 'primary.main',
+                fontSize: isMobile ? '1.1rem' : '1.25rem'
+              }}>
                 Чаты
               </Typography>
-          </Box>
+            </Box>
             <Box sx={{ display: 'flex', gap: 1 }}>
               <IconButton 
                 onClick={() => setNewDmDialogOpen(true)}
@@ -2389,38 +2452,56 @@ export const GlobalChat: React.FC<GlobalChatProps> = ({ aiChatEnabled = false })
                 sx={{ 
                   bgcolor: 'primary.main',
                   color: 'white',
-                  width: isMobile ? 40 : 32,
-                  height: isMobile ? 40 : 32,
+                  width: isMobile ? 36 : 32,
+                  height: isMobile ? 36 : 32,
                   '&:hover': { 
                     bgcolor: 'primary.dark',
                     transform: 'scale(1.05)'
                   },
-                  transition: 'all 0.2s ease'
+                  transition: 'all 0.2s ease',
+                  borderRadius: isMobile ? 1.5 : 1
                 }}
               >
-                <AddIcon />
+                <AddIcon sx={{ fontSize: isMobile ? 18 : 16 }} />
               </IconButton>
               <IconButton 
                 onClick={() => setMobileDrawerOpen(false)}
                 size="small"
                 sx={{
-                  width: isMobile ? 40 : 32,
-                  height: isMobile ? 40 : 32,
+                  width: isMobile ? 36 : 32,
+                  height: isMobile ? 36 : 32,
                   bgcolor: 'error.main',
                   color: 'white',
                   '&:hover': { 
                     bgcolor: 'error.dark',
                     transform: 'scale(1.05)'
                   },
-                  transition: 'all 0.2s ease'
+                  transition: 'all 0.2s ease',
+                  borderRadius: isMobile ? 1.5 : 1
                 }}
               >
-                <CloseIcon />
+                <CloseIcon sx={{ fontSize: isMobile ? 18 : 16 }} />
               </IconButton>
             </Box>
           </Box>
-          <Box sx={{ overflowY: 'auto', height: 'calc(100vh - 80px)', pt: 0 }}>
-          {renderChannels()}
+          {/* Mobile-optimized channel list */}
+          <Box sx={{ 
+            overflowY: 'auto', 
+            pt: 0,
+            // Mobile-specific styling
+            ...(isMobile ? {
+              height: 'calc(100vh - 64px)',
+              bgcolor: 'background.default',
+              '&::-webkit-scrollbar': { width: 4 },
+              '&::-webkit-scrollbar-thumb': { 
+                backgroundColor: 'divider', 
+                borderRadius: 2 
+              }
+            } : {
+              height: 'calc(100vh - 64px)'
+            })
+          }}>
+            {renderChannels()}
           </Box>
         </Drawer>
       ) : (
@@ -2455,8 +2536,21 @@ export const GlobalChat: React.FC<GlobalChatProps> = ({ aiChatEnabled = false })
       )}
 
       {/* Main Chat Area */}
-      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
-        {/* Header */}
+      <Box sx={{ 
+        flex: 1, 
+        display: 'flex', 
+        flexDirection: 'column', 
+        minWidth: 0, 
+        minHeight: 0,
+        // Mobile-specific styling
+        ...(isMobile && {
+          height: '100vh',
+          maxHeight: '100vh',
+          overflow: 'hidden',
+          bgcolor: 'background.default'
+        })
+      }}>
+        {/* Mobile-optimized header */}
         <Box sx={{ 
           p: isMobile ? 1.5 : 1, 
           borderBottom: '1px solid', 
@@ -2466,42 +2560,53 @@ export const GlobalChat: React.FC<GlobalChatProps> = ({ aiChatEnabled = false })
           position: 'sticky',
           top: 0,
           zIndex: 10,
-          backdropFilter: 'saturate(180%) blur(10px)',
-          backgroundImage: (theme.palette.mode === 'light')
-            ? `linear-gradient(180deg, ${theme.palette.background.paper} 0%, ${theme.palette.background.paper} 70%, rgba(0,0,0,0.02) 100%)`
-            : 'linear-gradient(180deg, rgba(26,26,26,1) 0%, rgba(26,26,26,0.9) 70%, rgba(255,255,255,0.04) 100%)'
+          // Mobile-specific styling
+          ...(isMobile && {
+            p: 1.5,
+            minHeight: 56,
+            bgcolor: 'background.paper',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+            borderBottom: '1px solid',
+            borderColor: 'divider'
+          })
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: isMobile ? 1.5 : 1, flex: 1, minWidth: 0 }}>
-            {isMobile && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: isMobile ? 1 : 1, flex: 1, minWidth: 0 }}>
+              {isMobile && (
                 <IconButton 
                   onClick={() => setMobileDrawerOpen(true)}
                   sx={{ 
                     bgcolor: 'action.hover',
-                    '&:hover': { bgcolor: 'action.selected' }
+                    '&:hover': { bgcolor: 'action.selected' },
+                    width: 36,
+                    height: 36,
+                    borderRadius: 1.5,
+                    mr: 1
                   }}
                 >
-                  <MenuIcon />
+                  <MenuIcon sx={{ fontSize: 20 }} />
                 </IconButton>
               )}
               <Box sx={{ minWidth: 0, flex: 1 }}>
                 <Typography 
-                  variant={isMobile ? "h6" : "h6"} 
+                  variant="h6" 
                   sx={{ 
                     fontWeight: 600,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
-                    letterSpacing: 0.2
+                    letterSpacing: 0.2,
+                    fontSize: isMobile ? '1rem' : '1.25rem',
+                    color: 'text.primary'
                   }}
                 >
-                {selectedChat ? (
-                  selectedChat.id === 'mangpt' ? 'ManGPT' : 
-                  isChannel(selectedChat) ? selectedChat.name : 
-                  selectedChat.participants?.find(p => p.user_id !== user?.id)?.user_name || 'DM'
-                ) : 'Глобальный чат'}
-              </Typography>
-                {isMobile && selectedChat && (
+                  {selectedChat ? (
+                    selectedChat.id === 'mangpt' ? 'ManGPT' : 
+                    isChannel(selectedChat) ? selectedChat.name : 
+                    selectedChat.participants?.find(p => p.user_id !== user?.id)?.user_name || 'DM'
+                  ) : 'Глобальный чат'}
+                </Typography>
+                {!isMobile && selectedChat && (
                   <Typography 
                     variant="caption" 
                     color="text.secondary"
@@ -2517,7 +2622,7 @@ export const GlobalChat: React.FC<GlobalChatProps> = ({ aiChatEnabled = false })
                 )}
               </Box>
             </Box>
-            {isChannel(selectedChat) && (
+            {isChannel(selectedChat) && !isMobile && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Tooltip title="Расширенный поиск">
                   <IconButton 
@@ -2554,7 +2659,23 @@ export const GlobalChat: React.FC<GlobalChatProps> = ({ aiChatEnabled = false })
                   position: 'relative',
                   bgcolor: 'background.default',
                   '&::-webkit-scrollbar': { width: 8 },
-                  '&::-webkit-scrollbar-thumb': { backgroundColor: 'divider', borderRadius: 4 }
+                  '&::-webkit-scrollbar-thumb': { backgroundColor: 'divider', borderRadius: 4 },
+                  // Mobile-specific styling
+                  ...(isMobile && {
+                    flex: 1,
+                    overflowY: 'auto',
+                    position: 'relative',
+                    bgcolor: 'background.default',
+                    '&::-webkit-scrollbar': { width: 4 },
+                    '&::-webkit-scrollbar-thumb': { 
+                      backgroundColor: 'divider', 
+                      borderRadius: 2 
+                    },
+                    // Add padding for mobile
+                    px: 1,
+                    py: 0.5,
+                    pb: 0 // Remove bottom padding to prevent cut-off
+                  })
                 }} 
                 onScroll={handleScroll}
               >
@@ -2621,16 +2742,29 @@ export const GlobalChat: React.FC<GlobalChatProps> = ({ aiChatEnabled = false })
             <Fade in={!conversationLoading} timeout={500}>
                 <Box 
                   sx={{ 
-                  p: isMobile ? 1.25 : 1.5, 
+                    p: isMobile ? 1 : 1.5, 
                     borderTop: '1px solid', 
                     borderColor: 'divider', 
-                    bgcolor: 'background.paper', 
+                    bgcolor: isMobile ? 'transparent' : 'background.paper', 
                     flexShrink: 0,
-                  transition: 'all 0.2s ease-in-out',
-                  position: 'sticky',
-                  bottom: 0,
-                  zIndex: 10,
-                  backdropFilter: 'saturate(160%) blur(8px)'
+                    transition: 'all 0.2s ease-in-out',
+                    position: 'sticky',
+                    bottom: 0,
+                    zIndex: 10,
+                    backdropFilter: 'saturate(160%) blur(8px)',
+                    // Mobile-specific styling
+                    ...(isMobile && {
+                      p: 0,
+                      bgcolor: 'transparent',
+                      borderTop: 'none',
+                      borderColor: 'transparent',
+                      boxShadow: 'none',
+                      position: 'sticky',
+                      bottom: 0,
+                      // Remove padding that cuts off messages
+                      pb: 0,
+                      mb: 0
+                    })
                   }}
                   onDragOver={handleDragOver}
                   onDrop={handleDrop}
@@ -2817,27 +2951,229 @@ export const GlobalChat: React.FC<GlobalChatProps> = ({ aiChatEnabled = false })
                           </Typography>
                     </Box>
                   )}
-                  <Box 
-                    display="flex" 
-                    gap={isMobile ? 0.75 : 1}
-                    alignItems="flex-end"
-                    sx={{
-                      p: isMobile ? 0.5 : 0.75,
-                      borderRadius: 2,
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      boxShadow: theme.palette.mode === 'light' ? '0 4px 14px rgba(0,0,0,0.06)' : '0 6px 18px rgba(0,0,0,0.35)',
-                      bgcolor: 'background.paper',
-                      position: 'relative', // Add relative positioning for AI suggestions
-                      '& .MuiTextField-root': {
-                        flex: 1,
-                        '& .MuiOutlinedInput-root': {
-                          borderRadius: 2,
-                          bgcolor: 'background.default'
+                  {/* Custom Mobile Input Design */}
+                  {isMobile ? (
+                    <Box sx={{
+                      p: 0,
+                      bgcolor: 'transparent',
+                      position: 'relative'
+                    }}>
+                      {/* AI Chat Suggestions */}
+                      <ChatSuggestions
+                        suggestions={aiFeatures.suggestions}
+                        isGeneratingSuggestions={aiFeatures.isGeneratingSuggestions}
+                        contentModerationResult={aiFeatures.contentModerationResult}
+                        isModerating={aiFeatures.isModerating}
+                        onSuggestionClick={handleSuggestionClick}
+                        onClose={() => aiFeatures.clearSuggestions()}
+                        enabled={aiChatEnabled}
+                        currentMessage={newMessage}
+                      />
+                      
+                      {/* Mobile Input Container - Blurred Design */}
+                      <Box sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        bgcolor: 'rgba(255, 255, 255, 0.1)',
+                        backdropFilter: 'blur(20px)',
+                        borderRadius: '50px', // Fully rounded container
+                        border: '1px solid',
+                        borderColor: 'rgba(255, 255, 255, 0.2)',
+                        p: 0.5,
+                        minHeight: 48,
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+                        mx: 2, // Add horizontal margins
+                        mb: 1 // Add bottom margin
+                      }}>
+                        {/* Text Input */}
+                        <TextField
+                          fullWidth
+                          placeholder={
+                            aiChatEnabled && aiFeatures.isModerating 
+                              ? "Проверка..." 
+                              : "Сообщение..."
+                          }
+                          value={newMessage}
+                          onChange={handleInputChange}
+                          onKeyPress={handleKeyPress}
+                          multiline
+                          maxRows={3}
+                          disabled={aiChatEnabled && aiFeatures.isModerating}
+                          sx={{
+                            '& .MuiInputBase-root': {
+                              fontSize: '0.9rem',
+                              py: 0.5,
+                              minHeight: 40,
+                              borderRadius: '50px', // Fully rounded corners
+                              alignItems: 'flex-end',
+                              border: 'none',
+                              bgcolor: 'transparent',
+                              '& fieldset': {
+                                border: 'none'
+                              }
+                            },
+                            '& textarea': {
+                              fontSize: '0.9rem',
+                              lineHeight: 1.4,
+                              paddingTop: '8px',
+                              paddingBottom: '8px'
+                            }
+                          }}
+                        />
+                        
+                        {/* Action Buttons */}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          {/* Attachment Button */}
+                          <IconButton 
+                            onClick={(event) => setAttachmentMenuAnchor(event.currentTarget)}
+                            disabled={!selectedChat || uploadingMedia}
+                            sx={{
+                              width: 36,
+                              height: 36,
+                              bgcolor: 'primary.main',
+                              color: 'white',
+                              borderRadius: '50%', // Fully rounded buttons
+                              '&:hover': {
+                                bgcolor: 'primary.dark',
+                                transform: 'scale(1.05)'
+                              },
+                              '&:active': {
+                                transform: 'scale(0.95)'
+                              },
+                              '&.Mui-disabled': {
+                                bgcolor: 'action.disabledBackground',
+                                color: 'action.disabled'
+                              }
+                            }}
+                          >
+                            <AttachFileIcon sx={{ fontSize: 18 }} />
+                          </IconButton>
+                          
+                          {/* Microphone Button */}
+                          <IconButton 
+                            onClick={startRecording} 
+                            disabled={!selectedChat}
+                            sx={{
+                              width: 36,
+                              height: 36,
+                              bgcolor: 'primary.main',
+                              color: 'white',
+                              borderRadius: '50%', // Fully rounded buttons
+                              '&:hover': {
+                                bgcolor: 'primary.dark',
+                                transform: 'scale(1.05)'
+                              },
+                              '&:active': {
+                                transform: 'scale(0.95)'
+                              },
+                              '&.Mui-disabled': {
+                                bgcolor: 'action.disabledBackground',
+                                color: 'action.disabled'
+                              }
+                            }}
+                          >
+                            <MicIcon sx={{ fontSize: 18 }} />
+                          </IconButton>
+                          
+                          {/* Payment Button (if DM) */}
+                          {selectedChat && !isChannel(selectedChat) && selectedChat.id !== 'mangpt' && (
+                            <IconButton 
+                              onClick={() => setManPayDialogOpen(true)}
+                              disabled={!selectedChat}
+                              sx={{
+                                width: 36,
+                                height: 36,
+                                bgcolor: 'success.main',
+                                color: 'white',
+                                borderRadius: '50%', // Fully rounded buttons
+                                '&:hover': {
+                                  bgcolor: 'success.dark',
+                                  transform: 'scale(1.05)'
+                                },
+                                '&:active': {
+                                  transform: 'scale(0.95)'
+                                },
+                                '&.Mui-disabled': {
+                                  bgcolor: 'action.disabledBackground',
+                                  color: 'action.disabled'
+                                }
+                              }}
+                            >
+                              <AccountBalanceWalletIcon sx={{ fontSize: 18 }} />
+                            </IconButton>
+                          )}
+                          
+                          {/* Send Button */}
+                          <IconButton 
+                            onClick={handleSend} 
+                            disabled={Boolean(
+                              (!selectedFile && !newMessage.trim()) || 
+                              sending || 
+                              uploadingMedia || 
+                              (aiChatEnabled && aiFeatures.isModerating) ||
+                              (aiChatEnabled && aiFeatures.contentModerationResult && !aiFeatures.contentModerationResult.isAppropriate)
+                            )}
+                            sx={{
+                              width: 36,
+                              height: 36,
+                              bgcolor: 'primary.main',
+                              color: 'white',
+                              borderRadius: '50%', // Fully rounded buttons
+                              '&:hover': {
+                                bgcolor: 'primary.dark',
+                                transform: 'scale(1.05)'
+                              },
+                              '&:active': {
+                                transform: 'scale(0.95)'
+                              },
+                              '&.Mui-disabled': {
+                                bgcolor: 'action.disabledBackground',
+                                color: 'action.disabled'
+                              }
+                            }}
+                          >
+                            {sending || uploadingMedia ? (
+                              <CircularProgress size={16} color="inherit" />
+                            ) : aiChatEnabled && aiFeatures.isModerating ? (
+                              <CircularProgress size={16} color="inherit" />
+                            ) : aiChatEnabled && aiFeatures.contentModerationResult && !aiFeatures.contentModerationResult.isAppropriate ? (
+                              <CloseIcon sx={{ fontSize: 18 }} />
+                            ) : (
+                              <SendIcon sx={{ fontSize: 18 }} />
+                            )}
+                          </IconButton>
+                        </Box>
+                      </Box>
+                    </Box>
+                  ) : (
+                    // Desktop Input - Blurred Design
+                    <Box 
+                      display="flex" 
+                      gap={1}
+                      alignItems="center"
+                      sx={{
+                        p: 0.75,
+                        borderRadius: '50px', // Fully rounded like mobile
+                        border: '1px solid',
+                        borderColor: 'rgba(255, 255, 255, 0.2)',
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+                        bgcolor: 'rgba(255, 255, 255, 0.1)',
+                        backdropFilter: 'blur(20px)',
+                        position: 'relative',
+                        '& .MuiTextField-root': {
+                          flex: 1,
+                          '& .MuiOutlinedInput-root': {
+                            borderRadius: '50px', // Fully rounded input
+                            bgcolor: 'transparent',
+                            border: 'none',
+                            '& fieldset': {
+                              border: 'none'
+                            }
+                          }
                         }
-                      }
-                    }}
-                  >
+                      }}
+                    >
                     {/* AI Chat Suggestions */}
                     <ChatSuggestions
                       suggestions={aiFeatures.suggestions}
@@ -2850,41 +3186,40 @@ export const GlobalChat: React.FC<GlobalChatProps> = ({ aiChatEnabled = false })
                       currentMessage={newMessage}
                     />
                     
-                    <TextField
-                      fullWidth
-                      placeholder={
-                        aiChatEnabled && aiFeatures.isModerating 
-                          ? "Проверка сообщения..." 
-                          : isMobile ? "Сообщение..." : "Введите сообщение..."
-                      }
-                      value={newMessage}
-                      onChange={handleInputChange}
-                      onKeyPress={handleKeyPress}
-                      multiline
-                      maxRows={isMobile ? 3 : 1}
-                      disabled={aiChatEnabled && aiFeatures.isModerating}
-                          sx={{
-                            '& .MuiInputBase-root': {
-                          fontSize: isMobile ? '0.9rem' : '0.95rem',
-                          py: isMobile ? 0.5 : 0.25,
-                          minHeight: isMobile ? 44 : 40,
-                          borderRadius: isMobile ? 2 : 1,
-                          alignItems: 'flex-end',
-                            },
-                            '& textarea': {
-                          fontSize: isMobile ? '0.9rem' : '0.95rem',
-                          lineHeight: isMobile ? 1.4 : 1.2,
-                          paddingTop: isMobile ? '8px' : '6px',
-                          paddingBottom: isMobile ? '8px' : '6px',
-                        },
-                        '& .MuiOutlinedInput-notchedOutline': {
-                          borderColor: 'divider',
-                        },
-                        '&:hover .MuiOutlinedInput-notchedOutline': {
-                          borderColor: 'primary.main',
-                            },
-                          }}
-                        />
+                      <TextField
+                        fullWidth
+                        placeholder={
+                          aiChatEnabled && aiFeatures.isModerating 
+                            ? "Проверка..." 
+                            : "Введите сообщение..."
+                        }
+                        value={newMessage}
+                        onChange={handleInputChange}
+                        onKeyPress={handleKeyPress}
+                        multiline
+                        maxRows={1}
+                        disabled={aiChatEnabled && aiFeatures.isModerating}
+                        sx={{
+                          '& .MuiInputBase-root': {
+                            fontSize: '0.95rem',
+                            py: 0.25,
+                            minHeight: 40,
+                            borderRadius: '50px', // Fully rounded like mobile
+                            alignItems: 'flex-end',
+                            bgcolor: 'transparent',
+                            border: 'none',
+                            '& fieldset': {
+                              border: 'none'
+                            }
+                          },
+                          '& textarea': {
+                            fontSize: '0.95rem',
+                            lineHeight: 1.2,
+                            paddingTop: '6px',
+                            paddingBottom: '6px'
+                          }
+                        }}
+                      />
                     <input
                       accept="image/*,video/*,audio/*"
                       style={{ display: 'none' }}
@@ -2892,42 +3227,102 @@ export const GlobalChat: React.FC<GlobalChatProps> = ({ aiChatEnabled = false })
                       type="file"
                       onChange={handleFileSelect}
                     />
+                      <IconButton 
+                        onClick={(event) => setAttachmentMenuAnchor(event.currentTarget)}
+                        disabled={!selectedChat || uploadingMedia}
+                        sx={{
+                          bgcolor: 'primary.main',
+                          color: 'white',
+                          width: 40,
+                          height: 40,
+                          transition: 'all 0.3s ease',
+                          borderRadius: '50%', // Fully rounded buttons
+                          '&:hover': {
+                            bgcolor: 'primary.dark',
+                            transform: 'scale(1.1)',
+                            boxShadow: '0 4px 15px rgba(25, 118, 210, 0.3)'
+                          },
+                          '&:active': {
+                            transform: 'scale(0.95)'
+                          },
+                          '&.Mui-disabled': {
+                            bgcolor: 'action.disabledBackground',
+                            color: 'action.disabled'
+                          }
+                        }}
+                      >
+                        <AttachFileIcon sx={{ fontSize: 18 }} />
+                      </IconButton>
+                      <IconButton 
+                        onClick={startRecording} 
+                        disabled={!selectedChat}
+                        sx={{
+                          bgcolor: 'primary.main',
+                          color: 'white',
+                          width: 40,
+                          height: 40,
+                          transition: 'all 0.3s ease',
+                          borderRadius: '50%', // Fully rounded buttons
+                          '&:hover': {
+                            bgcolor: 'primary.dark',
+                            transform: 'scale(1.1)',
+                            boxShadow: '0 4px 15px rgba(25, 118, 210, 0.3)'
+                          },
+                          '&:active': {
+                            transform: 'scale(0.95)'
+                          },
+                          '&.Mui-disabled': {
+                            bgcolor: 'action.disabledBackground',
+                            color: 'action.disabled'
+                          }
+                        }}
+                      >
+                        <MicIcon sx={{ fontSize: 18 }} />
+                      </IconButton>
+                    {selectedChat && !isChannel(selectedChat) && selectedChat.id !== 'mangpt' && (
+                      <IconButton 
+                        onClick={() => setManPayDialogOpen(true)}
+                        disabled={!selectedChat}
+                        sx={{
+                          bgcolor: 'success.main',
+                          color: 'white',
+                          width: 40,
+                          height: 40,
+                          transition: 'all 0.3s ease',
+                          borderRadius: '50%', // Fully rounded buttons
+                          '&:hover': {
+                            bgcolor: 'success.dark',
+                            transform: 'scale(1.1)',
+                            boxShadow: '0 4px 15px rgba(76, 175, 80, 0.3)'
+                          },
+                          '&:active': {
+                            transform: 'scale(0.95)'
+                          },
+                          '&.Mui-disabled': {
+                            bgcolor: 'action.disabledBackground',
+                            color: 'action.disabled'
+                          }
+                        }}
+                      >
+                        <AccountBalanceWalletIcon sx={{ fontSize: 18 }} />
+                      </IconButton>
+                    )}
                     <IconButton 
-                      onClick={(event) => setAttachmentMenuAnchor(event.currentTarget)}
-                      disabled={!selectedChat || uploadingMedia}
+                      onClick={handleSend} 
+                      disabled={Boolean(
+                        (!selectedFile && !newMessage.trim()) || 
+                        sending || 
+                        uploadingMedia || 
+                        (aiChatEnabled && aiFeatures.isModerating) ||
+                        (aiChatEnabled && aiFeatures.contentModerationResult && !aiFeatures.contentModerationResult.isAppropriate)
+                      )}
                       sx={{
                         bgcolor: 'primary.main',
                         color: 'white',
-                        width: isMobile ? 44 : 40,
-                        height: isMobile ? 44 : 40,
+                        width: 40,
+                        height: 40,
                         transition: 'all 0.3s ease',
-                        borderRadius: isMobile ? 2 : 1,
-                        '&:hover': {
-                          bgcolor: 'primary.dark',
-                          transform: isMobile ? 'scale(1.05)' : 'scale(1.1)',
-                          boxShadow: '0 4px 15px rgba(25, 118, 210, 0.3)'
-                        },
-                        '&:active': {
-                          transform: 'scale(0.95)'
-                        },
-                        '&.Mui-disabled': {
-                          bgcolor: 'action.disabledBackground',
-                          color: 'action.disabled'
-                        }
-                      }}
-                    >
-                      <AttachFileIcon sx={{ fontSize: isMobile ? 20 : 18 }} />
-                    </IconButton>
-                    <IconButton 
-                      onClick={startRecording} 
-                      disabled={!selectedChat}
-                      sx={{
-                        bgcolor: 'primary.main',
-                        color: 'white',
-                        width: isMobile ? 44 : 40,
-                        height: isMobile ? 44 : 40,
-                        transition: 'all 0.3s ease',
-                        borderRadius: isMobile ? 2 : 1,
+                        borderRadius: 1,
                         '&:hover': {
                           bgcolor: 'primary.dark',
                           transform: 'scale(1.1)',
@@ -2942,77 +3337,18 @@ export const GlobalChat: React.FC<GlobalChatProps> = ({ aiChatEnabled = false })
                         }
                       }}
                     >
-                      <MicIcon />
-                    </IconButton>
-                    {selectedChat && !isChannel(selectedChat) && selectedChat.id !== 'mangpt' && (
-                      <IconButton 
-                        onClick={() => setManPayDialogOpen(true)}
-                        disabled={!selectedChat}
-                        sx={{
-                          bgcolor: 'success.main',
-                          color: 'white',
-                          width: isMobile ? 44 : 40,
-                          height: isMobile ? 44 : 40,
-                          transition: 'all 0.3s ease',
-                          borderRadius: isMobile ? 2 : 1,
-                          '&:hover': {
-                            bgcolor: 'success.dark',
-                            transform: isMobile ? 'scale(1.05)' : 'scale(1.1)',
-                            boxShadow: '0 4px 15px rgba(76, 175, 80, 0.3)'
-                          },
-                          '&:active': {
-                            transform: 'scale(0.95)'
-                          },
-                          '&.Mui-disabled': {
-                            bgcolor: 'action.disabledBackground',
-                            color: 'action.disabled'
-                          }
-                        }}
-                      >
-                        <AccountBalanceWalletIcon sx={{ fontSize: isMobile ? 20 : 18 }} />
-                      </IconButton>
-                    )}
-                    <IconButton 
-                      onClick={handleSend} 
-                      disabled={
-                        (!selectedFile && !newMessage.trim()) || 
-                        sending || 
-                        uploadingMedia || 
-                        (aiChatEnabled && aiFeatures.isModerating) ||
-                        (aiChatEnabled && aiFeatures.contentModerationResult && !aiFeatures.contentModerationResult.isAppropriate)
-                      }
-                      sx={{
-                        bgcolor: 'primary.main',
-                        color: 'white',
-                        width: isMobile ? 44 : 40,
-                        height: isMobile ? 44 : 40,
-                        transition: 'all 0.3s ease',
-                        borderRadius: isMobile ? 2 : 1,
-                        '&:hover': {
-                          bgcolor: 'primary.dark',
-                          transform: isMobile ? 'scale(1.05)' : 'scale(1.1)',
-                          boxShadow: '0 4px 15px rgba(25, 118, 210, 0.3)'
-                        },
-                        '&:active': {
-                          transform: 'scale(0.95)'
-                        },
-                        '&.Mui-disabled': {
-                          bgcolor: 'action.disabledBackground',
-                          color: 'action.disabled'
-                        }
-                      }}
-                    >
                       {sending || uploadingMedia ? (
-                        <CircularProgress size={isMobile ? 20 : 18} color="inherit" />
+                        <CircularProgress size={18} color="inherit" />
                       ) : aiChatEnabled && aiFeatures.isModerating ? (
-                        <CircularProgress size={isMobile ? 20 : 18} color="inherit" />
+                        <CircularProgress size={18} color="inherit" />
                       ) : aiChatEnabled && aiFeatures.contentModerationResult && !aiFeatures.contentModerationResult.isAppropriate ? (
-                        <CloseIcon sx={{ fontSize: isMobile ? 20 : 18 }} />
+                        <CloseIcon sx={{ fontSize: 18 }} />
                       ) : (
-                        <SendIcon sx={{ fontSize: isMobile ? 20 : 18 }} />
+                        <SendIcon sx={{ fontSize: 18 }} />
                       )}
                     </IconButton>
-                  </Box>
+                    </Box>
+                  )}
                 </>
               )}
             </Box>

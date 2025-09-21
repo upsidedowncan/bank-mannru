@@ -111,6 +111,7 @@ import { BannerDisplay } from '../Common/BannerDisplay';
 import { getProgression } from '../../services/progressionService';
 import XPBar from '../Common/XPBar';
 import VaultRiddle from '../Secret/VaultRiddle';
+import { DynamicBottomAppBar } from './DynamicBottomAppBar';
 
 // Comprehensive icon mapping for dynamic features
 const iconMapping: { [key: string]: React.ComponentType } = {
@@ -657,35 +658,13 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
   return (
     <Box sx={{ display: 'flex', height: '100%' }}>
       <CssBaseline />
-      <AppBar
-        position="fixed"
-        sx={{
-          width: { xs: '100%', sm: 0 },
-          ml: { sm: 0 },
-          display: { xs: 'block', sm: 'none' },
-        }}
-      >
-        <Toolbar>
-          <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
-            onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { sm: 'none' } }}
-          >
-            <MenuIcon />
-          </IconButton>
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            Банк Маннру
-          </Typography>
-          <NotificationBell />
-        </Toolbar>
-      </AppBar>
+      {/* Removed top AppBar with notifications - using only bottom navigation on mobile */}
       <Box
         component="nav"
         sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
         aria-label="mailbox folders"
       >
+        {/* Mobile drawer - hidden on mobile, use BottomAppBar instead */}
         <Drawer
           variant="temporary"
           open={mobileOpen}
@@ -693,10 +672,22 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
           ModalProps={{
             keepMounted: true,
           }}
-          sx={mobileDrawerStyles}
+          sx={{
+            display: { xs: 'none', sm: 'block' }, // Hide on mobile
+            '& .MuiDrawer-paper': {
+              boxSizing: 'border-box',
+              width: drawerWidth,
+              backgroundImage: theme.palette.mode === 'light'
+                ? `linear-gradient(180deg, ${theme.palette.background.paper} 0%, ${theme.palette.background.paper} 60%, ${theme.palette.primary.light} 160%)`
+                : 'linear-gradient(180deg, #121212 0%, #121212 60%, rgba(255,255,255,0.04) 160%)',
+              backgroundColor: theme.palette.background.paper,
+              paddingTop: 0,
+            },
+          }}
         >
           {drawer}
         </Drawer>
+        {/* Desktop drawer */}
         <Drawer
           variant="permanent"
           sx={drawerStyles}
@@ -711,7 +702,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
           flexGrow: 1,
           p: 0,
           width: { sm: `calc(100% - ${drawerWidth}px)` },
-          pt: { xs: '64px', sm: 0 },
+          pt: 0, // Removed top padding since no more top bar
+          pb: { xs: '64px', sm: 0 }, // Add bottom padding for mobile bottom bar
           display: 'flex',
           flexDirection: 'column',
           mx: 0,
@@ -727,6 +719,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
           width: '100%',
           maxWidth: 'auto',
           mx: 'auto',
+          pb: { xs: 2, sm: 0 }, // Add extra bottom padding for mobile bottom bar
           ...(location.pathname.startsWith('/chat') ? { flex: 1, minHeight: 0, height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' } : {})
         }}>
           {children || <Outlet />}
@@ -734,6 +727,40 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
         <NotificationToast />
         <VaultRiddle open={riddleOpen} onClose={() => setRiddleOpen(false)} rewardMr={5000} />
       </Box>
-    </Box>
+      
+      {/* Mobile Bottom Navigation */}
+      <DynamicBottomAppBar 
+        showDevSettings={showDevSettings}
+        dynamicFeatures={dynamicFeatures}
+        onFabClick={(action) => {
+          // Handle contextual FAB actions
+          switch (action) {
+            case 'add-item':
+              window.dispatchEvent(new CustomEvent('marketplace-add-item'));
+              break;
+            case 'search':
+              window.dispatchEvent(new CustomEvent('marketplace-search'));
+              break;
+            case 'new-account':
+              window.dispatchEvent(new CustomEvent('dashboard-new-account'));
+              break;
+            case 'transfer':
+              window.dispatchEvent(new CustomEvent('dashboard-transfer'));
+              break;
+            case 'invest':
+              window.dispatchEvent(new CustomEvent('investments-invest'));
+              break;
+            case 'refresh':
+              window.dispatchEvent(new CustomEvent('investments-refresh'));
+              break;
+            case 'new-message':
+              window.dispatchEvent(new CustomEvent('chat-new-message'));
+              break;
+            default:
+              console.log('FAB clicked:', action);
+          }
+        }}
+      />
+      </Box>
   );
 } 
