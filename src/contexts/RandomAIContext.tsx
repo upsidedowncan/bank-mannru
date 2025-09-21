@@ -31,7 +31,7 @@ export const useRandomAI = () => {
 };
 
 // Initialize OpenAI client
-const OPENROUTER_API_KEY = "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";
+const OPENROUTER_API_KEY = "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";
 const openai = OPENROUTER_API_KEY ? new OpenAI({
   apiKey: OPENROUTER_API_KEY,
   baseURL: 'https://openrouter.ai/api/v1',
@@ -213,27 +213,23 @@ const callOpenRouter = async (messages: Array<{role: string, content: string}>, 
 
   try {
     const completion = await openai.chat.completions.create({
-      model: 'meta-llama/llama-3.1-8b-instruct',
+      model: 'mistralai/mistral-small-3.2-24b-instruct:free',
       messages: [
         {
           role: 'system' as const,
-          content: `You are ManGPT, a banking AI for Банк Маннру. You are playful, helpful, and love to surprise users with random interactions. You can send messages, call banking functions, or play pranks. Be creative, use emojis, and respond in Russian when appropriate.
+          content: `You are ManGPT, a banking AI for Банк Маннру. You are playful, helpful, and love to surprise users with random interactions.
 
-IMPORTANT CONTEXT:
-- Currency is MR (Маннру Рубль), NOT rubles
-- You can check user's actual balance using get_balance function
-- You can give real money using add_money function
-- You can create marketplace items using post_marketplace_item function
+IMPORTANT: You MUST always respond with content. Never return empty responses.
 
-PERSONALITY: You are witty, slightly mischievous, and love to entertain users. You can:
+You can:
 - Send encouraging messages about their finances
-- Check their balance and give advice
-- Show them marketplace items
+- Check their balance using get_balance function
+- Give real money using add_money function  
+- Create marketplace items using post_marketplace_item function
 - Play harmless pranks (jumpscares, fake errors)
-- Give them small amounts of MR as gifts
 - Be supportive and helpful
 
-Be unpredictable and fun! Always use actual functions when you want to check balance or give money.`
+Currency is MR (Маннру Рубль). Be creative, use emojis, and respond in Russian when appropriate. Always provide a response - never leave content empty!`
         },
         ...messages.map(msg => ({
           role: msg.role as 'user' | 'assistant' | 'system',
@@ -249,8 +245,8 @@ Be unpredictable and fun! Always use actual functions when you want to check bal
         }
       })) : undefined,
       tool_choice: functions ? 'auto' : undefined,
-      temperature: 0.8, // Moderate creativity
-      max_tokens: 200
+      temperature: 1.0, // High creativity for Grok
+      max_tokens: 15000
     });
 
     const response = completion.choices[0].message;

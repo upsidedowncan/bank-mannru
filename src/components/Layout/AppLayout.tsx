@@ -229,7 +229,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
     const loadProgression = async () => {
       try {
         const p = await getProgression(user.id);
-        if (isMounted) {
+      if (isMounted) {
           setProgression(p ? { level: p.level, currentLevelXp: p.currentLevelXp, nextLevelXp: p.nextLevelXp } : null);
         }
       } catch (error) {
@@ -250,16 +250,16 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
     
     const fetchUserFeatures = async () => {
       try {
-        const { data, error } = await supabase
-          .from('user_features')
-          .select('feature_id, features_marketplace (title, route, icon)')
+      const { data, error } = await supabase
+        .from('user_features')
+        .select('feature_id, features_marketplace (title, route, icon)')
           .eq('user_id', user.id);
         
-        if (!error && data) {
-          setDynamicFeatures(
-            data
-              .map((f: any) => f.features_marketplace)
-              .filter((f: any) => f && f.route && f.title)
+      if (!error && data) {
+        setDynamicFeatures(
+          data
+            .map((f: any) => f.features_marketplace)
+            .filter((f: any) => f && f.route && f.title)
           );
         }
       } catch (error) {
@@ -316,14 +316,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showDevSettings 
 
   // Memoized drawer header styles
   const headerStyles = useMemo(() => ({
-    alignItems: 'center',
-    py: 2,
-    px: 2,
-    background: theme.palette.mode === 'light'
-      ? `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`
+        alignItems: 'center',
+        py: 2,
+        px: 2,
+        background: theme.palette.mode === 'light'
+          ? `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`
       : `linear-gradient(135deg, ${theme.palette.grey[800]} 0%, ${theme.palette.grey[900]} 100%)`,
-    color: theme.palette.common.white,
-    borderBottom: `1px solid ${theme.palette.divider}`,
+        color: theme.palette.common.white,
+        borderBottom: `1px solid ${theme.palette.divider}`,
   }), [theme]);
 
   // Memoized drawer styles

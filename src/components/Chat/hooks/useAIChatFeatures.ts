@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import OpenAI from 'openai';
 
 // Initialize OpenAI client
-const OPENROUTER_API_KEY = "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";
+const OPENROUTER_API_KEY = "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";
 const openai = OPENROUTER_API_KEY ? new OpenAI({
   apiKey: OPENROUTER_API_KEY,
   baseURL: 'https://openrouter.ai/api/v1',
@@ -80,7 +80,7 @@ export const useAIChatFeatures = (
       setIsGeneratingSuggestions(true);
       
       const response = await openai.chat.completions.create({
-        model: 'x-ai/grok-4-fast:free',
+        model: 'mistralai/mistral-small-3.2-24b-instruct:free',
         messages: [
           {
             role: 'system',
@@ -211,7 +211,7 @@ export const useAIChatFeatures = (
       setIsModerating(true);
       
       const response = await openai.chat.completions.create({
-        model: 'x-ai/grok-4-fast:free',
+        model: 'mistralai/mistral-small-3.2-24b-instruct:free',
         messages: [
           {
             role: 'system',

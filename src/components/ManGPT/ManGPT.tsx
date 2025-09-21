@@ -82,6 +82,20 @@ const ManGPT: React.FC = () => {
       .trim(); // Remove any remaining whitespace from both ends
   };
 
+  // Truncate long responses to prevent context overflow
+  const truncateResponse = (text: string, maxLength: number = 2000): string => {
+    if (text.length <= maxLength) return text;
+    
+    const truncated = text.substring(0, maxLength);
+    const lastSentence = truncated.lastIndexOf('.');
+    
+    if (lastSentence > maxLength * 0.8) {
+      return truncated.substring(0, lastSentence + 1) + '\n\n[Ответ обрезан для экономии места]';
+    }
+    
+    return truncated + '\n\n[Ответ обрезан для экономии места]';
+  };
+
   // Content validation for marketplace items
   const validateItemContent = (itemData: any): { isValid: boolean; reason?: string } => {
     if (!itemData || typeof itemData !== 'object') {
@@ -394,7 +408,7 @@ Which image index (0-${urls.length - 1}) best matches this item? Respond with ON
   };
 
   // OpenRouter API configuration
-  const OPENROUTER_API_KEY = "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";
+  const OPENROUTER_API_KEY = "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";
   
   // Initialize OpenRouter client with error handling
   let openai: OpenAI | null = null;
@@ -593,10 +607,10 @@ Which image index (0-${urls.length - 1}) best matches this item? Respond with ON
         return { transactions: transactions || [] };
 
       case 'get_marketplace_items':
-        const limit = args?.limit || 10;
+        const limit = Math.min(args?.limit || 5, 10); // Limit to max 10 items, default 5
         const { data: items, error: itemsError } = await supabase
           .from('marketplace_items')
-          .select('*')
+          .select('id, title, description, price, currency, category, condition, created_at, tags')
           .eq('is_active', true)
           .order('created_at', { ascending: false })
           .limit(limit);
@@ -605,7 +619,17 @@ Which image index (0-${urls.length - 1}) best matches this item? Respond with ON
           throw new Error(`Failed to fetch marketplace items: ${itemsError.message}`);
         }
         
-        return { items: items || [] };
+        // Truncate item descriptions to prevent context overflow
+        const truncatedItems = (items || []).map((item: any) => ({
+          ...item,
+          description: item.description ? truncateResponse(item.description, 150) : ''
+        }));
+        
+        return { 
+          items: truncatedItems,
+          totalCount: items?.length || 0,
+          message: `Показано ${truncatedItems.length} товаров из маркетплейса. Для просмотра всех товаров перейдите в раздел Маркетплейс.`
+        };
 
       case 'post_marketplace_item':
         // Prepare images array - can contain base64 data URLs or regular URLs
@@ -837,11 +861,13 @@ Which image index (0-${urls.length - 1}) best matches this item? Respond with ON
 
     try {
       const completion = await openai.chat.completions.create({
-        model: 'x-ai/grok-4-fast:free',
+        model: 'mistralai/mistral-small-3.2-24b-instruct:free',
         messages: [
           {
             role: 'system' as const,
             content: `You are ManGPT, a banking AI for ${bankKnowledge.name}. Help users with banking operations. Be friendly, enthusiastic, and use emojis. Respond in Russian when users write in Russian.
+
+IMPORTANT: Keep responses concise and under 2000 characters. For marketplace items, give brief summaries instead of detailed descriptions.
 
 VISION CAPABILITIES: You can see and analyze images that users send you. Use this to help with banking operations, identify items, analyze documents, or just chat about what you see in the images.
 
@@ -881,7 +907,7 @@ NICHE FEATURES:
         })) : undefined,
         tool_choice: functions ? 'auto' : undefined,
         temperature: 0.8,
-        max_tokens: 100000
+        max_tokens: 2000 // Limit response length to prevent context overflow
       });
 
       return completion.choices[0].message;
@@ -1104,7 +1130,8 @@ For imageUrl field, if user uploaded an image, use "user_image" as the value. Ot
             }
           ]);
           
-          return cleanAIResponse(aiResponse.content || `🛍️ Создал товар "${itemData.name}" за ${itemData.price} МР!`);
+          const response = cleanAIResponse(aiResponse.content || `🛍️ Создал товар "${itemData.name}" за ${itemData.price} МР!`);
+          return truncateResponse(response);
         }
         
         // Execute other functions normally
@@ -1121,7 +1148,8 @@ For imageUrl field, if user uploaded an image, use "user_image" as the value. Ot
             }
           ]);
           
-          return cleanAIResponse(aiResponse.content || 'Функция выполнена успешно.');
+          const response = cleanAIResponse(aiResponse.content || 'Функция выполнена успешно.');
+          return truncateResponse(response);
         } catch (functionError: any) {
           // Check if it's a "too much money" error and generate angry AI response
           if (functionError.message.startsWith('TOO_MUCH_MONEY:')) {
@@ -1182,7 +1210,8 @@ For imageUrl field, if user uploaded an image, use "user_image" as the value. Ot
                 }
               ]);
               
-              return cleanAIResponse(followUpResponse.content || 'Функция выполнена успешно.');
+              const response = cleanAIResponse(followUpResponse.content || 'Функция выполнена успешно.');
+              return truncateResponse(response);
             } catch (functionError: any) {
               // Check if it's a "too much money" error and generate angry AI response
               if (functionError.message.startsWith('TOO_MUCH_MONEY:')) {
@@ -1234,7 +1263,8 @@ For imageUrl field, if user uploaded an image, use "user_image" as the value. Ot
               }
             ]);
             
-            return cleanAIResponse(aiResponse.content || `💰 Добавил ${amount.toLocaleString()} МР! Новый баланс: ${result.newBalance.toLocaleString()} МР`);
+            const response = cleanAIResponse(aiResponse.content || `💰 Добавил ${amount.toLocaleString()} МР! Новый баланс: ${result.newBalance.toLocaleString()} МР`);
+            return truncateResponse(response);
           } catch (error: any) {
             // Check if it's a "too much money" error and generate angry AI response
             if (error.message.startsWith('TOO_MUCH_MONEY:')) {
@@ -1267,7 +1297,8 @@ For imageUrl field, if user uploaded an image, use "user_image" as the value. Ot
             const balance = balanceResult.balance || 0;
             const roastPrompt = `User has balance ${balance} МР. Give a witty, sarcastic roast about their financial situation. Be funny but not mean.`;
             const roastResponse = await callOpenRouter([{ role: 'user' as const, content: roastPrompt }]);
-            return cleanAIResponse(roastResponse.content || 'Your balance is so low, even a penny would be an upgrade! 😂');
+            const response = cleanAIResponse(roastResponse.content || 'Your balance is so low, even a penny would be an upgrade! 😂');
+            return truncateResponse(response);
           } catch (error) {
             return '🔥 Your balance is so low, I can\'t even roast you properly! 😂';
           }
@@ -1392,13 +1423,15 @@ For imageUrl field, if user uploaded an image, use "user_image" as the value. Ot
               }
             ]);
             
-            return cleanAIResponse(aiResponse.content || `🛍️ Создал товар "${itemData.name}" за ${itemData.price} МР!`);
+            const response = cleanAIResponse(aiResponse.content || `🛍️ Создал товар "${itemData.name}" за ${itemData.price} МР!`);
+            return truncateResponse(response);
           } catch (error: any) {
             return `❌ Ошибка создания товара: ${error.message}`;
           }
         }
         
-        return cleanAIResponse(aiResponse.content || 'Извините, не могу обработать ваш запрос.');
+        const response = cleanAIResponse(aiResponse.content || 'Извините, не могу обработать ваш запрос.');
+        return truncateResponse(response);
       }
     } catch (error: any) {
       if (error.message.includes('API key')) {
@@ -1674,12 +1707,14 @@ For imageUrl field, if user uploaded an image, use "user_image" as the value. Ot
                  <Paper
                    sx={{
                      p: 1.5,
-                     bgcolor: message.role === 'user' ? 'primary.main' : 'grey.100',
+                     bgcolor: message.role === 'user' ? 'primary.main' : 'background.default',
                      color: message.role === 'user' ? 'white' : 'text.primary',
                      whiteSpace: 'pre-wrap',
                      fontSize: '0.875rem',
                      maxWidth: '80%',
-                     borderRadius: 2
+                     borderRadius: 2,
+                     border: message.role === 'assistant' ? 1 : 0,
+                     borderColor: 'divider'
                    }}
                  >
                    {message.image && (
@@ -1723,7 +1758,13 @@ For imageUrl field, if user uploaded an image, use "user_image" as the value. Ot
                 <Avatar sx={{ width: 24, height: 24, bgcolor: 'primary.main' }}>
                   <SmartToy sx={{ fontSize: 16 }} />
                 </Avatar>
-                <Paper sx={{ p: 1, bgcolor: 'grey.100', borderRadius: 2 }}>
+                <Paper sx={{ 
+                  p: 1, 
+                  bgcolor: 'background.default', 
+                  borderRadius: 2,
+                  border: 1,
+                  borderColor: 'divider'
+                }}>
                   <CircularProgress size={14} sx={{ mr: 1 }} />
                   <Typography variant="body2" component="span" sx={{ fontSize: '0.75rem' }}>
                     Думает...
@@ -1792,15 +1833,17 @@ For imageUrl field, if user uploaded an image, use "user_image" as the value. Ot
               {/* Image Preview */}
               {imagePreview && (
                 <Box sx={{ position: 'relative', display: 'inline-block' }}>
-                  <img
+                  <Box
+                    component="img"
                     src={imagePreview}
                     alt="Preview"
-                    style={{
+                    sx={{
                       width: 40,
                       height: 40,
                       objectFit: 'cover',
-                      borderRadius: 4,
-                      border: '1px solid #ccc'
+                      borderRadius: 1,
+                      border: 1,
+                      borderColor: 'divider'
                     }}
                   />
                   <Button

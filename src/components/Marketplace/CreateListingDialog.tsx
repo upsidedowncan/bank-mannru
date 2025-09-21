@@ -72,7 +72,7 @@ const conditions = [
 ]
 
 // OpenRouter API configuration
-const OPENROUTER_API_KEY = "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";
+const OPENROUTER_API_KEY = "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";
 
 // Initialize OpenRouter client
 let openai: OpenAI | null = null;
@@ -99,21 +99,53 @@ const validateItemContent = (itemData: any): { isValid: boolean; reason?: string
   const { title, description, category, tags } = itemData;
   const textToCheck = `${title || ''} ${description || ''} ${category || ''} ${(tags || []).join(' ')}`.toLowerCase();
 
-  // List of inappropriate keywords
+  // List of inappropriate keywords with context awareness
   const inappropriateKeywords = [
+    // Explicitly inappropriate content
     'туалет', 'унитаз', 'канализация', 'какашки', 'дерьмо', 'говно',
     'мусор', 'свалка', 'отходы', 'помойка', 'грязь',
     'toilet', 'bathroom', 'sewage', 'waste', 'garbage', 'trash', 'dump',
     'shit', 'poop', 'crap', 'fuck', 'bitch', 'asshole',
-    'оружие', 'пистолет', 'нож', 'убийство', 'насилие',
     'наркотики', 'алкоголь', 'водка', 'пиво', 'сигареты',
     'политика', 'президент', 'выборы', 'война'
   ];
 
-  // Check for inappropriate content
+  // Context-aware weapon detection (only flag if clearly weapon-related)
+  const weaponContexts = [
+    'кухонный нож', 'нож для мяса', 'охотничий нож', 'боевой нож',
+    'оружие', 'пистолет', 'убийство', 'насилие', 'нож в руке',
+    'weapon', 'gun', 'pistol', 'murder', 'violence'
+  ];
+
+  // Check for explicitly inappropriate content
   for (const keyword of inappropriateKeywords) {
     if (textToCheck.includes(keyword)) {
       return { isValid: false, reason: `Inappropriate content detected: ${keyword}` };
+    }
+  }
+
+  // Check for weapon-related content with context
+  for (const weaponContext of weaponContexts) {
+    if (textToCheck.includes(weaponContext)) {
+      return { isValid: false, reason: `Inappropriate content detected: ${weaponContext}` };
+    }
+  }
+
+  // Allow "нож" if it's part of legitimate product names (like iPhone)
+  if (textToCheck.includes('нож') && !textToCheck.includes('кухонный') && 
+      !textToCheck.includes('охотничий') && !textToCheck.includes('боевой') &&
+      !textToCheck.includes('оружие') && !textToCheck.includes('убийство')) {
+    // Check if it's part of a legitimate product name
+    const hasLegitimateContext = textToCheck.includes('iphone') || 
+                                 textToCheck.includes('телефон') || 
+                                 textToCheck.includes('смартфон') ||
+                                 textToCheck.includes('phone') ||
+                                 textToCheck.includes('электроника') ||
+                                 textToCheck.includes('electronics');
+    
+    if (hasLegitimateContext) {
+      // Allow it if it's part of a legitimate product
+      return { isValid: true };
     }
   }
 
@@ -131,7 +163,7 @@ const reviewTextWithAI = async (text: string, fieldName: string): Promise<{ isAp
     console.log(`Text to review: "${text}"`);
     
     const response = await openai.chat.completions.create({
-      model: 'x-ai/grok-4-fast:free',
+      model: 'mistralai/mistral-small-3.2-24b-instruct:free',
       messages: [
         {
           role: 'system',
@@ -215,25 +247,36 @@ const reviewImageWithAI = async (imageBase64: string): Promise<{ isAppropriate: 
     console.log('Image base64 preview:', imageBase64.substring(0, 100) + '...');
     
     const response = await openai.chat.completions.create({
-      model: 'x-ai/grok-4-fast:free', // Grok with vision capabilities
+      model: 'mistralai/mistral-small-3.2-24b-instruct:free', // Grok with vision capabilities
       messages: [
         {
           role: 'system',
-          content: `Content moderator. Look at image and respond with:
+          content: `You are a content moderator for a family-friendly marketplace. Look at the image and respond with:
 - "APPROVED" if appropriate for family marketplace
 - "REJECTED: [reason]" if inappropriate
 
-REJECT: poop, waste, nudity, violence, drugs, hate speech
-APPROVE: gaming, tech, toys, clothing, books, sports, food, art, legitimate products
+STRICT REJECTION ONLY FOR:
+- Explicit sexual content, nudity, adult material
+- Violence, weapons, blood, gore
+- Hate speech, offensive symbols
+- Illegal activities, drugs, alcohol
 
-Respond with ONLY "APPROVED" or "REJECTED: [reason]"`
+APPROVE FOR:
+- Electronics, phones, gadgets, tech products
+- Gaming items, toys, collectibles
+- Clothing, accessories, fashion
+- Books, art, crafts, home goods
+- Food, sports equipment, tools
+- Any legitimate consumer product
+
+Be lenient with product images. Only reject if clearly inappropriate. Respond with ONLY "APPROVED" or "REJECTED: [reason]"`
         },
         {
           role: 'user',
           content: [
             {
               type: 'text',
-              text: 'Is this image appropriate? Respond "APPROVED" or "REJECTED: [reason]"'
+              text: 'Is this image appropriate for a family marketplace? Be lenient with product images.'
             },
             {
               type: 'image_url',
@@ -300,18 +343,36 @@ Respond with ONLY "APPROVED" or "REJECTED: [reason]"`
     try {
       console.log('Trying fallback model...');
       const fallbackResponse = await openai.chat.completions.create({
-        model: 'meta-llama/llama-3.1-8b-instruct',
+        model: 'mistralai/mistral-small-3.2-24b-instruct:free',
         messages: [
           {
             role: 'system',
-            content: 'You are a content moderator. Look at the image and respond with "APPROVED" if appropriate or "REJECTED: [reason]" if inappropriate.'
+            content: `You are a content moderator for a family-friendly marketplace. Look at the image and respond with:
+- "APPROVED" if appropriate for family marketplace
+- "REJECTED: [reason]" if inappropriate
+
+STRICT REJECTION ONLY FOR:
+- Explicit sexual content, nudity, adult material
+- Violence, weapons, blood, gore
+- Hate speech, offensive symbols
+- Illegal activities, drugs, alcohol
+
+APPROVE FOR:
+- Electronics, phones, gadgets, tech products
+- Gaming items, toys, collectibles
+- Clothing, accessories, fashion
+- Books, art, crafts, home goods
+- Food, sports equipment, tools
+- Any legitimate consumer product
+
+Be lenient with product images. Only reject if clearly inappropriate. Respond with ONLY "APPROVED" or "REJECTED: [reason]"`
           },
           {
             role: 'user',
             content: [
               {
                 type: 'text',
-                text: 'Look at this image. Respond with "APPROVED" if appropriate, or "REJECTED: [reason]" if inappropriate.'
+                text: 'Is this image appropriate for a family marketplace? Be lenient with product images.'
               },
               {
                 type: 'image_url',
@@ -354,7 +415,7 @@ const suggestPriceWithAI = async (title: string, description: string, category: 
     console.log('Starting AI price suggestion...', { title, description, category });
     
     const response = await openai.chat.completions.create({
-      model: 'x-ai/grok-4-fast:free',
+      model: 'mistralai/mistral-small-3.2-24b-instruct:free',
       messages: [
         {
           role: 'system',
@@ -419,7 +480,7 @@ const assessConditionWithAI = async (imageBase64: string, title: string, openai:
     console.log('Starting AI condition assessment...', { title, imageLength: imageBase64.length });
     
     const response = await openai.chat.completions.create({
-      model: 'x-ai/grok-4-fast:free',
+      model: 'mistralai/mistral-small-3.2-24b-instruct:free',
       messages: [
         {
           role: 'system',
@@ -447,7 +508,7 @@ const assessConditionWithAI = async (imageBase64: string, title: string, openai:
           ]
         }
       ],
-      max_tokens: 200,
+      max_tokens: 15000,
       temperature: 0.3
     });
 
@@ -523,7 +584,7 @@ const generateFieldWithAI = async (imageBase64: string, field: 'title' | 'descri
     }
     
     const response = await openai.chat.completions.create({
-      model: 'x-ai/grok-4-fast:free',
+      model: 'mistralai/mistral-small-3.2-24b-instruct:free',
       messages: [
         {
           role: 'system',
@@ -576,7 +637,7 @@ const generateItemTextWithAI = async (imageBase64: string, openai: any): Promise
     console.log('Starting AI text generation for marketplace item...');
     
     const response = await openai.chat.completions.create({
-      model: 'x-ai/grok-4-fast:free',
+      model: 'mistralai/mistral-small-3.2-24b-instruct:free',
       messages: [
         {
           role: 'system',
@@ -762,7 +823,7 @@ export const CreateListingDialog: React.FC<CreateListingDialogProps> = ({
       }
 
       const response = await openai.chat.completions.create({
-        model: 'x-ai/grok-4-fast:free',
+        model: 'mistralai/mistral-small-3.2-24b-instruct:free',
         messages: [
           {
             role: 'system',

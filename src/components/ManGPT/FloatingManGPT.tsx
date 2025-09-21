@@ -135,7 +135,7 @@ const FloatingManGPT: React.FC<FloatingManGPTProps> = ({ enabled }) => {
 
     try {
       const completion = await openai.chat.completions.create({
-        model: 'x-ai/grok-4-fast:free',
+        model: 'mistralai/mistral-small-3.2-24b-instruct:free',
         messages: [
           {
             role: 'system' as const,
